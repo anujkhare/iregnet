@@ -8,3 +8,5 @@ Description: Interval regression with four types of censoring and elastic net re
 License: -
 LazyData: TRUE
 Suggests: testthat
+LinkingTo: Rcpp
+Imports: Rcpp
