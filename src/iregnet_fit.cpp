@@ -1,22 +1,14 @@
-#include <iostream>
-#include <Rcpp.h>
-
 /* TODO:
  * assume that sigma is fixed initially
  */
 
-typedef enum {
-  IREG_DIST_GAUSSIAN = 0,
-  IREG_DIST_LOGISTIC,
-  IREG_DIST_UNKNOWN
-} IREG_DIST;
-
-static  IREG_DIST get_dist_ind(Rcpp::String);
+#include "iregnet.h"
 
 // Need to take as input params
 #define eps 1
 #define tol 1
 
+static  IREG_DIST get_dist_ind(Rcpp::String);
 
 // [[Rcpp::export]]
 Rcpp::NumericVector fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
