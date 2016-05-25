@@ -7,6 +7,7 @@
 #include "iregnet.h"
 
 static IREG_DIST get_ireg_dist(Rcpp::String);
+static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type);
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
@@ -77,9 +78,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 
   /* get censoring types of the observations */
-  double censoring_type[n_obs];
-  // NANs will denote censored observations in y
-  // y(i, j) == NAN
+  IREG_CENSORING censoring_type[n_obs];
+
+  // NANs denote censored observations in y
+  get_censoring_types(y, censoring_type);
+
+  if (flag_debug) {
+    std::cout << "Censoring types:\n";
+    for (int i = 0; i < n_obs; ++i)
+      std::cout << censoring_type[i] << std::endl;
+  }
 
   /* Initialize the parameter values using lambda_max */
   // beta should be zero at lambda_max
@@ -91,6 +99,31 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             Rcpp::Named("loglik")       = loglik,
                             Rcpp::Named("error_status") = error_status,
                             Rcpp::Named("n_iters")      = n_iters);
+}
+
+
+static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type)
+{
+  //for (double *it = censoring_type; it != (censoring_type + y.nrow()); ++it) {
+  for (ull i = 0; i < y.nrow(); ++i) {
+    std::cout << y(i, 0) << " " << y(i, 1) << "\n";
+    if (y(i, 0) == Rcpp::NA) {
+
+      if (y(i, 1) == Rcpp::NA)
+        censoring_type[i] = IREG_CENSOR_INVALID;    // invalid data
+      else
+        censoring_type[i] = IREG_CENSOR_LEFT;       // left censoring
+
+    } else {
+      if (y(i, 1) == Rcpp::NA)                      // right censoring
+        censoring_type[i] = IREG_CENSOR_RIGHT;
+
+      else if (y(i, 0) == y(i, 1))
+          censoring_type[i] = IREG_CENSOR_NONE;     // no censoring
+        else
+          censoring_type[i] = IREG_CENSOR_INTERVAL; // interval censoring
+    }
+  } // end for
 }
 
 
