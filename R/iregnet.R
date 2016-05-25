@@ -7,7 +7,7 @@
 
 # We need at least 4 arguments as listed below
 # TODO: optimization params need to be implemented
-iregnet <- function(x, y, family=c("gaussian", "logistic"), alpha=1) {
+iregnet <- function(x=cbind(c(1,1), c(2, 2)), y=cbind(c(1, 1), c(1, 2)), family=c("gaussian", "logistic"), alpha=1) {
 
   # Parameter validation ===============================================
 
@@ -48,5 +48,7 @@ iregnet <- function(x, y, family=c("gaussian", "logistic"), alpha=1) {
 
   # ======
   #print("heylo there")
-  return(0);
+
+  # Call the actual fit method
+  fit_cpp(x, y, family, alpha);
 }
