@@ -59,29 +59,26 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
 
-  /* Create output variables */
-  // double information_matrix[n_params][n_params];
-  // ull num_iters;
-  Rcpp::NumericVector  beta(n_params);
-  Rcpp::NumericVector score(n_params);
-  double loglik;
-  ull    n_iters;
-  int    error_status = 0;
-
-
   /* Validate all the arguments again */
   if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == dist) ||
       (y.nrow() != n_obs)) {
-    error_status = -1;      // TODO: UNUSED!
+    //error_status = -1;      // TODO: UNUSED!
     return Rcpp::List::create(Rcpp::Named("error_status") = -1);
   }
 
 
+  /* Create output variables */
+  Rcpp::NumericVector out_beta(n_params);
+  Rcpp::NumericVector out_score(n_params);
+  double *beta  = &out_beta[0];     // pointers for the C++ routines
+  double *score = &out_score[0];
+  double loglik;
+  ull    n_iters;
+
+
   /* get censoring types of the observations */
   IREG_CENSORING censoring_type[n_obs];
-
-  // NANs denote censored observations in y
-  get_censoring_types(y, censoring_type);
+  get_censoring_types(y, censoring_type); // NANs denote censored observations in y
 
   if (flag_debug == IREG_DEBUG_CENSORING) {
     std::cout << "Censoring types:\n";
@@ -94,10 +91,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // set eta = X' beta
   /* Compute the solution! */
 
-  return Rcpp::List::create(Rcpp::Named("beta")         = beta,
-                            Rcpp::Named("score")        = score,
+  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
+                            Rcpp::Named("score")        = out_score,
                             Rcpp::Named("loglik")       = loglik,
-                            Rcpp::Named("error_status") = error_status,
+                            Rcpp::Named("error_status") = 0,
                             Rcpp::Named("n_iters")      = n_iters);
 }
 
