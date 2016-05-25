@@ -130,7 +130,7 @@ static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *c
 /*
  * Takes as input Rcpp string family name, and returns corresponding enum val
  */
-static IREG_DIST get_ireg_dist(Rcpp::String dist_str) {
+static IREG_DIST get_ireg_dist (Rcpp::String dist_str) {
   if (strcmp("gaussian", dist_str.get_cstring()) == 0)
     return IREG_DIST_GAUSSIAN;
   if (strcmp("logistic", dist_str.get_cstring()) == 0)
