@@ -28,11 +28,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             Rcpp::String family,   double alpha,
                             bool estimate_scale = false, double tol_chol = 0.1,
                             double maxiter = 100,  double tol_convergence = 0.1,
-                            bool flag_debug = true)
+                            int flag_debug = 0)
 {
 
   /* Uselesss print stuff for now */
-  if (flag_debug) {
+  if (flag_debug == IREG_DEBUG_INPUT) {
     // Rcpp has implemented << for NumericVectors and matrices too!
     std::cout << "X:\n" << X << std::endl;
     std::cout << "y:\n" << y << std::endl;
@@ -53,7 +53,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   n_params = n_vars + int(estimate_scale); // n_params is the number of parameters
                                            // to optimize (includes sigma as well)
 
-  if (flag_debug) {
+  if (flag_debug == IREG_DEBUG_N) {
     std::cout << "n_vars: " << n_vars << ", n_params: " << n_params << "\n";
     std::cout << "n_obs: " << n_obs << "\n";
   }
@@ -83,7 +83,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // NANs denote censored observations in y
   get_censoring_types(y, censoring_type);
 
-  if (flag_debug) {
+  if (flag_debug == IREG_DEBUG_CENSORING) {
     std::cout << "Censoring types:\n";
     for (int i = 0; i < n_obs; ++i)
       std::cout << censoring_type[i] << std::endl;
@@ -104,9 +104,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type)
 {
-  //for (double *it = censoring_type; it != (censoring_type + y.nrow()); ++it) {
   for (ull i = 0; i < y.nrow(); ++i) {
-    std::cout << y(i, 0) << " " << y(i, 1) << "\n";
+    // std::cout << y(i, 0) << " " << y(i, 1) << "\n";
     if (y(i, 0) == Rcpp::NA) {
 
       if (y(i, 1) == Rcpp::NA)
