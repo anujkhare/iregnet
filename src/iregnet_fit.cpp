@@ -81,12 +81,14 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   get_censoring_types(y, censoring_type); // NANs denote censored observations in y
 
   if (flag_debug == IREG_DEBUG_CENSORING) {
-    std::cout << "Censoring types:\n";
-    for (int i = 0; i < n_obs; ++i)
-      std::cout << censoring_type[i] << std::endl;
+    Rcpp::NumericVector rvec (censoring_type, censoring_type + n_obs);
+    return Rcpp::List::create(Rcpp::Named("error_status")   = 0,
+                              Rcpp::Named("censoring_types") = rvec);
   }
 
+
   /* Initialize the parameter values using lambda_max */
+
   // beta should be zero at lambda_max
   // set eta = X' beta
   /* Compute the solution! */
