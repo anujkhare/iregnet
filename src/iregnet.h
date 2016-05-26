@@ -20,7 +20,7 @@ typedef enum {
 
 typedef enum {
   IREG_DEBUG_NONE = 0,
-  IREG_DEBUG_INPUT,
+  IREG_DEBUG_INPUT,     // 1
   IREG_DEBUG_N,
-  IREG_DEBUG_CENSORING
+  IREG_DEBUG_CENSORING  // 3
 } IREG_DEBUG;
