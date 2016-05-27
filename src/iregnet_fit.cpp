@@ -7,7 +7,7 @@
 #include "iregnet.h"
 
 #define EPSILON_LAMBDA 0.0001
-#define M_LAMBDA  100
+#define M_LAMBDA  1
 
 static IREG_DIST get_ireg_dist(Rcpp::String);
 static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type);
@@ -36,7 +36,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 {
 
   /* Uselesss print stuff for now */
-  if (flag_debug == IREG_DEBUG_INPUT) {
+  if (flag_debug == IREG_DEBUG_INPUT) {       // 1
     // Rcpp has implemented << for NumericVectors and matrices too!
     std::cout << "X:\n" << X << std::endl;
     std::cout << "y:\n" << y << std::endl;
@@ -57,7 +57,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   n_params = n_vars + int(estimate_scale); // n_params is the number of parameters
                                            // to optimize (includes sigma as well)
 
-  if (flag_debug == IREG_DEBUG_N) {
+  if (flag_debug == IREG_DEBUG_N) {         // 2
     std::cout << "n_vars: " << n_vars << ", n_params: " << n_params << "\n";
     std::cout << "n_obs: " << n_obs << "\n";
   }
@@ -97,7 +97,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   IREG_CENSORING censoring_type[n_obs];
   get_censoring_types(y, censoring_type); // NANs denote censored observations in y
 
-  if (flag_debug == IREG_DEBUG_CENSORING) {
+  if (flag_debug == IREG_DEBUG_CENSORING) {         // 3
     Rcpp::NumericVector rvec (censoring_type, censoring_type + n_obs);
     return Rcpp::List::create(Rcpp::Named("error_status")   = 0,
                               Rcpp::Named("censoring_types") = rvec);
@@ -152,7 +152,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   lambda_ratio = (lambda_max / lambda_min);
 
-  for (ull m = M_LAMBDA; m >= 0; --m) {
+  for (int m = M_LAMBDA; m >= 0; --m) {
     lambda = std::pow(lambda_ratio, (1.0 * m) / M_LAMBDA);
 
     // calculate w and z again!!
@@ -164,7 +164,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     //  w_x_z += (w[i] * X(i, k)
     //}
 
-    /* Repeat until convergence of beta */
+    /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     flag_beta_converged = 0;              // =1 if beta converges
     do {                                  // until Convergence of beta
 
