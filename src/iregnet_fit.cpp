@@ -1,8 +1,6 @@
 /* TODO:
  * assume that sigma is fixed initially
  */
-// used for all counts
-#define ull unsigned long long
 
 #include "iregnet.h"
 
@@ -30,7 +28,8 @@ static inline double soft_threshold(double x, double lambda);
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
-                   bool estimate_scale = false, double tol_chol = 0.1,
+                   bool estimate_scale = false, double scale = 0,
+                   double tol_chol = 0.1,
                    double maxiter = 100,  double tol_convergence = 0.1,
                    int flag_debug = 0)
 {
@@ -55,7 +54,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
   n_params = n_vars + int(estimate_scale); // n_params is the number of parameters
-                                           // to optimize (includes sigma as well)
+                                           // to optimize (includes scale as well)
 
   if (flag_debug == IREG_DEBUG_N) {         // 2
     std::cout << "n_vars: " << n_vars << ", n_params: " << n_params << "\n";
@@ -83,6 +82,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // Temporary variables: not returned // TODO: Maybe alloc them together?
   double *eta = new double [n_obs];         // vector of linear predictors = X' beta
+  // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
+  // eta is updated along with beta in place
+
+  //double *mu = new double [n_obs];          // grad of LL wrt eta
   double *w  = new double [n_obs];          // diagonal of the hessian of LL wrt eta
                                             // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];           // z_i = eta_i - mu_i / w_i
@@ -124,7 +127,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
   /////////////////////////////////////////
-  // TODO: Calculate w and z right here!
+  // Calculate w and z right here!
+  compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,
+                        censoring_type, n_obs, dist);
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
@@ -155,7 +160,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   for (int m = M_LAMBDA; m >= 0; --m) {
     lambda = std::pow(lambda_ratio, (1.0 * m) / M_LAMBDA);
 
-    // calculate w and z again!!
 
     // calculate the intermediate terms in the soft threshold expr
     // whether or not to store this depends on how many times the beta iterations run
@@ -186,10 +190,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       }   // end for: beta_k solution
 
-      flag_beta_converged = 1;    // TODO: CHECK FOR CONVERGENCE OF BETA!
+      flag_beta_converged = 1;    // TODO: CHECK FOR CONVERGENCE OF BETA! (or max iters for beta)
     } while (flag_beta_converged != 1);
 
     /* beta and eta will already contain their updated values since we calculate them in place */
+    // calculate w and z again (beta & hence eta would have changed)
+    compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                          censoring_type, n_obs, dist);
 
   } // end for: lambda
 
@@ -250,4 +257,3 @@ static inline double soft_threshold(double x, double lambda)
   double temp = abs(x) - lambda;
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
 }
-
