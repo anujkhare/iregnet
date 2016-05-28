@@ -5,7 +5,7 @@
 #include "iregnet.h"
 
 #define EPSILON_LAMBDA 0.0001
-#define M_LAMBDA  1
+#define M_LAMBDA  10
 
 static IREG_DIST get_ireg_dist(Rcpp::String);
 static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type);
@@ -29,7 +29,6 @@ static inline double soft_threshold(double x, double lambda);
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    bool estimate_scale = false, double scale = 0,
-                   double tol_chol = 0.1,
                    double maxiter = 100,  double tol_convergence = 0.1,
                    int flag_debug = 0)
 {
@@ -77,8 +76,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //Rcpp::NumericMatrix var_mat(n_params, n_params);
   double *beta  = REAL(out_beta);     // pointers for the C++ routines
   //double *score_ptr = REAL(out_score);
-  double loglik;
-  ull    n_iters;
+  double loglik = 0;
+  //ull    n_iters = 0;
 
   // Temporary variables: not returned // TODO: Maybe alloc them together?
   double *eta = new double [n_obs];         // vector of linear predictors = X' beta
@@ -154,11 +153,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //double w_x_z = new double [n_obs];
   //double *w_x_eta = new double [n_obs];
   double w_x_z, w_x_eta, sol_num, sol_denom;
+  double temp;
 
   lambda_ratio = (lambda_max / lambda_min);
 
   for (int m = M_LAMBDA; m >= 0; --m) {
     lambda = std::pow(lambda_ratio, (1.0 * m) / M_LAMBDA);
+    std::cout << "lambda \n";
 
 
     // calculate the intermediate terms in the soft threshold expr
@@ -169,8 +170,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     //}
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
-    flag_beta_converged = 0;              // =1 if beta converges
     do {                                  // until Convergence of beta
+      flag_beta_converged = 1;              // =1 if beta converges
+      std::cout << "beta \n";
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_params; ++k) {
@@ -182,7 +184,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           sol_denom += (w[i] * X(i, k) * X(i, k));
         }
 
-        beta[k] = soft_threshold(sol_num / (sol_denom + lambda * (1 - alpha)), lambda * alpha);
+        temp = soft_threshold(sol_num / (sol_denom + lambda * (1 - alpha)), lambda * alpha);
+        // if any beta_k has not converged, we will come back for another cycle.
+        if (abs(temp - beta[k]) > tol_convergence)
+          flag_beta_converged = 0;
+
+        beta[k] = temp;
+
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
@@ -190,7 +198,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       }   // end for: beta_k solution
 
-      flag_beta_converged = 1;    // TODO: CHECK FOR CONVERGENCE OF BETA! (or max iters for beta)
+      //flag_beta_converged = 1;
     } while (flag_beta_converged != 1);
 
     /* beta and eta will already contain their updated values since we calculate them in place */
@@ -209,8 +217,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
                             //Rcpp::Named("score")        = out_score,
                             Rcpp::Named("loglik")       = loglik,
-                            Rcpp::Named("error_status") = 0,
-                            Rcpp::Named("n_iters")      = n_iters);
+                            Rcpp::Named("error_status") = 0
+                            //Rcpp::Named("n_iters")      = n_iters
+                            );
 }
 
   /* Convert the input to normalized form e_i = (log(y_i) - x_i' beta) / sigma */
