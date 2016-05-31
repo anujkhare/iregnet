@@ -1,15 +1,19 @@
-/* TODO:
+/* TODO FIXME:
  * assume that sigma is fixed initially
  */
 
 #include "iregnet.h"
 
-#define EPSILON_LAMBDA 0.0001
-#define M_LAMBDA  10
+//#define EPSILON_LAMBDA 0.0001
+//#define M_LAMBDA  10
 
-static IREG_DIST get_ireg_dist(Rcpp::String);
-static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type);
+static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type);
 static inline double soft_threshold(double x, double lambda);
+
+double identity (double y)
+{
+  return y;
+}
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
@@ -28,8 +32,9 @@ static inline double soft_threshold(double x, double lambda);
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
-                   bool estimate_scale = false, double scale = 0,
-                   double maxiter = 100,  double tol_convergence = 0.1,
+                   double scale = 0,      bool estimate_scale = false,
+                   double max_iter = 10,  double tol_convergence = 0.1,
+                   int num_lambda = 100,  double eps_lambda = 0.001,
                    int flag_debug = 0)
 {
 
@@ -44,14 +49,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 
   /* Initialise some helper variables */
-  ull n_obs, n_vars, n_cols_y, n_params;
-  IREG_DIST dist;
+  ull n_obs, n_vars, n_cols_x, n_cols_y, n_params;
+  IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
+                                          // transformed_dist will be the dist of transformed output variables. Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
+  double (*transform_y) (double y);
 
   n_obs  = X.nrow();
+  n_cols_x = X.ncol();
   n_cols_y = y.ncol();
-  dist = get_ireg_dist(family);
+  orig_dist = get_ireg_dist(family);
 
-  n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
+  n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X + INTERCEPT (currently added to X? TODO)
   n_params = n_vars + int(estimate_scale); // n_params is the number of parameters
                                            // to optimize (includes scale as well)
 
@@ -61,12 +69,49 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
 
-  /* Validate all the arguments again */
-  if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == dist) ||
+  /* TODO: Validate all the arguments again */
+  if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == orig_dist) ||
       (y.nrow() != n_obs)) {
-    //error_status = -1;      // TODO: UNUSED!
     return Rcpp::List::create(Rcpp::Named("error_status") = -1);
   }
+
+
+  /* Apply the required transformation to the time scale (t = log(y))
+   * the transformation depends on the distribution used.
+   */
+  switch(orig_dist) {
+    case IREG_DIST_EXTREME_VALUE:
+    case IREG_DIST_GAUSSIAN:
+    case IREG_DIST_LOGISTIC:
+      transform_y = identity;
+      transformed_dist = orig_dist;
+      break;
+
+    case IREG_DIST_EXPONENTIAL:
+      transform_y = log;
+      transformed_dist = IREG_DIST_EXTREME_VALUE;
+      scale = 1;
+      estimate_scale = 0;
+      break;
+  }
+
+  for (ull i = 0; i < 2 * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
+    y[i] = transform_y(y[i]);
+  }
+
+  // TODO: unnecessary computations
+  if (flag_debug ==  IREG_DEBUG_YTRANS) {
+    std::cout << "y:\n" << y << std::endl;
+  }
+
+  //std::cout << y << std::endl;
+  /* Append a column of ones to X, to add the intercept term */
+  //for (ull i = n_obs - 1; i >= 0; --i) {
+  //for (ull i = 0; i < n_obs; ++i) {
+  //  X(n_cols_x, i) = 1;
+  //}
+  // std::cout << X << std::endl;
+  // return Rcpp::List(1);
 
 
   /* Create output variables */
@@ -95,7 +140,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //double **var_mat_ptr = dmatrix(arr + n_params * n_params, n_params, n_params);
   //double **x_ptr = dmatrix(REAL(X), n_vars, n_obs);
 
-  /* get censoring types of the observations */
+  /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
   IREG_CENSORING censoring_type[n_obs];
   get_censoring_types(y, censoring_type); // NANs denote censored observations in y
 
@@ -103,14 +148,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     Rcpp::NumericVector rvec (censoring_type, censoring_type + n_obs);
     return Rcpp::List::create(Rcpp::Named("error_status")   = 0,
                               Rcpp::Named("censoring_types") = rvec);
-  }
-
-
-  /* Apply the required transformation to the time scale (t = log(y)) */
-  // std::cout << y << std::endl;
-  for (ull i = 0; i < 2 * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
-    //std::cout << y[i] << std::endl;
-    y[i] = log(y[i]);
   }
 
 
@@ -122,13 +159,41 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // TODO: FIGURE OUT WHAT HAPPENS TO THE SIGMA TERMS HERE
   // set beta = 0 and eta = 0
   for (ull i = 0; i < n_params; ++i) {
-    beta[i] = eta[i] = 0;
+    beta[i] = 0;
+  }
+
+  for (ull i = 0; i < n_obs; ++i) {
+    eta[i] = w[i] = z[i] = 0;
   }
 
   /////////////////////////////////////////
   // Calculate w and z right here!
+  //std::cout << "w z:\n";
+  //for (int i = 0; i < n_obs; ++i) {
+  //  std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
+  //}
+  //std::cout << std::endl;
+
   compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,
-                        censoring_type, n_obs, dist);
+                        censoring_type, n_obs, transformed_dist, NULL);
+
+  //std::cout << "w z:\n";
+  //for (int i = 0; i < n_obs; ++i) {
+  //  std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
+  //}
+  //std::cout << std::endl;
+
+  std::cout << "y\n" << std::endl;
+  for (int i = 0; i < n_obs; ++i) {
+    std::cout << i+1 << " " << y[i] << " " << y[i+n_obs] << "\n";
+  }
+  std::cout << std::endl;
+
+  std::cout << "censoring \n";
+  for (int i = 0; i < n_obs; ++i) {
+    std::cout << i+1 << " " << censoring_type[i] << "\n";
+  }
+  std::cout << std::endl;
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
@@ -144,7 +209,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
 
-  lambda_min = EPSILON_LAMBDA * lambda_max;
+  lambda_min = eps_lambda * lambda_max;
+  std::cout << lambda_max << " " << lambda_min << std::endl;
 
 
   /* Iterate over grid of lambda values */
@@ -154,12 +220,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //double *w_x_eta = new double [n_obs];
   double w_x_z, w_x_eta, sol_num, sol_denom;
   double temp;
+  ull n_iters;
 
   lambda_ratio = (lambda_max / lambda_min);
 
-  for (int m = M_LAMBDA; m >= 0; --m) {
-    lambda = std::pow(lambda_ratio, (1.0 * m) / M_LAMBDA);
-    std::cout << "lambda \n";
+  for (int m = num_lambda; m >= 0; --m) {
+    lambda = std::pow(lambda_ratio, (1.0 * m) / num_lambda);
+    //std::cout << "lambda \n";
 
 
     // calculate the intermediate terms in the soft threshold expr
@@ -170,9 +237,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     //}
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
+    n_iters = 0;
     do {                                  // until Convergence of beta
       flag_beta_converged = 1;              // =1 if beta converges
-      std::cout << "beta \n";
+      //std::cout << "beta \n";
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_params; ++k) {
@@ -199,15 +267,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }   // end for: beta_k solution
 
       //flag_beta_converged = 1;
-    } while (flag_beta_converged != 1);
+      n_iters++;
+    } while ((n_iters < max_iter) && (flag_beta_converged != 1));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
     // calculate w and z again (beta & hence eta would have changed)
     compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                          censoring_type, n_obs, dist);
+                          censoring_type, n_obs, transformed_dist, NULL);
 
   } // end for: lambda
 
+  loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
+                          censoring_type, n_obs, transformed_dist);
 
   /* Free the temporary variables */
   delete [] eta;
@@ -224,7 +295,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /* Convert the input to normalized form e_i = (log(y_i) - x_i' beta) / sigma */
 
-static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *censoring_type)
+static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type)
 {
   for (ull i = 0; i < y.nrow(); ++i) {
     // std::cout << y(i, 0) << " " << y(i, 1) << "\n";
@@ -251,13 +322,16 @@ static inline void get_censoring_types (Rcpp::NumericMatrix y, IREG_CENSORING *c
 /*
  * Takes as input Rcpp string family name, and returns corresponding enum val
  */
-static IREG_DIST get_ireg_dist (Rcpp::String dist_str)
+IREG_DIST get_ireg_dist (Rcpp::String dist_str)
 {
   if (strcmp("gaussian", dist_str.get_cstring()) == 0)
     return IREG_DIST_GAUSSIAN;
   if (strcmp("logistic", dist_str.get_cstring()) == 0)
     return IREG_DIST_LOGISTIC;
-
+  if (strcmp("extreme_value", dist_str.get_cstring()) == 0)
+    return IREG_DIST_EXTREME_VALUE;
+  if (strcmp("exponential", dist_str.get_cstring()) == 0)
+    return IREG_DIST_EXPONENTIAL;
   return IREG_DIST_UNKNOWN;
 }
 

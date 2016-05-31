@@ -34,7 +34,35 @@ void (*sreg_gg)(double, double [4], int);
  *
  * Outputs: log likelihood
  */
+double compute_loglik(double *y_l, double *y_r,
+                      double *eta, double scale, IREG_CENSORING *censoring_type,
+                      ull n_obs, IREG_DIST dist)
+{
+  return -1;
+}
 
+// [[Rcpp::export]]
+Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVector y_r,
+                           Rcpp::NumericVector eta, double scale, Rcpp::IntegerVector censoring_type,
+                           Rcpp::String family)
+{
+  int n_obs = y_l.size();
+  Rcpp::NumericVector w(n_obs), z(n_obs), mu(n_obs);
+
+  IREG_CENSORING *censoring = (IREG_CENSORING *) &censoring_type[0];
+  //for (int i = 0; i < n_obs; ++i) {
+  //  std::cout << censoring[i] << "\n";
+  //}
+  std::cout << "Hey there\n";
+
+  compute_grad_response(REAL(w), REAL(z), REAL(y_l), REAL(y_r), REAL(eta), scale,
+                        censoring, n_obs, get_ireg_dist(family), REAL(mu));
+
+  std::cout << "Hey there\n";
+  return Rcpp::List::create(Rcpp::Named("mu") = mu,
+                            Rcpp::Named("w") = w,
+                            Rcpp::Named("z") = z);
+}
 /* Function to calculate w and z given value of eta, and output values
  *
  * Inputs:
@@ -56,9 +84,9 @@ void (*sreg_gg)(double, double [4], int);
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
 // TODO: if densities are close to 0! (survival)
-void compute_grad_response(double *w, double *z, double *y_l, double *y_r,
-                           double *eta, double scale, IREG_CENSORING *censoring_type,
-                           ull n_obs, IREG_DIST dist)
+void compute_grad_response(double *w, double *z, const double *y_l, const double *y_r,
+                           const double *eta, const double scale, const IREG_CENSORING *censoring_type,
+                           const ull n_obs, const IREG_DIST dist, double *mu)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -124,6 +152,9 @@ void compute_grad_response(double *w, double *z, double *y_l, double *y_r,
     }
 
     z[i] = eta[i] - mu_i / w[i];
+    // std::cout << i << "z_l " << normalized_y[0] << "z_r " << normalized_y[1] << ", densities: "
+    //           << densities_l[1] << " " << densities_l[2] << " " << densities_l[3] << "\n";
+    // std::cout << i << " " << eta[i] <<  " "<< mu_i << " " << w[i] << " " << z[i] << "\n";
   } // end for: n_obs
 }
 
@@ -166,7 +197,7 @@ static void gauss_d (double z, double ans[4], int j)
 {
   double f;
 
-  f = std::exp(-z*z/2) /SPI;
+  f = exp(-z*z/2) /SPI;
   switch(j) {
   case 1: ans[1] =f;
     ans[2] = -z;
@@ -184,6 +215,11 @@ static void gauss_d (double z, double ans[4], int j)
   ans[3] = -z*f;
   break;
   }
+
+
+  //std::cout << ans[1] << " " << ans[2] << " " << ans[3] << " " << "\n";
+  //ans[0] = ans[1] = ans[2] = ans[3] = -100;
+  //std::cout << ans[1] << " " << ans[2] << " " << ans[3] << " " << "\n";
 }
 
 /*
@@ -217,3 +253,26 @@ case 2:  ans[0] = 1-temp;
 }
 }
 
+
+// [[Rcpp::export]]
+Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
+{
+  int n_obs = z.size();
+  Rcpp::NumericMatrix ans(n_obs, 4);
+  double temp[4];
+
+  switch(get_ireg_dist(family)) {
+    case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
+    case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
+    case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
+  }
+
+  for (int ii = 0; ii < n_obs; ++ii) {
+    sreg_gg(z[ii], temp, j);
+    //std::cout << temp[1] << " " << temp[2] << " " << temp[3] << " " << "\n";
+    for (int jj = 0; jj < 4; ++jj) {
+      ans(ii, jj) = temp[jj];
+    }
+  }
+  return ans;
+}
