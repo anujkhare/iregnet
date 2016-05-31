@@ -34,7 +34,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    double scale = 0,      bool estimate_scale = false,
                    double max_iter = 10,  double tol_convergence = 0.1,
-                   int num_lambda = 100,  double eps_lambda = 0.001,
+                   int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
 
@@ -104,23 +104,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     std::cout << "y:\n" << y << std::endl;
   }
 
-  //std::cout << y << std::endl;
-  /* Append a column of ones to X, to add the intercept term */
-  //for (ull i = n_obs - 1; i >= 0; --i) {
-  //for (ull i = 0; i < n_obs; ++i) {
-  //  X(n_cols_x, i) = 1;
-  //}
-  // std::cout << X << std::endl;
-  // return Rcpp::List(1);
-
-
   /* Create output variables */
   Rcpp::NumericVector out_beta(n_params);
-  //Rcpp::NumericVector out_score(n_params);
-  //Rcpp::NumericMatrix info_mat(n_params, n_params);
-  //Rcpp::NumericMatrix var_mat(n_params, n_params);
   double *beta  = REAL(out_beta);     // pointers for the C++ routines
-  //double *score_ptr = REAL(out_score);
   double loglik = 0;
   //ull    n_iters = 0;
 
@@ -135,10 +121,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *z = new double [n_obs];           // z_i = eta_i - mu_i / w_i
   double lambda_max, lambda_min, n_lambda;  // for the pathwise solution
 
-  //double *arr = new double [n_params * n_params + n_params * n_params];
-  //double **info_mat_ptr = dmatrix(arr, n_params, n_params);
-  //double **var_mat_ptr = dmatrix(arr + n_params * n_params, n_params, n_params);
-  //double **x_ptr = dmatrix(REAL(X), n_vars, n_obs);
 
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
   IREG_CENSORING censoring_type[n_obs];
@@ -162,38 +144,34 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     beta[i] = 0;
   }
 
+  //double eta_ext[] = {6.462, 6.462, 6.370, 7.082, 6.462, 6.370, 6.990, 6.990, 6.462, 6.990, 6.370, 7.082, 6.990, 7.082, 6.462, 6.370, 6.370, 6.462, 7.082, 7.082, 6.990, 6.370, 6.462, 6.990, 7.082, 7.082};
   for (ull i = 0; i < n_obs; ++i) {
     eta[i] = w[i] = z[i] = 0;
+    //eta[i] = eta_ext[i];
   }
 
   /////////////////////////////////////////
   // Calculate w and z right here!
-  //std::cout << "w z:\n";
-  //for (int i = 0; i < n_obs; ++i) {
-  //  std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
-  //}
-  //std::cout << std::endl;
-
   compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,
                         censoring_type, n_obs, transformed_dist, NULL);
 
-  //std::cout << "w z:\n";
+  std::cout << "w z:\n";
+  for (int i = 0; i < n_obs; ++i) {
+    std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
+  }
+  std::cout << std::endl;
+
+  //std::cout << "y\n" << std::endl;
   //for (int i = 0; i < n_obs; ++i) {
-  //  std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
+  //  std::cout << i+1 << " " << y[i] << " " << y[i+n_obs] << "\n";
   //}
   //std::cout << std::endl;
 
-  std::cout << "y\n" << std::endl;
-  for (int i = 0; i < n_obs; ++i) {
-    std::cout << i+1 << " " << y[i] << " " << y[i+n_obs] << "\n";
-  }
-  std::cout << std::endl;
-
-  std::cout << "censoring \n";
-  for (int i = 0; i < n_obs; ++i) {
-    std::cout << i+1 << " " << censoring_type[i] << "\n";
-  }
-  std::cout << std::endl;
+  //std::cout << "censoring \n";
+  //for (int i = 0; i < n_obs; ++i) {
+  //  std::cout << i+1 << " " << censoring_type[i] << "\n";
+  //}
+  //std::cout << std::endl;
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
@@ -204,7 +182,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     for (ull i = 0; i < n_obs; ++i) {
       temp += (w[i] * X(i, j) * z[i]);
     }
-    //temp = temp / (alpha);
+    temp = temp / (alpha);
 
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
@@ -214,7 +192,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 
   /* Iterate over grid of lambda values */
-  double lambda, lambda_ratio;
+  double lambda;
   bool flag_beta_converged = 0;
   //double w_x_z = new double [n_obs];
   //double *w_x_eta = new double [n_obs];
@@ -222,19 +200,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double temp;
   ull n_iters;
 
-  lambda_ratio = (lambda_max / lambda_min);
-
-  for (int m = num_lambda; m >= 0; --m) {
-    lambda = std::pow(lambda_ratio, (1.0 * m) / num_lambda);
-    //std::cout << "lambda \n";
-
-
-    // calculate the intermediate terms in the soft threshold expr
-    // whether or not to store this depends on how many times the beta iterations run
-    //w_x_z = 0;
-    //for (ull i = 0; i < n_obs; ++i) {
-    //  w_x_z += (w[i] * X(i, k)
-    //}
+  for (int m = 0; m <= num_lambda; ++m) {
+    lambda = lambda_max * std::pow(eps_lambda, (1.0 * m) / num_lambda);
+    std::cout << "\nm " << m << " lambda " << lambda << " \n";
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters = 0;
@@ -274,6 +242,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // calculate w and z again (beta & hence eta would have changed)
     compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                           censoring_type, n_obs, transformed_dist, NULL);
+    std::cout << out_beta << "\n";
 
   } // end for: lambda
 

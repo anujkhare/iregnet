@@ -53,12 +53,10 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
   //for (int i = 0; i < n_obs; ++i) {
   //  std::cout << censoring[i] << "\n";
   //}
-  std::cout << "Hey there\n";
 
   compute_grad_response(REAL(w), REAL(z), REAL(y_l), REAL(y_r), REAL(eta), scale,
                         censoring, n_obs, get_ireg_dist(family), REAL(mu));
 
-  std::cout << "Hey there\n";
   return Rcpp::List::create(Rcpp::Named("mu") = mu,
                             Rcpp::Named("w") = w,
                             Rcpp::Named("z") = z);
@@ -115,8 +113,17 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         if (normalized_y[0] > 0) temp = densities_l[1] - densities_r[1];  // stop roundoff in tails
         else                     temp = densities_r[0] - densities_l[0];
 
-        mu_i = -(densities_r[2] - densities_l[2]) / temp / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-        w[i] = -(densities_r[3] - densities_l[3]) / temp / scale_2 - mu_i * mu_i;
+        if (temp <= 0) {
+          // off the probability scale -- avoid log(0)
+          mu_i = 1;
+          w[i] = 0;
+          z[i] = SMALL;
+
+        } else {
+          mu_i = -(densities_r[2] - densities_l[2]) / temp / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
+          w[i] = (densities_r[3] - densities_l[3]) / temp / scale_2 - mu_i * mu_i;
+          z[i] = eta[i] - mu_i / w[i];
+        }
 
         break;
 
@@ -124,8 +131,21 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         (*sreg_gg)(normalized_y[0], densities_l, 1);    // gives 0, f, f'/f, f''/f
 
-        mu_i = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-        w[i] = -(densities_l[3]) / scale_2 - mu_i;
+        if (densities_l[1] <= 0) {
+          /* off the probability scale -- avoid log(0), and set the
+          **  derivatives to gaussian limits (almost any deriv will
+          **  do, since the function value triggers step-halving).
+          */
+          // TODO: CHECK!
+          mu_i = -normalized_y[0] / scale;
+          w[i] = -1 / scale;
+          z[i] = SMALL;
+
+        } else {
+          mu_i = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
+          w[i] = (densities_l[3]) / scale_2 - mu_i * mu_i;
+          z[i] = eta[i] - mu_i / w[i];
+        }
 
         break;
 
@@ -133,8 +153,16 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         normalized_y[1] = (y_r[i] - eta[i]) / scale;
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
-        mu_i = -densities_r[2] / densities_r[0] / scale;
-        w[i] = -densities_r[3] / densities_r[0] / scale_2 - mu_i * mu_i;
+        if (densities_r[0] <= 0) {
+          mu_i = -normalized_y[1] / scale;
+          w[i] = 0;
+          z[i] = SMALL;
+
+        } else {
+          mu_i = -densities_r[2] / densities_r[0] / scale;
+          w[i] = densities_r[3] / densities_r[0] / scale_2 - mu_i * mu_i;
+          z[i] = eta[i] - mu_i / w[i];
+        }
 
         break;
 
@@ -142,8 +170,16 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
-        mu_i = densities_l[2] / densities_l[1] / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-        w[i] = densities_l[3] / densities_l[1] / scale_2 - mu_i * mu_i;     // f'(z^l) / f()] / [1-F()] ...
+        if (densities_l[1] <= 0) {
+          mu_i = normalized_y[0]/ scale;
+          w[i] = 0;
+          z[i] = SMALL;
+
+        } else {
+          mu_i = densities_l[2] / densities_l[1] / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
+          w[i] = -densities_l[3] / densities_l[1] / scale_2 - mu_i * mu_i;     // f'(z^l) / f()] / [1-F()] ...
+          z[i] = eta[i] - mu_i / w[i];
+        }
 
         break;
 
@@ -151,7 +187,7 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         break;
     }
 
-    z[i] = eta[i] - mu_i / w[i];
+    if (mu) mu[i] = mu_i;
     // std::cout << i << "z_l " << normalized_y[0] << "z_r " << normalized_y[1] << ", densities: "
     //           << densities_l[1] << " " << densities_l[2] << " " << densities_l[3] << "\n";
     // std::cout << i << " " << eta[i] <<  " "<< mu_i << " " << w[i] << " " << z[i] << "\n";
