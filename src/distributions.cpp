@@ -139,7 +139,7 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
           // TODO: CHECK!
           mu_i = -normalized_y[0] / scale;
           w[i] = -1 / scale;
-          z[i] = SMALL;
+          z[i] = y_l[i];
 
         } else {
           mu_i = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))

@@ -6,9 +6,12 @@
 
 //#define EPSILON_LAMBDA 0.0001
 //#define M_LAMBDA  10
+#define BIG 1e35
 
 static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type);
 static inline double soft_threshold(double x, double lambda);
+static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
+                            double *mean_x, double *std_x, double &mean_y, double &std_y);
 
 double identity (double y)
 {
@@ -32,8 +35,8 @@ double identity (double y)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
-                   double scale = 0,      bool estimate_scale = false,
-                   double max_iter = 10,  double tol_convergence = 0.1,
+                   double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
+                   double max_iter = 10,  double threshold = 1e-5,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
@@ -76,6 +79,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
 
+  /*
+   * TODO: a function to apply distribution specific transformations and parameters
+   * should preceed this fit function.
+   */
   /* Apply the required transformation to the time scale (t = log(y))
    * the transformation depends on the distribution used.
    */
@@ -95,14 +102,29 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       break;
   }
 
+  // TODO: unnecessary computations
   for (ull i = 0; i < 2 * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
     y[i] = transform_y(y[i]);
   }
 
-  // TODO: unnecessary computations
   if (flag_debug ==  IREG_DEBUG_YTRANS) {
     std::cout << "y:\n" << y << std::endl;
   }
+
+  /*
+   * Standardize functions:
+   * Normalize X and y
+   * TODO: Should you do that? How does it work for censored data?
+   */
+  double *mean_x = new double [n_vars], mean_y;
+  double *std_x = new double [n_vars], std_y;
+
+  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y);
+  std::cout << "mean_y: " << mean_y << ", std_y: " << std_y << "\n";
+  //std::cout << "Done with std.\n";
+  std::cout << y << std::endl;
+  //std::cout<<"X:\n" << X << "\n";
+  //return Rcpp::List::create(10);
 
   /* Create output variables */
   Rcpp::NumericVector out_beta(n_params);
@@ -175,24 +197,41 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
-  lambda_max = -1;
+  // std::cout << X;
+  // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
+  // then,
+  lambda_max = -BIG;
   for (ull j = 0; j < n_params; ++j) {
     double temp = 0;
+    // double tt = 0;
 
     for (ull i = 0; i < n_obs; ++i) {
       temp += (w[i] * X(i, j) * z[i]);
+      // std::cout << temp << std::endl;
+
+      // tt += (X(i,j) * y[i]);
     }
-    temp = temp / (alpha);
+    //temp = fabs(temp) / (n_obs * alpha);
+    temp = fabs(temp) / (alpha);              // FIXME: It seems that is how they have calc lambda in GLMNET
+    // std::cout << temp << " " << n_obs << " " << alpha << "\n";
 
     lambda_max = (lambda_max > temp)? lambda_max: temp;
+    // std::cout << tt << " " "\n";
+    // std::cout << temp << " " << lambda_max << " " << n_obs << "\n";
   }
 
-  lambda_min = eps_lambda * lambda_max;
-  std::cout << lambda_max << " " << lambda_min << std::endl;
+  /* NOTE:
+   * we have scaled y and x, so you need to scale the obtained lambda values,
+   * and coef (beta) values back to the original scale before returning them.
+   */
+  // lambda_min = eps_lambda * lambda_max;
+  // std::cout << "lambda_max " << lambda_max << " " << lambda_min << std::endl;
 
+  // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
 
   /* Iterate over grid of lambda values */
-  double lambda;
+  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  double lambda = lambda_max;
   bool flag_beta_converged = 0;
   //double w_x_z = new double [n_obs];
   //double *w_x_eta = new double [n_obs];
@@ -200,14 +239,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double temp;
   ull n_iters;
 
-  for (int m = 0; m <= num_lambda; ++m) {
-    lambda = lambda_max * std::pow(eps_lambda, (1.0 * m) / num_lambda);
-    std::cout << "\nm " << m << " lambda " << lambda << " \n";
+  // std::cout << "eps_ratio " << eps_ratio << "\n";
+
+  for (int m = 1; m <= 45; ++m) {
+  //for (int m = 0; m <= num_lambda; ++m) {
+    lambda = lambda * eps_ratio;
+    std::cout << "\nm " << m << " lambda " << lambda << ", scaled: " << lambda * std_y << """ \n";
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters = 0;
     do {                                  // until Convergence of beta
-      flag_beta_converged = 1;              // =1 if beta converges
+      flag_beta_converged = 1;              // = 1 if beta converges
       //std::cout << "beta \n";
 
       /* iterate over beta elementwise and update using soft thresholding solution */
@@ -222,7 +264,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         temp = soft_threshold(sol_num / (sol_denom + lambda * (1 - alpha)), lambda * alpha);
         // if any beta_k has not converged, we will come back for another cycle.
-        if (abs(temp - beta[k]) > tol_convergence)
+        if (fabs(temp - beta[k]) > threshold)
           flag_beta_converged = 0;
 
         beta[k] = temp;
@@ -232,7 +274,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
         }
 
+         // std::cout << "---------> k: " << k << "\n " << out_beta << "\n";
+
       }   // end for: beta_k solution
+
+      // std::cout << "------> n_iters: " << n_iters << "\n \n"; // << out_beta << "\n";
+
 
       //flag_beta_converged = 1;
       n_iters++;
@@ -242,12 +289,22 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // calculate w and z again (beta & hence eta would have changed)
     compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                           censoring_type, n_obs, transformed_dist, NULL);
-    std::cout << out_beta << "\n";
+    std::cout << "n_iters: " << n_iters << "\n " << out_beta << "\n";
+    /* output the scaled values */
+    for (ull i = 0; i < n_vars; ++i) {
+      std::cout << beta[i] * std_y / std_x[i] << " ";
+    }
+    std::cout << "\n";
 
   } // end for: lambda
 
   loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
                           censoring_type, n_obs, transformed_dist);
+
+  /* Scale the coefs back to the original scale */
+  for (ull i = 0; i < n_vars; ++i) {
+    beta[i] = beta[i] * std_y / std_x[i];
+  }
 
   /* Free the temporary variables */
   delete [] eta;
@@ -306,6 +363,53 @@ IREG_DIST get_ireg_dist (Rcpp::String dist_str)
 
 static inline double soft_threshold(double x, double lambda)
 {
-  double temp = abs(x) - lambda;
+  double temp = fabs(x) - lambda;
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
+}
+
+static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
+                            double *mean_x, double *std_x, double &mean_y, double &std_y)
+{
+  ull count_y = 0;
+
+  /* Standardize y: mean and variance normalization */
+  mean_y = std_y = 0;
+  for (ull i = 0; i < y.size(); ++i) {
+    if (y[i] == Rcpp::NA) continue;
+
+    // only count if not NA
+    count_y++;
+    mean_y += y[i];
+    std_y += y[i] * y[i];
+  }
+
+  mean_y = mean_y / count_y;
+  std_y = std_y / count_y;
+  std_y = sqrt(std_y - mean_y * mean_y);
+
+  // FIXME: ! DONT UNDERSTAND WHY, but done this way in GLMNET
+  for (ull i = 0; i < y.size(); ++i) {
+    y[i] /= (std_y * sqrt(count_y / 2));      // FIXME: !!!
+  }
+
+  //std::cout << mean_y << " " << std_y << " " << count_y << "\n";
+
+  /* Mean and var normalize columns of X matrix */
+  for (ull i = 0; i < X.ncol(); ++i) {
+    mean_x[i] = std_x[i] = 0;
+    for (ull j = 0; j < X.nrow(); ++j) {
+      mean_x[i] += X(j, i);
+      std_x[i] += X(j, i) * X(j, i);
+    }
+
+    mean_x[i] /= X.nrow();
+    std_x[i] /= X.nrow();
+    std_x[i] = sqrt(std_x[i] - mean_x[i] * mean_x[i]);
+
+    for (ull j = 0; j < X.nrow(); ++j) {
+      X(j, i) /= (std_x[i] * sqrt(X.nrow()));         // FIXME: AS IN GLMNET!?
+      // For no intercept, return mean_x = 0;
+      //mean_x[i] = 0;
+    }
+  }
 }
