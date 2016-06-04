@@ -15,12 +15,26 @@ l = fit_cpp(x, y, "gaussian", 1, flag_debug = 3);
 
 # Test internal variables using ovarian data
 data("ovarian")
-y_l <- y_r <- ovarian$futime
-y_r[ovarian$fustat == 0] <- NA
-y <- cbind(y_l, y_r)
-X <- cbind(ovarian$ecog.ps, ovarian$rx)
+# test_that("Right censored data... ")
+# y_l <- y_r <- ovarian$futime
+# y_r[ovarian$fustat == 0] <- NA
+# y <- cbind(y_l, y_r)
+# X <- cbind(ovarian$ecog.ps, ovarian$rx)
 
-iregnet(X, y, family="exponential")
+# iregnet(X, y, family="exponential")
+
+# test_that("No censoring waala data", {})
+# X <- cbind(ovarian$ecog.ps, ovarian$rx)
+# y <- ovarian$futime / sqrt(var(ovarian$futime))
+# y <- cbind(y, y)
+# print (y)
+
+load("../../../xy")
+X <- a[[1]]
+y <- a[[2]]
+y <- y / as.double(sqrt(var(y)))
+y <- cbind(y, y)
+iregnet(X, y, family = "gaussian", alpha=1)
 
 test_that("Derivatives wrt eta are calculated correctly", {
 
