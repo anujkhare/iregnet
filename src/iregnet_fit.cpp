@@ -402,26 +402,45 @@ static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
                             double *mean_x, double *std_x, double &mean_y,
                             double &std_y, bool intercept=false)
 {
+  double temp;
   ull count_y = 0;
 
   /* Standardize y: mean and variance normalization */
-  mean_y = std_y = 0;
+  // Find mean if intercept needs to be fit, else set it to 0
+  mean_y = 0;
   for (ull i = 0; i < y.size(); ++i) {
     if (y[i] == Rcpp::NA) continue;
 
     // only count if not NA
     count_y++;
     mean_y += y[i];
-    std_y += y[i] * y[i];
+  }
+  mean_y = mean_y / count_y;
+
+  //if (intercept) {
+  //  for (ull i = 0; i < y.size(); ++i) {
+  //    y[i] = y[i] - mean_y;
+  //  }
+  //}
+
+  for (ull i = 0; i < y.size(); ++i) {
+    if (y[i] == Rcpp::NA) continue;
+
+    temp = y[i] - mean_y;
+    std_y += temp * temp;
   }
 
-  mean_y = mean_y / count_y;
   std_y = std_y / count_y;
-  std_y = sqrt(std_y - mean_y * mean_y);
+  // std_y = sqrt(std_y - mean_y * mean_y);
 
   // FIXME: ! DONT UNDERSTAND WHY, but done this way in GLMNET
   for (ull i = 0; i < y.size(); ++i) {
-    y[i] /= (std_y * sqrt(count_y / 2));      // FIXME: !!!
+    temp = (std_y * sqrt(count_y / 2));      // FIXME: !!!
+    if (intercept) {
+      y[i] = (y[i] - mean_y) / temp;
+    } else {
+      y[i] = y[i] / temp;
+    }
   }
 
   //std::cout << mean_y << " " << std_y << " " << count_y << "\n";
