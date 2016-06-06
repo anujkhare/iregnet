@@ -34,7 +34,10 @@ X <- a[[1]]
 y <- a[[2]]
 y <- y / as.double(sqrt(var(y)))
 y <- cbind(y, y)
-iregnet(X, y, family = "gaussian", alpha=1)
+fit <- iregnet(X, y, family = "gaussian", alpha=1)
+print (fit$lambda)
+print (fit$n_iters)
+print (fit$beta)
 
 test_that("Derivatives wrt eta are calculated correctly", {
 

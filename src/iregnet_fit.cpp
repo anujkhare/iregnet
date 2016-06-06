@@ -127,12 +127,19 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //return Rcpp::List::create(10);
 
   /* Create output variables */
-  Rcpp::NumericVector out_beta(n_params);
-  double *beta  = REAL(out_beta);     // pointers for the C++ routines
-  double loglik = 0;
-  //ull    n_iters = 0;
+  // Rcpp::NumericVector out_beta(n_params);
+  Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
+  Rcpp::IntegerVector out_n_iters(num_lambda);
+  Rcpp::NumericVector out_lambda(num_lambda);
 
-  // Temporary variables: not returned // TODO: Maybe alloc them together?
+  double *beta  = REAL(out_beta);                           // Initially points to the first solution
+  int *n_iters = INTEGER(out_n_iters);
+  double *lambda_seq = REAL(out_lambda);
+
+  double loglik = 0;
+
+
+  // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
   double *eta = new double [n_obs];         // vector of linear predictors = X' beta
   // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
   // eta is updated along with beta in place
@@ -141,7 +148,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *w  = new double [n_obs];          // diagonal of the hessian of LL wrt eta
                                             // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];           // z_i = eta_i - mu_i / w_i
-  double lambda_max, lambda_min, n_lambda;  // for the pathwise solution
+  //double lambda_max, lambda_min;  // for the pathwise solution
 
 
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
@@ -163,13 +170,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // TODO: FIGURE OUT WHAT HAPPENS TO THE SIGMA TERMS HERE
   // set beta = 0 and eta = 0
   for (ull i = 0; i < n_params; ++i) {
+    // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
   }
+  n_iters[0] = 0;
 
-  //double eta_ext[] = {6.462, 6.462, 6.370, 7.082, 6.462, 6.370, 6.990, 6.990, 6.462, 6.990, 6.370, 7.082, 6.990, 7.082, 6.462, 6.370, 6.370, 6.462, 7.082, 7.082, 6.990, 6.370, 6.462, 6.990, 7.082, 7.082};
   for (ull i = 0; i < n_obs; ++i) {
     eta[i] = w[i] = z[i] = 0;
-    //eta[i] = eta_ext[i];
   }
 
   /////////////////////////////////////////
@@ -183,24 +190,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
   std::cout << std::endl;
 
-  //std::cout << "y\n" << std::endl;
-  //for (int i = 0; i < n_obs; ++i) {
-  //  std::cout << i+1 << " " << y[i] << " " << y[i+n_obs] << "\n";
-  //}
-  //std::cout << std::endl;
-
-  //std::cout << "censoring \n";
-  //for (int i = 0; i < n_obs; ++i) {
-  //  std::cout << i+1 << " " << censoring_type[i] << "\n";
-  //}
-  //std::cout << std::endl;
-
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
-  // std::cout << X;
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
-  // then,
-  lambda_max = -BIG;
+  lambda_seq[0] = -BIG;
   for (ull j = 0; j < n_params; ++j) {
     double temp = 0;
     // double tt = 0;
@@ -215,7 +208,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     temp = fabs(temp) / (alpha);              // FIXME: It seems that is how they have calc lambda in GLMNET
     // std::cout << temp << " " << n_obs << " " << alpha << "\n";
 
-    lambda_max = (lambda_max > temp)? lambda_max: temp;
+    lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
     // std::cout << tt << " " "\n";
     // std::cout << temp << " " << lambda_max << " " << n_obs << "\n";
   }
@@ -231,23 +224,29 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /* Iterate over grid of lambda values */
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
-  double lambda = lambda_max;
+  //double lambda = lambda_max;
   bool flag_beta_converged = 0;
   //double w_x_z = new double [n_obs];
   //double *w_x_eta = new double [n_obs];
   double w_x_z, w_x_eta, sol_num, sol_denom;
   double temp;
-  ull n_iters;
 
   // std::cout << "eps_ratio " << eps_ratio << "\n";
 
-  for (int m = 1; m <= 45; ++m) {
-  //for (int m = 0; m <= num_lambda; ++m) {
-    lambda = lambda * eps_ratio;
-    std::cout << "\nm " << m << " lambda " << lambda << ", scaled: " << lambda * std_y << """ \n";
+  //for (int m = 1; m < 4; ++m) {
+  for (int m = 1; m < num_lambda; ++m) {
+    lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+    //std::cout << "\nm " << m << " lambda " << lambda_seq[m] << ", scaled: " << lambda_seq[m] * std_y << """ \n";
+
+    /* Initialize the solution at this lambda using previous lambda solution */
+    // We need to explicitly do this because we need to store all the solutions separately
+    for (ull i = 0; i < n_params; ++i) {
+      beta[i + n_params] = beta[i];
+    }
+    beta = beta + n_params;   // go to the next column
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
-    n_iters = 0;
+    n_iters[m] = 0;
     do {                                  // until Convergence of beta
       flag_beta_converged = 1;              // = 1 if beta converges
       //std::cout << "beta \n";
@@ -262,7 +261,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           sol_denom += (w[i] * X(i, k) * X(i, k));
         }
 
-        temp = soft_threshold(sol_num / (sol_denom + lambda * (1 - alpha)), lambda * alpha);
+        temp = soft_threshold(sol_num / (sol_denom + lambda_seq[m] * (1 - alpha)), lambda_seq[m] * alpha);
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(temp - beta[k]) > threshold)
           flag_beta_converged = 0;
@@ -280,17 +279,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       // std::cout << "------> n_iters: " << n_iters << "\n \n"; // << out_beta << "\n";
 
-
       //flag_beta_converged = 1;
-      n_iters++;
-    } while ((n_iters < max_iter) && (flag_beta_converged != 1));
+      n_iters[m]++;
+    } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
     // calculate w and z again (beta & hence eta would have changed)
     compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                           censoring_type, n_obs, transformed_dist, NULL);
-    std::cout << "n_iters: " << n_iters << "\n " << out_beta << "\n";
-    /* output the scaled values */
+
+    //std::cout << "n_iters: " << n_iters[m] << "\n ";
+    ///* output the scaled values */
     for (ull i = 0; i < n_vars; ++i) {
       std::cout << beta[i] * std_y / std_x[i] << " ";
     }
@@ -298,12 +297,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   } // end for: lambda
 
+  /* Compute the final log likelihood */
   loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
                           censoring_type, n_obs, transformed_dist);
 
   /* Scale the coefs back to the original scale */
-  for (ull i = 0; i < n_vars; ++i) {
-    beta[i] = beta[i] * std_y / std_x[i];
+  //for (ull m = 1; m < num_lambda; ++m) {
+  for (ull m = 0; m < 3; ++m) {
+    lambda_seq[m] = lambda_seq[m] * std_y;
+
+    for (ull i = 0; i < n_vars; ++i) {
+      out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
+    }
   }
 
   /* Free the temporary variables */
@@ -312,10 +317,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   delete [] z;
 
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
+                            Rcpp::Named("lambda")       = out_lambda,
+                            Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,
                             Rcpp::Named("loglik")       = loglik,
                             Rcpp::Named("error_status") = 0
-                            //Rcpp::Named("n_iters")      = n_iters
                             );
 }
 
