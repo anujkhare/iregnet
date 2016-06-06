@@ -1,5 +1,11 @@
 /* TODO FIXME:
  * assume that sigma is fixed initially
+ * early stopping for lambda solutions
+ */
+
+/* TODO NOW!:
+ * test with censoring
+ * small errors wrt glmnet: fix
  */
 
 #include "iregnet.h"
@@ -157,6 +163,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   if (flag_debug == IREG_DEBUG_CENSORING) {         // 3
     Rcpp::NumericVector rvec (censoring_type, censoring_type + n_obs);
+    std::cout << rvec << "\n";
     return Rcpp::List::create(Rcpp::Named("error_status")   = 0,
                               Rcpp::Named("censoring_types") = rvec);
   }
@@ -302,8 +309,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                           censoring_type, n_obs, transformed_dist);
 
   /* Scale the coefs back to the original scale */
-  //for (ull m = 1; m < num_lambda; ++m) {
-  for (ull m = 0; m < 3; ++m) {
+  for (ull m = 0; m < num_lambda; ++m) {
     lambda_seq[m] = lambda_seq[m] * std_y;
 
     for (ull i = 0; i < n_vars; ++i) {
