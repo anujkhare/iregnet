@@ -397,8 +397,10 @@ static inline double soft_threshold(double x, double lambda)
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
 }
 
+// TODO: center (or don't) depending on intercept
 static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y, double &std_y)
+                            double *mean_x, double *std_x, double &mean_y,
+                            double &std_y, bool intercept=false)
 {
   ull count_y = 0;
 
