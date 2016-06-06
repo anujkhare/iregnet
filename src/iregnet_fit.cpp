@@ -17,7 +17,8 @@
 static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type);
 static inline double soft_threshold(double x, double lambda);
 static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y, double &std_y);
+                            double *mean_x, double *std_x, double &mean_y,
+                            double &std_y, bool intercept);
 
 double identity (double y)
 {
@@ -41,6 +42,7 @@ double identity (double y)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
+                   bool intercept = false,
                    double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
                    double max_iter = 10,  double threshold = 1e-5,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
@@ -68,7 +70,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   n_cols_y = y.ncol();
   orig_dist = get_ireg_dist(family);
 
-  n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X + INTERCEPT (currently added to X? TODO)
+  n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
   n_params = n_vars + int(estimate_scale); // n_params is the number of parameters
                                            // to optimize (includes scale as well)
 
@@ -125,10 +127,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *mean_x = new double [n_vars], mean_y;
   double *std_x = new double [n_vars], std_y;
 
-  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y);
+  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);
   std::cout << "mean_y: " << mean_y << ", std_y: " << std_y << "\n";
   //std::cout << "Done with std.\n";
-  std::cout << y << std::endl;
+  //std::cout << y << std::endl;
   //std::cout<<"X:\n" << X << "\n";
   //return Rcpp::List::create(10);
 
@@ -137,6 +139,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda);
   Rcpp::NumericVector out_lambda(num_lambda);
+  Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
 
   double *beta  = REAL(out_beta);                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
@@ -191,11 +194,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,
                         censoring_type, n_obs, transformed_dist, NULL);
 
-  std::cout << "w z:\n";
-  for (int i = 0; i < n_obs; ++i) {
-    std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
-  }
-  std::cout << std::endl;
+  // std::cout << "w z:\n";
+  // for (int i = 0; i < n_obs; ++i) {
+  //   std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
+  // }
+  // std::cout << std::endl;
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
@@ -243,7 +246,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   //for (int m = 1; m < 4; ++m) {
   for (int m = 1; m < num_lambda; ++m) {
     lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-    //std::cout << "\nm " << m << " lambda " << lambda_seq[m] << ", scaled: " << lambda_seq[m] * std_y << """ \n";
+    std::cout << "\nm " << m << " lambda " << lambda_seq[m] << ", scaled: " << lambda_seq[m] * std_y << """ \n";
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
@@ -297,10 +300,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
     //std::cout << "n_iters: " << n_iters[m] << "\n ";
     ///* output the scaled values */
-    for (ull i = 0; i < n_vars; ++i) {
-      std::cout << beta[i] * std_y / std_x[i] << " ";
-    }
-    std::cout << "\n";
+    //for (ull i = 0; i < n_vars; ++i) {
+    //  std::cout << beta[i] * std_y / std_x[i] << " ";
+    //}
+    //std::cout << "\n";
 
   } // end for: lambda
 
@@ -317,12 +320,27 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
   }
 
+  /* Provide values for the intercepts */
+  if (intercept) {
+    double *ptr = REAL(out_intercept), temp = 0;
+
+    for (ull m = 0; m < num_lambda; ++m) {
+      temp = 0.0;
+      for (ull j = 0; j < n_vars; ++j) {
+        temp += mean_x[j] * out_beta(j ,m);
+      }
+
+      ptr[m] = mean_y - temp;
+    }
+  }
+
   /* Free the temporary variables */
   delete [] eta;
   delete [] w;
   delete [] z;
 
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
+                            Rcpp::Named("intercept")    = out_intercept,
                             Rcpp::Named("lambda")       = out_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,

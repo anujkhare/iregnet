@@ -3,13 +3,11 @@
 # Authors
 # Borrowed parts from survival survreg and glmnet
 
-# List of temporary variables used!
-
 # We need at least 4 arguments as listed below
 # TODO: optimization params need to be implemented
 iregnet <- function(x=iregnet_x, y=iregnet_y,
                     family=c("gaussian", "logistic", "extreme value", "exponential"),
-                    alpha=1, flag_debug=0) {
+                    alpha=1, flag_debug=0, intercept=T) {
 
   # Parameter validation ===============================================
 
@@ -52,6 +50,11 @@ iregnet <- function(x=iregnet_x, y=iregnet_y,
   #print("heylo there")
 
   # Call the actual fit method
-  #fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha);
-  fit_cpp(x, y, family, alpha);
+  fit_cpp(x, y, family, alpha, intercept);
+  # if (intercept == T) {
+  #   #fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, intercept = T);
+  #   fit_cpp(x, y, family, alpha, intercept = T);
+  # } else {
+  #   fit_cpp(x, y, family, alpha, intercept = F);
+  # }
 }
