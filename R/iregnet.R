@@ -3,14 +3,12 @@
 # Authors
 # Borrowed parts from survival survreg and glmnet
 
-# We need at least 4 arguments as listed below
 # TODO: optimization params need to be implemented
 iregnet <- function(x=iregnet_x, y=iregnet_y,
                     family=c("gaussian", "logistic", "extreme value", "exponential"),
-                    alpha=1, flag_debug=0, intercept=T) {
+                    alpha=1, flag_debug=0, intercept=T, standardize=T, scale=1) {
 
   # Parameter validation ===============================================
-
   # alpha should be between 0 and 1
   if (alpha > 1) {
     warning ("alpha > 1; setting to 1");
@@ -35,7 +33,6 @@ iregnet <- function(x=iregnet_x, y=iregnet_y,
   n_obs  <- dim_x[1];   # LIST
   n_vars <- dim_x[2];   # LIST
 
-
   # y should be a matrix with 2 columns correspoding to the left and right times
   # NA or Inf/-Inf can be used for censored entries
   dim_y <- dim(y);      # LIST
@@ -44,17 +41,10 @@ iregnet <- function(x=iregnet_x, y=iregnet_y,
 
   # length of x and y should be the same
   if (dim_y[1] != n_obs)
-    stop("number of rows in x and y don't match")
-
-  # ======
-  #print("heylo there")
+    stop("number of rows in x and y don't match");
 
   # Call the actual fit method
-  fit_cpp(x, y, family, alpha, intercept);
-  # if (intercept == T) {
-  #   #fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, intercept = T);
-  #   fit_cpp(x, y, family, alpha, intercept = T);
-  # } else {
-  #   fit_cpp(x, y, family, alpha, intercept = F);
-  # }
+  #fit_cpp(x, y, family, alpha, intercept, standardize, scale=scale);
+  # fit_cpp(cbind(rep(1, length(y)), x), y, family, alpha, intercept, standardize, scale=scale);
+  fit_cpp(cbind(rep(1, length(y)), x), y, family, alpha, scale=scale);
 }

@@ -1,25 +1,12 @@
-/* TODO FIXME:
- * assume that sigma is fixed initially
- * early stopping for lambda solutions
- */
-
-/* TODO NOW!:
- * test with censoring
- * make changes so that we can estimate with 1s for intercept
- *  - lambda calc     -
- */
-
 #include "iregnet.h"
 
-//#define EPSILON_LAMBDA 0.0001
-//#define M_LAMBDA  10
 #define BIG 1e35
 
 static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type);
 static inline double soft_threshold(double x, double lambda);
-static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y,
-                            double &std_y, bool intercept);
+//static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
+//                            double *mean_x, double *std_x, double &mean_y,
+//                            double &std_y, bool intercept);
 
 double identity (double y)
 {
@@ -43,7 +30,6 @@ double identity (double y)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
-                   bool intercept = false,
                    double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
                    double max_iter = 10,  double threshold = 1e-5,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
@@ -128,12 +114,15 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * we have scaled y and x, so you need to scale the obtained lambda values,
    * and coef (beta) values back to the original scale before returning them.
    */
-  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);
-  std::cout << "y\n" << y << "\nx\n" << X;
-  std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
-  for (ull i=0; i<n_vars; ++i) {
-    std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
-  }
+  //if (standardize) {
+  //  // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
+  //  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
+  //  std::cout << "y\n" << y << "\nx\n" << X;
+  //  std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
+  //  for (ull i=0; i<n_vars; ++i) {
+  //    std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
+  //  }
+  //}
 
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
@@ -294,28 +283,30 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
                           censoring_type, n_obs, transformed_dist);
 
-  /* Scale the coefs back to the original scale */
-  for (ull m = 0; m < num_lambda; ++m) {
-    lambda_seq[m] = lambda_seq[m] * std_y;
-
-    for (ull i = 0; i < n_vars; ++i) {
-      out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
-    }
-  }
-
-  /* Provide values for the intercepts */
-  if (intercept) {
-    double *ptr = REAL(out_intercept), temp = 0;
-
-    for (ull m = 0; m < num_lambda; ++m) {
-      temp = 0.0;
-      for (ull j = 0; j < n_vars; ++j) {
-        temp += mean_x[j] * out_beta(j ,m);
-      }
-
-      ptr[m] = mean_y - temp;
-    }
-  }
+  // /* Scale the coefs back to the original scale */
+  // if (standardize) {
+  //   for (ull m = 0; m < num_lambda; ++m) {
+  //     lambda_seq[m] = lambda_seq[m] * std_y;
+//
+  //     for (ull i = 0; i < n_vars; ++i) {
+  //       out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
+  //     }
+  //   }
+  // }
+//
+  // /* Provide values for the intercepts */
+  // if (standardize && intercept) {
+  //   double *ptr = REAL(out_intercept), temp = 0;
+//
+  //   for (ull m = 0; m < num_lambda; ++m) {
+  //     temp = 0.0;
+  //     for (ull j = 0; j < n_vars; ++j) {
+  //       temp += mean_x[j] * out_beta(j ,m);
+  //     }
+//
+  //     ptr[m] = mean_y - temp;
+  //   }
+  // }
 
   /* Free the temporary variables */
   delete [] eta;
@@ -381,72 +372,71 @@ static inline double soft_threshold(double x, double lambda)
 }
 
 // TODO: center (or don't) depending on intercept
-static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y,
-                            double &std_y, bool intercept=false)
-{
-  double temp;
-  ull count_y = 0;
-
-  /* Standardize y: mean and variance normalization */
-  // Find mean if intercept needs to be fit, else set it to 0
-  mean_y = std_y = 0;
-  for (ull i = 0; i < y.size(); ++i) {
-    if (y[i] == Rcpp::NA) continue;
-
-    // only count if not NA
-    count_y++;
-    mean_y += y[i];
-  }
-  mean_y = mean_y / count_y;
-
-  for (ull i = 0; i < y.size(); ++i) {
-    if (y[i] == Rcpp::NA) continue;
-
-    temp = y[i] - mean_y;
-    std_y += temp * temp;
-  }
-
-  std_y = sqrt(std_y / count_y);
-  // std_y = sqrt(std_y - mean_y * mean_y);
-
-  // FIXME: why divide by sqrt(N)?
-  for (ull i = 0; i < y.size(); ++i) {
-    temp = (std_y * sqrt(count_y / 2));      // FIXME: !!!
-    if (intercept) {
-      y[i] = (y[i] - mean_y) / temp;
-    } else {
-      y[i] = y[i] / temp;
-    }
-  }
-
-  //std::cout << mean_y << " " << std_y << " " << count_y << "\n";
-
-  /* Mean and var normalize columns of X matrix */
-  for (ull i = 0; i < X.ncol(); ++i) {
-    mean_x[i] = std_x[i] = 0;
-    for (ull j = 0; j < X.nrow(); ++j) {
-      mean_x[i] += X(j, i);
-    }
-    mean_x[i] /= X.nrow();
-
-    for (ull j = 0; j < X.nrow(); ++j) {
-      temp = X(j, i) - mean_x[i];
-      std_x[i] += temp * temp;
-    }
-
-    std_x[i] = sqrt(std_x[i] / X.nrow());
-    // std_x[i] = sqrt(std_x[i] - mean_x[i] * mean_x[i]);
-
-    for (ull j = 0; j < X.nrow(); ++j) {
-      temp = (std_x[i] * sqrt(X.nrow()));
-      if (intercept) {
-        X(j, i) = (X(j, i) - mean_x[i]) / temp;         // FIXME: AS IN GLMNET!?
-      } else {
-        X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
-      }
-      // For no intercept, return mean_x = 0;
-      //mean_x[i] = 0;
-    }
-  }
-}
+// static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
+//                             double *mean_x, double *std_x, double &mean_y,
+//                             double &std_y, bool intercept=false)
+// {
+//   double temp;
+//   ull count_y = 0, n_rows_y = y.size() / 2;
+//
+//   /* Standardize y: mean and variance normalization */
+//   // Find mean if intercept needs to be fit, else set it to 0
+//   mean_y = std_y = 0;
+//   //for (ull i = 0; i < y.size(); ++i) {
+//   for (ull i = 0; i < n_rows_y; ++i) {
+//     if (y[i] == Rcpp::NA) continue;
+//
+//     // only count if not NA
+//     count_y++;
+//     mean_y += y[i];
+//   }
+//   mean_y = mean_y / count_y;
+//
+//   for (ull i = 0; i < n_rows_y; ++i) {
+//     if (y[i] == Rcpp::NA) continue;
+//
+//     temp = y[i] - mean_y;
+//     std_y += temp * temp;
+//   }
+//
+//   std_y = sqrt(std_y / count_y);
+//   // std_y = sqrt(std_y - mean_y * mean_y);
+//
+//   // FIXME: why divide by sqrt(N)?
+//   for (ull i = 0; i < 2 * n_rows_y; ++i) {
+//     temp = (std_y * sqrt(count_y));      // FIXME: !!!
+//     if (intercept) {
+//       y[i] = (y[i] - mean_y) / temp;
+//     } else {
+//       y[i] = y[i] / temp;
+//     }
+//   }
+//
+//   /* Mean and var normalize columns of X matrix */
+//   for (ull i = 0; i < X.ncol(); ++i) {
+//     mean_x[i] = std_x[i] = 0;
+//     for (ull j = 0; j < X.nrow(); ++j) {
+//       mean_x[i] += X(j, i);
+//     }
+//     mean_x[i] /= X.nrow();
+//
+//     for (ull j = 0; j < X.nrow(); ++j) {
+//       temp = X(j, i) - mean_x[i];
+//       std_x[i] += temp * temp;
+//     }
+//
+//     std_x[i] = sqrt(std_x[i] / X.nrow());
+//     // std_x[i] = sqrt(std_x[i] - mean_x[i] * mean_x[i]);
+//
+//     for (ull j = 0; j < X.nrow(); ++j) {
+//       temp = (std_x[i] * sqrt(X.nrow()));
+//       if (intercept) {
+//         X(j, i) = (X(j, i) - mean_x[i]) / temp;         // FIXME: AS IN GLMNET!?
+//       } else {
+//         X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
+//       }
+//       // For no intercept, return mean_x = 0;
+//       //mean_x[i] = 0;
+//     }
+//   }
+// }
