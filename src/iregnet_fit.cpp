@@ -5,7 +5,8 @@
 
 /* TODO NOW!:
  * test with censoring
- * small errors wrt glmnet: fix
+ * make changes so that we can estimate with 1s for intercept
+ *  - lambda calc     -
  */
 
 #include "iregnet.h"
@@ -123,9 +124,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *mean_x = new double [n_vars], mean_y;
   double *std_x = new double [n_vars], std_y;
 
+  /* NOTE:
+   * we have scaled y and x, so you need to scale the obtained lambda values,
+   * and coef (beta) values back to the original scale before returning them.
+   */
   standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);
-  //std::cout << "mean_y: " << mean_y << ", std_y: " << std_y << "\n";
   std::cout << "y\n" << y << "\nx\n" << X;
+  std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
+  for (ull i=0; i<n_vars; ++i) {
+    std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
+  }
 
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
@@ -142,13 +150,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
-  double *eta = new double [n_obs];         // vector of linear predictors = X' beta
-  // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
-  // eta is updated along with beta in place
+  double *eta = new double [n_obs];   // vector of linear predictors = X' beta
+                                      // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
+                                      // eta is updated along with beta in place
 
-  double *w  = new double [n_obs];          // diagonal of the hessian of LL wrt eta
-                                            // these are the weights of the IRLS linear reg
-  double *z = new double [n_obs];           // z_i = eta_i - mu_i / w_i
+  double *w  = new double [n_obs];    // diagonal of the hessian of LL wrt eta
+                                      // these are the weights of the IRLS linear reg
+  double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
 
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
   IREG_CENSORING censoring_type[n_obs];
@@ -194,7 +202,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // TODO: try to optimize by reversing j and i loops and using an extra array
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
   lambda_seq[0] = -BIG;
-  for (ull j = 0; j < n_params; ++j) {
+  for (ull j = 0; j < n_vars; ++j) {
     double temp = 0;
     double tt = 0;
 
@@ -209,14 +217,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     std::cout << temp << " " << n_obs << " " << tt << "\n";
 
     lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
-    // std::cout << tt << " " "\n";
-    // std::cout << temp << " " << lambda_max << " " << n_obs << "\n";
   }
-
-  /* NOTE:
-   * we have scaled y and x, so you need to scale the obtained lambda values,
-   * and coef (beta) values back to the original scale before returning them.
-   */
 
   // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
 
