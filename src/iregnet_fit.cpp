@@ -37,11 +37,18 @@ double identity (double y)
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    bool intercept,
-                   double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
+                   double scale,     // bool estimate_scale = false,    // TODO: SCALE??
                    double max_iter = 1000,  double threshold = 1e-4,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
+  bool estimate_scale = 0;
+  if (scale == Rcpp::NA) {
+    std::cout << "Estimating scale\n";
+    estimate_scale = 1;
+    // TODO: NEED INITIAL VALUE OF SCALE NOW!
+    scale = 10;
+  }
 
   /* Uselesss print stuff for now */
   if (flag_debug == IREG_DEBUG_INPUT) {       // 1
@@ -302,12 +309,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   delete [] z;
 
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
-                            Rcpp::Named("scale")        = out_scale,
                             //Rcpp::Named("intercept")    = out_intercept,
                             Rcpp::Named("lambda")       = out_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,
                             Rcpp::Named("loglik")       = loglik,
+                            Rcpp::Named("scale")        = out_scale,
+                            Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("error_status") = 0
                             );
 }

@@ -59,6 +59,7 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
                         censoring, n_obs, get_ireg_dist(family), REAL(mu));
 
   return Rcpp::List::create(Rcpp::Named("mu") = mu,
+                            Rcpp::Named("scale_update") = scale_update,
                             Rcpp::Named("w") = w,
                             Rcpp::Named("z") = z);
 }
