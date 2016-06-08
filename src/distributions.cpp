@@ -148,7 +148,7 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
 
         if (temp <= 0) {
           // off the probability scale -- avoid log(0)
-          dg;
+          dg = 1;
           ddg = 0;
           response = SMALL;
           // dsig = ddsig = dsg = 0;
@@ -229,6 +229,7 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
     // std::cout << i << "z_l " << normalized_y[0] << "z_r " << normalized_y[1] << ", densities: "
     //           << densities_l[1] << " " << densities_l[2] << " " << densities_l[3] << "\n";
     // std::cout << i << " " << eta[i] <<  " "<< dg << " " << w[i] << " " << z[i] << "\n";
+
   } // end for: n_obs
 
   *scale_update = -dsig / ddsig;

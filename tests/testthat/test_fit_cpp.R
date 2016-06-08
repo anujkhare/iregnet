@@ -29,15 +29,13 @@ data("ovarian")
 # y <- cbind(y, y)
 # print (y)
 
+rm(list=ls())
 load("/home/kcm/code/xy")
 X <- a[[1]]
 y <- a[[2]]
-#y <- y / as.double(sqrt(var(y)))
 y <- cbind(y, y)
-fit <- iregnet(X, y, family = "gaussian", alpha=1, intercept = F)
-print (fit$lambda)
-print (fit$n_iters)
-print (fit$beta)
+fit <- iregnet(X, y, family = "gaussian", alpha=1, intercept = T, scale = 90.4)
+print (fit)
 
 test_that("Derivatives wrt eta are calculated correctly", {
 

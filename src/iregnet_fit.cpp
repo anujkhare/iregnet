@@ -37,7 +37,7 @@ double identity (double y)
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
-                   double max_iter = 10,  double threshold = 1e-5,
+                   double max_iter = 100,  double threshold = 1e-5,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
@@ -154,7 +154,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
   }
-  n_iters[0] = 0;
+  n_iters[0] = 0; out_scale[0] = scale;
 
   for (ull i = 0; i < n_obs; ++i) {
     eta[i] = w[i] = z[i] = 0;
@@ -185,6 +185,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
   }
 
+  // lambda_seq[0] = 82.25;
+
+
   // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
 
   /* Iterate over grid of lambda values */
@@ -204,10 +207,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
     beta = beta + n_params;   // go to the next column
 
-    log_scale += scale_update; scale = exp(log_scale);
-
-    std::cout  << "\n\n\n m: " << m << "\n";
-    std::cout << "-  log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+    // log_scale += scale_update; scale = exp(log_scale);
+    // std::cout  << "\n\n\n m: " << m << "\n";
+    // std::cout << "-  log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
@@ -239,13 +241,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }   // end for: beta_k solution
 
       // calculate w and z again (beta & hence eta would have changed)
-      compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            censoring_type, n_obs, transformed_dist, NULL);
-      log_scale += scale_update; scale = exp(log_scale);
-      std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+      // compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+      //                       censoring_type, n_obs, transformed_dist, NULL);
+      // log_scale += scale_update; scale = exp(log_scale);
+      // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
 
-      if (scale_update > threshold)
-        flag_beta_converged = 0;
+      // if (scale_update > threshold)
+      //   flag_beta_converged = 0;
 
       n_iters[m]++;
     } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
