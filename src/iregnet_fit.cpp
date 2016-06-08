@@ -129,13 +129,14 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda);
   Rcpp::NumericVector out_lambda(num_lambda);
-  Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
+  Rcpp::NumericVector out_scale(num_lambda);
+  //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
 
   double *beta  = REAL(out_beta);                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
-  double loglik = 0;
+  double loglik = 0, scale_update = 0, log_scale = log(scale);
 
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
@@ -178,7 +179,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /////////////////////////////////////////
   // Calculate w and z right here!
-  compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,
+  compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
                         censoring_type, n_obs, transformed_dist, NULL);
 
   // std::cout << "w z:\n";
@@ -227,6 +228,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
     beta = beta + n_params;   // go to the next column
 
+    log_scale += scale_update; scale = exp(log_scale);
+
+    std::cout  << "\n\n\n m: " << m << "\n";
+    std::cout << "-  log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
@@ -250,26 +256,30 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         beta[k] = temp;
 
-
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
         }
 
-         // std::cout << "---------> k: " << k << "\n " << out_beta << "\n";
-
       }   // end for: beta_k solution
 
-      // std::cout << "------> n_iters: " << n_iters << "\n \n"; // << out_beta << "\n";
+      // calculate w and z again (beta & hence eta would have changed)
+      compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                            censoring_type, n_obs, transformed_dist, NULL);
+      log_scale += scale_update; scale = exp(log_scale);
+      std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
 
-      //flag_beta_converged = 1;
+      if (scale_update > threshold)
+        flag_beta_converged = 0;
+
       n_iters[m]++;
     } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
     // calculate w and z again (beta & hence eta would have changed)
-    compute_grad_response(w, z, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+    compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                           censoring_type, n_obs, transformed_dist, NULL);
 
+    out_scale[m] = scale;
     //std::cout << "n_iters: " << n_iters[m] << "\n ";
     ///* output the scaled values */
     //for (ull i = 0; i < n_vars; ++i) {
@@ -314,7 +324,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   delete [] z;
 
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
-                            Rcpp::Named("intercept")    = out_intercept,
+                            Rcpp::Named("scale")        = out_scale,
+                            //Rcpp::Named("intercept")    = out_intercept,
                             Rcpp::Named("lambda")       = out_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,

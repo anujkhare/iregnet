@@ -48,13 +48,14 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
 {
   int n_obs = y_l.size();
   Rcpp::NumericVector w(n_obs), z(n_obs), mu(n_obs);
+  double scale_update;
 
   IREG_CENSORING *censoring = (IREG_CENSORING *) &censoring_type[0];
   //for (int i = 0; i < n_obs; ++i) {
   //  std::cout << censoring[i] << "\n";
   //}
 
-  compute_grad_response(REAL(w), REAL(z), REAL(y_l), REAL(y_r), REAL(eta), scale,
+  compute_grad_response(REAL(w), REAL(z), &scale_update, REAL(y_l), REAL(y_r), REAL(eta), scale,
                         censoring, n_obs, get_ireg_dist(family), REAL(mu));
 
   return Rcpp::List::create(Rcpp::Named("mu") = mu,
@@ -82,15 +83,17 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
 // TODO: if densities are close to 0! (survival)
-void compute_grad_response(double *w, double *z, const double *y_l, const double *y_r,
+void compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
                            const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                            const ull n_obs, const IREG_DIST dist, double *mu)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
   double densities_r[4];      // F, 1-F, f, f', for the right observation y_r
-  double mu_i;                // grad of LL wrt eta; mu_i = del g / del eta_i
+  //double mu_i;                // grad of LL wrt eta; mu_i = del g / del eta_i
   double scale_2 = scale * scale, temp;
+  double dg, ddg, response;
+  double dsig, ddsig, dsg, sz;
 
   switch(dist) {
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
@@ -98,10 +101,40 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
   }
 
+  dsig = ddsig = dsg = 0;
   /* We are skipping pointer checks to save computation time, assume valid ptrs are given */
   for (ull i = 0; i < n_obs; ++i) {
 
     switch(censoring_type[i]) {
+      case IREG_CENSOR_NONE:
+        normalized_y[0] = (y_l[i] - eta[i]) / scale;
+        sz = scale * normalized_y[0];
+        (*sreg_gg)(normalized_y[0], densities_l, 1);    // gives 0, f, f'/f, f''/f
+
+        if (densities_l[1] <= 0) {
+          /* off the probability scale -- avoid log(0), and set the
+          **  derivatives to gaussian limits (almost any deriv will
+          **  do, since the function value triggers step-halving).
+          */
+          dg = -normalized_y[0] / scale;
+          ddg = -1 / scale;
+          response = y_l[i];
+          // dsig = ddsig = dsg = 0;
+          dsg = 0;
+
+        } else {
+          temp = (densities_l[3]) / scale_2;
+          dg = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
+          ddg =  temp - dg * dg;
+          response = eta[i] - dg / ddg;
+          // wrt log(scale)
+          dsig += dg * sz - 1;
+          ddsig += sz * sz * temp - dsig * (1 + dsig);
+          dsg = -1;
+        }
+
+        break;
+
       case IREG_CENSOR_INTERVAL:
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         normalized_y[1] = (y_r[i] - eta[i]) / scale;
@@ -115,70 +148,72 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
 
         if (temp <= 0) {
           // off the probability scale -- avoid log(0)
-          mu_i = 1;
-          w[i] = 0;
-          z[i] = SMALL;
+          dg;
+          ddg = 0;
+          response = SMALL;
+          // dsig = ddsig = dsg = 0;
+          dsg = 0;
 
         } else {
-          mu_i = -(densities_r[2] - densities_l[2]) / temp / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-          w[i] = (densities_r[3] - densities_l[3]) / temp / scale_2 - mu_i * mu_i;
-          z[i] = eta[i] - mu_i / w[i];
-        }
+          dg = -(densities_r[2] - densities_l[2]) / (temp * scale); // mu_i = -(1/sigma) * (f'(z) / f(z))
+          ddg = (densities_r[3] - densities_l[3]) / (temp * scale_2) - dg * dg;
+          response = eta[i] - dg / ddg;
 
-        break;
-
-      case IREG_CENSOR_NONE:
-        normalized_y[0] = (y_l[i] - eta[i]) / scale;
-        (*sreg_gg)(normalized_y[0], densities_l, 1);    // gives 0, f, f'/f, f''/f
-
-        if (densities_l[1] <= 0) {
-          /* off the probability scale -- avoid log(0), and set the
-          **  derivatives to gaussian limits (almost any deriv will
-          **  do, since the function value triggers step-halving).
-          */
-          // TODO: CHECK!
-          mu_i = -normalized_y[0] / scale;
-          w[i] = -1 / scale;
-          z[i] = y_l[i];
-
-        } else {
-          mu_i = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-          w[i] = (densities_l[3]) / scale_2 - mu_i * mu_i;
-          z[i] = eta[i] - mu_i / w[i];
+          dsig += (normalized_y[0] * densities_l[2] - normalized_y[1] * densities_r[2]) / temp;
+          ddsig += ((normalized_y[1] * normalized_y[1] * densities_r[3] -
+                    normalized_y[0] * normalized_y[0] * densities_l[3]) / temp) -
+                  dsig * (1 + dsig);
+          dsg = ((normalized_y[1] * densities_r[3] -
+                  normalized_y[0] * densities_l[3]) / (temp * scale)) - dg * (dsig + 1);
         }
 
         break;
 
       case IREG_CENSOR_LEFT:
         normalized_y[1] = (y_r[i] - eta[i]) / scale;
+        sz = scale * normalized_y[1];
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
         if (densities_r[0] <= 0) {
-          mu_i = -normalized_y[1] / scale;
-          w[i] = 0;
-          z[i] = SMALL;
+          dg = -normalized_y[1] / scale;
+          ddg = 0;
+          response = SMALL;
+          //dsig = ddsig = dsg = 0;
+          dsg = 0;
 
         } else {
-          mu_i = -densities_r[2] / densities_r[0] / scale;
-          w[i] = densities_r[3] / densities_r[0] / scale_2 - mu_i * mu_i;
-          z[i] = eta[i] - mu_i / w[i];
+          temp = densities_r[3] / densities_r[0] / scale_2;
+          dg = -densities_r[2] / densities_r[0] / scale;
+          ddg = temp - dg * dg;
+          response = eta[i] - dg / ddg;
+
+          dsig += dg * sz;
+          ddsig += sz * sz * temp - dsig * (1 + dsig);
         }
 
         break;
 
       case IREG_CENSOR_RIGHT:
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
+        sz = scale * normalized_y[0];
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
-          mu_i = normalized_y[0]/ scale;
-          w[i] = 0;
-          z[i] = SMALL;
+          dg = normalized_y[0]/ scale;
+          ddg = 0;
+          response = SMALL;
+          //dsig = ddsig = dsg = 0;
+          dsg = 0;
 
         } else {
-          mu_i = densities_l[2] / densities_l[1] / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
-          w[i] = -densities_l[3] / densities_l[1] / scale_2 - mu_i * mu_i;     // f'(z^l) / f()] / [1-F()] ...
-          z[i] = eta[i] - mu_i / w[i];
+          temp = -densities_l[3] / densities_l[1] / scale_2;
+          dg = densities_l[2] / densities_l[1] / scale; // dg = -(1/sigma) * (f'(z) / f(z))
+          ddg = temp - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
+          response = eta[i] - dg / ddg;
+
+          dsig += dg * sz;
+          ddsig += sz * sz* temp - dsig * (1 + dsig);
+          dsg = sz * temp - dg * (dsig + 1);
         }
 
         break;
@@ -187,11 +222,16 @@ void compute_grad_response(double *w, double *z, const double *y_l, const double
         break;
     }
 
-    if (mu) mu[i] = mu_i;
+    if (mu) mu[i] = dg;
+    if (w) w[i] = ddg;
+    if (z) z[i] = response;
+
     // std::cout << i << "z_l " << normalized_y[0] << "z_r " << normalized_y[1] << ", densities: "
     //           << densities_l[1] << " " << densities_l[2] << " " << densities_l[3] << "\n";
-    // std::cout << i << " " << eta[i] <<  " "<< mu_i << " " << w[i] << " " << z[i] << "\n";
+    // std::cout << i << " " << eta[i] <<  " "<< dg << " " << w[i] << " " << z[i] << "\n";
   } // end for: n_obs
+
+  *scale_update = -dsig / ddsig;
 }
 
 static void logistic_d (double z, double ans[4], int j)
