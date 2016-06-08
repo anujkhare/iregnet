@@ -34,7 +34,7 @@ X <- a[[1]]
 y <- a[[2]]
 #y <- y / as.double(sqrt(var(y)))
 y <- cbind(y, y)
-fit <- iregnet(X, y, family = "gaussian", alpha=1, intercept = F)
+fit <- iregnet(X, y, family = "gaussian", alpha=1, scale = 1, intercept = T)
 print (fit$lambda)
 print (fit$n_iters)
 print (fit$beta)
