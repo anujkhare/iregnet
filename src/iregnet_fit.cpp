@@ -36,8 +36,9 @@ double identity (double y)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
+                   bool intercept,
                    double scale = 1,      bool estimate_scale = false,    // TODO: SCALE??
-                   double max_iter = 100,  double threshold = 1e-5,
+                   double max_iter = 1000,  double threshold = 1e-4,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
@@ -110,10 +111,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
-  Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
-  Rcpp::IntegerVector out_n_iters(num_lambda);
-  Rcpp::NumericVector out_lambda(num_lambda);
-  Rcpp::NumericVector out_scale(num_lambda);
+  Rcpp::NumericMatrix out_beta(n_params, num_lambda + 1);       // will contain the entire series of solutions
+  Rcpp::IntegerVector out_n_iters(num_lambda + 1);
+  Rcpp::NumericVector out_lambda(num_lambda + 1);
+  Rcpp::NumericVector out_scale(num_lambda + 1);
   //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
 
   double *beta  = REAL(out_beta);                           // Initially points to the first solution
@@ -164,12 +165,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // Calculate w and z right here!
   compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
                         censoring_type, n_obs, transformed_dist, NULL);
+  // std::cout <<" w z \n";
+  // for (ull i=0; i<n_obs; ++i) {
+  //   std::cout << w[i] << " " << z[i] << "\n";
+  // }
+  // std::cout << "\n";
+  // std::cout << "\n";
 
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
   lambda_seq[0] = -BIG;
-  for (ull j = 0; j < n_vars; ++j) {
+  for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
     double temp = 0;
     double tt = 0;
 
@@ -180,13 +187,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
     //temp = fabs(temp) / (n_obs * alpha);
     temp = fabs(temp) / (alpha);              // FIXME: It seems that is how they have calc lambda in GLMNET
-    std::cout << temp << " " << n_obs << " " << tt << "\n";
+    // std::cout << temp << " " << n_obs << " " << tt << "\n";
 
     lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
   }
-
-  // lambda_seq[0] = 82.25;
-
 
   // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
 
@@ -194,10 +198,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
   bool flag_beta_converged = 0;
   double w_x_z, w_x_eta, sol_num, sol_denom;
-  double temp;
+  double beta_new;
 
-  for (int m = 1; m < num_lambda; ++m) {
-    lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+  for (int m = 1; m < num_lambda + 1; ++m) {
+    if (m == num_lambda)
+      lambda_seq[m] = 0;    // last solution should be unregularized
+    else
+      lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
     //std::cout << "\nm " << m << " lambda " << lambda_seq[m] << ", scaled: " << lambda_seq[m] * std_y << """ \n";
 
     /* Initialize the solution at this lambda using previous lambda solution */
@@ -206,6 +213,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       beta[i + n_params] = beta[i];
     }
     beta = beta + n_params;   // go to the next column
+    for (ull i = 0; i < n_params; ++i) {
+    }
 
     // log_scale += scale_update; scale = exp(log_scale);
     // std::cout  << "\n\n\n m: " << m << "\n";
@@ -227,12 +236,20 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           sol_denom += (w[i] * X(i, k) * X(i, k));
         }
 
-        temp = soft_threshold(sol_num / (sol_denom + lambda_seq[m] * (1 - alpha)), lambda_seq[m] * alpha);
+        /* The intercept should not be regularized, and hence is calculated directly */
+        if (intercept && k == 0) {
+          beta_new = sol_num / sol_denom;   // TODO: Check
+
+        } else {
+          beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
+                        (sol_denom + lambda_seq[m] * (1 - alpha));
+
+        }
         // if any beta_k has not converged, we will come back for another cycle.
-        if (fabs(temp - beta[k]) > threshold)
+        if (fabs(beta_new - beta[k]) > threshold)
           flag_beta_converged = 0;
 
-        beta[k] = temp;
+        beta[k] = beta_new;
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
@@ -240,14 +257,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       }   // end for: beta_k solution
 
-      // calculate w and z again (beta & hence eta would have changed)
-      // compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-      //                       censoring_type, n_obs, transformed_dist, NULL);
-      // log_scale += scale_update; scale = exp(log_scale);
-      // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+      if (estimate_scale) {
+        // calculate w and z again (beta & hence eta would have changed)
+        compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                              censoring_type, n_obs, transformed_dist, NULL);
 
-      // if (scale_update > threshold)
-      //   flag_beta_converged = 0;
+        log_scale += scale_update; scale = exp(log_scale);
+        // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+
+        if (scale_update > threshold)
+          flag_beta_converged = 0;
+      }
 
       n_iters[m]++;
     } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
@@ -256,6 +276,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // calculate w and z again (beta & hence eta would have changed)
     compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                           censoring_type, n_obs, transformed_dist, NULL);
+    // std::cout <<" w z - " << m << " \n";
+    // for (ull i=0; i<n_obs; ++i) {
+    //   std::cout << w[i] << " " << z[i] << "\n";
+    // }
+    // std::cout << "\n";
+    // std::cout << "\n";
 
     out_scale[m] = scale;
 

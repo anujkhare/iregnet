@@ -226,7 +226,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
     if (w) w[i] = ddg;
     if (z) z[i] = response;
 
-    // std::cout << i << "z_l " << normalized_y[0] << "z_r " << normalized_y[1] << ", densities: "
+    // std::cout << "\n";
+    // std::cout << i << " z_l " << normalized_y[0] << ", z_r " << normalized_y[1] << ", densities: "
     //           << densities_l[1] << " " << densities_l[2] << " " << densities_l[3] << "\n";
     // std::cout << i << " " << eta[i] <<  " "<< dg << " " << w[i] << " " << z[i] << "\n";
 
