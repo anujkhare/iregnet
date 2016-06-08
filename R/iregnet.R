@@ -5,7 +5,7 @@
 
 # TODO: optimization params need to be implemented
 iregnet <- function(x=iregnet_x, y=iregnet_y,
-                    family=c("gaussian", "logistic", "extreme value", "exponential"),
+                    family=c("gaussian", "logistic", "loggaussian", "extreme value", "exponential"),
                     alpha=1, flag_debug=0, intercept=T, standardize=T, scale=1) {
 
   # Parameter validation ===============================================

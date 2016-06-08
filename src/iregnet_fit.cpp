@@ -96,6 +96,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       transformed_dist = orig_dist;
       break;
 
+    case IREG_DIST_LOG_GAUSSIAN:
+      transform_y = log;
+      transformed_dist = IREG_DIST_GAUSSIAN;
+      break;
+
     case IREG_DIST_EXPONENTIAL:
       transform_y = log;
       transformed_dist = IREG_DIST_EXTREME_VALUE;
@@ -346,6 +351,8 @@ IREG_DIST get_ireg_dist (Rcpp::String dist_str)
     return IREG_DIST_EXTREME_VALUE;
   if (strcmp("exponential", dist_str.get_cstring()) == 0)
     return IREG_DIST_EXPONENTIAL;
+  if (strcmp("loggaussian", dist_str.get_cstring()) == 0)
+    return IREG_DIST_LOG_GAUSSIAN;
   return IREG_DIST_UNKNOWN;
 }
 
