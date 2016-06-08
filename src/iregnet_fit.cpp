@@ -1,3 +1,9 @@
+/*
+ * TODO:
+ * check the initial values (the small case), esp for z[i]
+ * survival mentions the inital value estimates from GLM,
+ * check if we have used them propeprly
+ */
 #include "iregnet.h"
 
 #define BIG 1e35
@@ -102,28 +108,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     y[i] = transform_y(y[i]);
   }
 
-  /*
-   * Standardize functions:
-   * Normalize X and y
-   * TODO: Should you do that? How does it work for censored data?
-   */
-  double *mean_x = new double [n_vars], mean_y;
-  double *std_x = new double [n_vars], std_y;
-
-  /* NOTE:
-   * we have scaled y and x, so you need to scale the obtained lambda values,
-   * and coef (beta) values back to the original scale before returning them.
-   */
-  //if (standardize) {
-  //  // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
-  //  standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
-  //  std::cout << "y\n" << y << "\nx\n" << X;
-  //  std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
-  //  for (ull i=0; i<n_vars; ++i) {
-  //    std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
-  //  }
-  //}
-
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
   Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
@@ -165,7 +149,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * If some value of lambda is supplied, we will stop iterations at that value.
    */
 
-  // TODO: FIGURE OUT WHAT HAPPENS TO THE SIGMA TERMS HERE
   // set beta = 0 and eta = 0
   for (ull i = 0; i < n_params; ++i) {
     // sets only the first solution (first col of out_beta) to 0
@@ -182,12 +165,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
                         censoring_type, n_obs, transformed_dist, NULL);
 
-  // std::cout << "w z:\n";
-  // for (int i = 0; i < n_obs; ++i) {
-  //   std::cout << i+1 << " " << w[i] << " " << z[i] << "\n";
-  // }
-  // std::cout << std::endl;
-
   // Calculate lambda_max
     // TODO: try to optimize by reversing j and i loops and using an extra array
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
@@ -198,7 +175,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
     for (ull i = 0; i < n_obs; ++i) {
       temp += (w[i] * X(i, j) * z[i]);
-      // std::cout << temp << std::endl;
 
       tt += (X(i,j) * y[i]);
     }
@@ -280,43 +256,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                           censoring_type, n_obs, transformed_dist, NULL);
 
     out_scale[m] = scale;
-    //std::cout << "n_iters: " << n_iters[m] << "\n ";
-    ///* output the scaled values */
-    //for (ull i = 0; i < n_vars; ++i) {
-    //  std::cout << beta[i] * std_y / std_x[i] << " ";
-    //}
-    //std::cout << "\n";
 
   } // end for: lambda
 
   /* Compute the final log likelihood */
   loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
                           censoring_type, n_obs, transformed_dist);
-
-  // /* Scale the coefs back to the original scale */
-  // if (standardize) {
-  //   for (ull m = 0; m < num_lambda; ++m) {
-  //     lambda_seq[m] = lambda_seq[m] * std_y;
-//
-  //     for (ull i = 0; i < n_vars; ++i) {
-  //       out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
-  //     }
-  //   }
-  // }
-//
-  // /* Provide values for the intercepts */
-  // if (standardize && intercept) {
-  //   double *ptr = REAL(out_intercept), temp = 0;
-//
-  //   for (ull m = 0; m < num_lambda; ++m) {
-  //     temp = 0.0;
-  //     for (ull j = 0; j < n_vars; ++j) {
-  //       temp += mean_x[j] * out_beta(j ,m);
-  //     }
-//
-  //     ptr[m] = mean_y - temp;
-  //   }
-  // }
 
   /* Free the temporary variables */
   delete [] eta;
@@ -381,73 +326,3 @@ static inline double soft_threshold(double x, double lambda)
   double temp = fabs(x) - lambda;
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
 }
-
-// TODO: center (or don't) depending on intercept
-// static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-//                             double *mean_x, double *std_x, double &mean_y,
-//                             double &std_y, bool intercept=false)
-// {
-//   double temp;
-//   ull count_y = 0, n_rows_y = y.size() / 2;
-//
-//   /* Standardize y: mean and variance normalization */
-//   // Find mean if intercept needs to be fit, else set it to 0
-//   mean_y = std_y = 0;
-//   //for (ull i = 0; i < y.size(); ++i) {
-//   for (ull i = 0; i < n_rows_y; ++i) {
-//     if (y[i] == Rcpp::NA) continue;
-//
-//     // only count if not NA
-//     count_y++;
-//     mean_y += y[i];
-//   }
-//   mean_y = mean_y / count_y;
-//
-//   for (ull i = 0; i < n_rows_y; ++i) {
-//     if (y[i] == Rcpp::NA) continue;
-//
-//     temp = y[i] - mean_y;
-//     std_y += temp * temp;
-//   }
-//
-//   std_y = sqrt(std_y / count_y);
-//   // std_y = sqrt(std_y - mean_y * mean_y);
-//
-//   // FIXME: why divide by sqrt(N)?
-//   for (ull i = 0; i < 2 * n_rows_y; ++i) {
-//     temp = (std_y * sqrt(count_y));      // FIXME: !!!
-//     if (intercept) {
-//       y[i] = (y[i] - mean_y) / temp;
-//     } else {
-//       y[i] = y[i] / temp;
-//     }
-//   }
-//
-//   /* Mean and var normalize columns of X matrix */
-//   for (ull i = 0; i < X.ncol(); ++i) {
-//     mean_x[i] = std_x[i] = 0;
-//     for (ull j = 0; j < X.nrow(); ++j) {
-//       mean_x[i] += X(j, i);
-//     }
-//     mean_x[i] /= X.nrow();
-//
-//     for (ull j = 0; j < X.nrow(); ++j) {
-//       temp = X(j, i) - mean_x[i];
-//       std_x[i] += temp * temp;
-//     }
-//
-//     std_x[i] = sqrt(std_x[i] / X.nrow());
-//     // std_x[i] = sqrt(std_x[i] - mean_x[i] * mean_x[i]);
-//
-//     for (ull j = 0; j < X.nrow(); ++j) {
-//       temp = (std_x[i] * sqrt(X.nrow()));
-//       if (intercept) {
-//         X(j, i) = (X(j, i) - mean_x[i]) / temp;         // FIXME: AS IN GLMNET!?
-//       } else {
-//         X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
-//       }
-//       // For no intercept, return mean_x = 0;
-//       //mean_x[i] = 0;
-//     }
-//   }
-// }
