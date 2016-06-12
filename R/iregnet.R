@@ -7,7 +7,7 @@
 # TODO: checks like - can't provide scale with exp
 iregnet <- function(x=iregnet_x, y=iregnet_y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme value", "exponential"),
-                    alpha=1, flag_debug=0, intercept=T, standardize=T, scale=NA) {
+                    alpha=1, flag_debug=0, intercept=T, standardize=F, scale=NA) {
 
   # Parameter validation ===============================================
   # alpha should be between 0 and 1
@@ -48,8 +48,10 @@ iregnet <- function(x=iregnet_x, y=iregnet_y,
   #fit_cpp(x, y, family, alpha, intercept, standardize, scale=scale);
   # fit_cpp(cbind(rep(1, length(y)), x), y, family, alpha, intercept, standardize, scale=scale);
   if (intercept) {
-    fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, intercept=TRUE, scale=scale);
+    fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, intercept=TRUE, scale=scale,
+            standardize = standardize);
   } else {
-    fit_cpp(x, y, family, alpha, intercept=FALSE, scale=scale);
+    fit_cpp(x, y, family, alpha, intercept=FALSE, scale=scale,
+            standardize = standardize);
   }
 }

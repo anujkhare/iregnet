@@ -32,8 +32,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    bool intercept,
                    double scale,     // bool estimate_scale = false,    // TODO: SCALE??
-                bool standardize = false,   
-		double max_iter = 1000,  double threshold = 1e-4,
+                   bool standardize = false,
+                   double max_iter = 1000,  double threshold = 1e-4,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
@@ -128,15 +128,15 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * we have scaled y and x, so you need to scale the obtained lambda values,
    * and coef (beta) values back to the original scale before returning them.
    */
-  if (standardize) {
-    standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
-    // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
-    std::cout << "y\n" << y << "\nx\n" << X;
-    std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
-    for (ull i=0; i<n_vars; ++i) {
-      std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
-    }
-  }
+  // if (standardize) {
+  //   standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
+  //   // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
+  //   std::cout << "y\n" << y << "\nx\n" << X;
+  //   std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
+  //   for (ull i=0; i<n_vars; ++i) {
+  //     std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
+  //   }
+  // }
 
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
@@ -145,7 +145,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericVector out_lambda(num_lambda + 1);
   Rcpp::NumericVector out_scale(num_lambda + 1);
   //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
-==== BASE ====
 
   double *beta  = REAL(out_beta);                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
@@ -322,29 +321,15 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                           censoring_type, n_obs, transformed_dist);
 
   /* Scale the coefs back to the original scale */
-  if (standardize) {
-    for (ull m = 0; m < num_lambda; ++m) {
-      lambda_seq[m] = lambda_seq[m] * std_y;
+  // if (standardize) {
+  //   for (ull m = 0; m < num_lambda; ++m) {
+  //     lambda_seq[m] = lambda_seq[m] * std_y;
 
-      for (ull i = 0; i < n_vars; ++i) {
-        out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
-      }
-    }
-  }
-
-  /* Provide values for the intercepts */
-  if (standardize && intercept) {
-    double *ptr = REAL(out_intercept), temp = 0;
-
-    for (ull m = 0; m < num_lambda; ++m) {
-      temp = 0.0;
-      for (ull j = 0; j < n_vars; ++j) {
-        temp += mean_x[j] * out_beta(j ,m);
-      }
-
-      ptr[m] = mean_y - temp;
-    }
-  }
+  //     for (ull i = 0; i < n_vars; ++i) {
+  //       out_beta(i, m) = out_beta(i, m) * std_y / std_x[i];
+  //     }
+  //   }
+  // }
 
   /* Free the temporary variables */
   delete [] eta;
