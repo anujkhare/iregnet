@@ -350,6 +350,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             //Rcpp::Named("intercept")    = out_intercept,
 >>>>>>> Stashed changes
                             Rcpp::Named("lambda")       = out_lambda,
+                            Rcpp::Named("num_lambda")   = num_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,
                             Rcpp::Named("loglik")       = loglik,
