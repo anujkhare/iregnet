@@ -234,6 +234,7 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
 
   } // end for: n_obs
 
+  // std::cout << " dsig:" << dsig << "  ddsig" << ddsig << "\n";
   *scale_update = -dsig / ddsig;
 }
 

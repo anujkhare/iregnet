@@ -228,7 +228,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   bool flag_beta_converged = 0;
   double w_x_z, w_x_eta, sol_num, sol_denom;
   double beta_new;
+  double old_scale;
 
+  // for (int m = 1; m < 3; ++m) {
   for (int m = 1; m < num_lambda + 1; ++m) {
     if (m == num_lambda)
       lambda_seq[m] = 0;    // last solution should be unregularized
@@ -245,9 +247,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     for (ull i = 0; i < n_params; ++i) {
     }
 
-    // log_scale += scale_update; scale = exp(log_scale);
-    // std::cout  << "\n\n\n m: " << m << "\n";
-    // std::cout << "-  log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+    old_scale = scale;
+    if (estimate_scale) {
+      log_scale += scale_update; scale = exp(log_scale);
+      std::cout << "-  log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+    }
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
@@ -286,17 +290,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       }   // end for: beta_k solution
 
-      if (estimate_scale) {
-        // calculate w and z again (beta & hence eta would have changed)
-        compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                              censoring_type, n_obs, transformed_dist, NULL);
+      //if (estimate_scale) {
+//
+      //  std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+      //  log_scale += scale_update; scale = exp(log_scale);
 
-        log_scale += scale_update; scale = exp(log_scale);
-        // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
-
-        if (scale_update > threshold)
-          flag_beta_converged = 0;
-      }
+        // if (scale_update > threshold) {
+        //   flag_beta_converged = 0;
+        //   // calculate w and z again (beta & hence eta would have changed)
+        //   compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, old_scale,     // TODO:store a ptr to y?
+        //                         censoring_type, n_obs, transformed_dist, NULL);
+        // }
+      //}
 
       n_iters[m]++;
     } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
@@ -311,6 +316,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     // }
     // std::cout << "\n";
     // std::cout << "\n";
+    // std::cout << "m : " << m << "  n_iters " << n_iters[m] << "\n\n\n";
 
     out_scale[m] = scale;
 
@@ -336,7 +342,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   delete [] w;
   delete [] z;
 
+<<<<<<< Updated upstream
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
+=======
+  return Rcpp::List::create(Rcpp::Named("num_lambda")   = num_lambda,
+                            Rcpp::Named("beta")         = out_beta,
+                            //Rcpp::Named("intercept")    = out_intercept,
+>>>>>>> Stashed changes
                             Rcpp::Named("lambda")       = out_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
                             //Rcpp::Named("score")        = out_score,
