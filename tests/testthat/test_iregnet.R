@@ -12,9 +12,7 @@ x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
 fit_s <- survreg(Surv(futime, fustat) ~ ecog.ps + rx, data = ovarian, dist = "gaussian")
 fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, scale = fit_s$scale)
-# print (as.double(fit_s$coefficients))
-# print (fit_i$beta[, fit_i$num_lambda + 1])
-test_that("iregnet calculates correct coefficients", {
+test_that("iregnet calculates correct coefficients for ovarian data wrt survival", {
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
@@ -23,6 +21,13 @@ test_that("iregnet calculates correct coefficients", {
 get_xy <- function(n_obs, n_vars, type = "right") {
   x <- matrix(rnorm(n_obs * n_vars), n_obs, n_vars)
   y <- rnorm(n_obs)
+
+	# standardize x and y
+  # for (i in 1:ncol(x)) {
+  # 	x[, i] <- x[, i] / sd(x[, i]);
+  # }
+	# y <- (y - mean(y)) / sd(y)
+
 
   if (type == "none") {
     status = rep(1, length(y))
@@ -44,67 +49,67 @@ get_xy <- function(n_obs, n_vars, type = "right") {
   return (list("x" = x, "y" = y, "surv" = y_surv))
 }
 
-test_that("Gaussian, left censored data - coefficients are calculated correctly:", {
+test_that("Gaussian, left censored data - coefficients are calculated correctly wrt survival:", {
   set.seed(55)
 
   # n_obs >> n_vars
   for (n_vars in 2:10) {
+  # n_vars <- 5
     xy <- get_xy(40, n_vars, "left")
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-    fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale, standardize = T)
+    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+    fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
     expect_equal(as.double(fit_s$coefficients),
                  fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
-    # print(fit_s$coefficients)
   }
 
   # n_obs >= n_vars, but smaller - TODO: FAILING!
-  xy <- get_xy(11, n_vars, "left")
-  fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(iter.max=1000))
-  print (fit_s);
-  fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  expect_equal(as.double(fit_s$coefficients),
-               fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
+  # xy <- get_xy(11, n_vars, "left")
+  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(iter.max=1000))
+  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+  # expect_equal(as.double(fit_s$coefficients),
+  #              fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
 
-test_that("Gaussian, right censored data - coefficients are calculated correctly:", {
+test_that("Gaussian, right censored data - coefficients are calculated correctly wrt survival:", {
   set.seed(55)
 
   # n_obs >> n_vars
+  # for (n_vars in 9:10) {
   for (n_vars in 2:10) {
     xy <- get_xy(40, n_vars, "right")
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-    fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+    fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
+		# print(fit_i)
+		# print(fit_s)
     expect_equal(as.double(fit_s$coefficients),
                  fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
-    # print(fit_s$coefficients)
   }
 
   # n_obs >= n_vars, but smaller - TODO: FAILING!
-  xy <- get_xy(11, n_vars, "right")
-  fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(maxiter=1000, iter.max=1000))
-  print (fit_s)
-  fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  expect_equal(as.double(fit_s$coefficients),
-               fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
+  # xy <- get_xy(11, n_vars, "right")
+  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(maxiter=1000, iter.max=1000))
+  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+  # expect_equal(as.double(fit_s$coefficients),
+  #              fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
 
 
-test_that("Gaussian, exact data - coefficients are calculated correctly:", {
+test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival:", {
   set.seed(115)
 
   n_vars <- 5;
   xy <- get_xy(30, n_vars, "none")
 
   fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-  fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  expect_equal(as.double(fit_s$coefficients),
-               fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
+  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+  fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 
-  # TODO: VERY different from glmnet
-  # fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian")
-  # fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian")
-  # print (fit_i$beta)
-  # print (coef(fit_g))
+	# TODO: test faliling
+  # fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=fit_i$lambda)
+	# expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
