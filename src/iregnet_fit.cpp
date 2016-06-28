@@ -110,15 +110,15 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * we have scaled y and x, so you need to scale the obtained lambda values,
    * and coef (beta) values back to the original scale before returning them.
    */
-  // if (standardize) {
-  //   standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
-  //   // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
-  //   std::cout << "y\n" << y << "\nx\n" << X;
-  //   std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
-  //   for (ull i=0; i<n_vars; ++i) {
-  //     std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
-  //   }
-  // }
+  if (standardize) {
+    standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
+    // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
+    // std::cout << "y\n" << y << "\nx\n" << X;
+    // std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
+    // for (ull i=0; i<n_vars; ++i) {
+    //   std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
+    // }
+  }
 
   /* Create output variables */
   // Rcpp::NumericVector out_beta(n_params);
