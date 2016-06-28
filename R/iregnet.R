@@ -5,7 +5,7 @@
 
 # TODO: optimization params need to be implemented
 # TODO: checks like - can't provide scale with exp
-iregnet <- function(x=iregnet_x, y=iregnet_y,
+iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme value", "exponential"),
                     alpha=1, flag_debug=0, intercept=T, standardize=F, scale=NA) {
 
