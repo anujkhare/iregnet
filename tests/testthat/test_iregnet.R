@@ -65,11 +65,11 @@ test_that("Gaussian, left censored data - coefficients are calculated correctly 
   }
 
   # n_obs >= n_vars, but smaller - TODO: FAILING!
-  # xy <- get_xy(11, n_vars, "left")
-  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(iter.max=1000))
-  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  # expect_equal(as.double(fit_s$coefficients),
-  #              fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
+  xy <- get_xy(11, n_vars, "left")
+  fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(iter.max=1000))
+  fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+  expect_equal(as.double(fit_s$coefficients),
+               fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
 
 test_that("Gaussian, right censored data - coefficients are calculated correctly wrt survival:", {
@@ -89,11 +89,11 @@ test_that("Gaussian, right censored data - coefficients are calculated correctly
   }
 
   # n_obs >= n_vars, but smaller - TODO: FAILING!
-  # xy <- get_xy(11, n_vars, "right")
-  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(maxiter=1000, iter.max=1000))
-  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  # expect_equal(as.double(fit_s$coefficients),
-  #              fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
+  xy <- get_xy(11, n_vars, "right")
+  fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(maxiter=1000, iter.max=1000))
+  fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
+  expect_equal(as.double(fit_s$coefficients),
+               fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
 
 
