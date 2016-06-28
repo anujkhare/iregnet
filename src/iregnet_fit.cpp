@@ -148,13 +148,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   IREG_CENSORING censoring_type[n_obs];
   get_censoring_types(y, censoring_type); // NANs denote censored observations in y
 
-  if (flag_debug == IREG_DEBUG_CENSORING) {         // 3
-    Rcpp::NumericVector rvec (censoring_type, censoring_type + n_obs);
-    std::cout << rvec << "\n";
-    return Rcpp::List::create(Rcpp::Named("error_status")   = 0,
-                              Rcpp::Named("censoring_types") = rvec);
-  }
-
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
    * If some value of lambda is supplied, we will stop iterations at that value.
