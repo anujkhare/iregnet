@@ -110,6 +110,6 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
                fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 
 	# TODO: test faliling
-  # fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=fit_i$lambda)
-	# expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
+  fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=fit_i$lambda)
+	expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
