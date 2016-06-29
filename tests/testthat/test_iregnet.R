@@ -11,7 +11,8 @@ y <- cbind(y_l, y_r)
 x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
 fit_s <- survreg(Surv(futime, fustat) ~ ecog.ps + rx, data = ovarian, dist = "gaussian")
-fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, scale = fit_s$scale)
+# fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, scale = fit_s$scale)
+fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T)
 test_that("iregnet calculates correct coefficients for ovarian data wrt survival", {
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
