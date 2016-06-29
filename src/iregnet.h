@@ -35,10 +35,6 @@ typedef enum {
 IREG_DIST get_ireg_dist (Rcpp::String dist_str);
 
 /* Functions from distributions.cpp */
-void compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
+double compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
                            const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                            const ull n_obs, IREG_DIST dist, double *mu);
-
-double compute_loglik(double *y_l, double *y_r,
-                      double *eta, double scale, IREG_CENSORING *censoring_type,
-                      ull n_obs, IREG_DIST dist);

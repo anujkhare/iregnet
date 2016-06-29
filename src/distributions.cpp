@@ -29,17 +29,6 @@ void (*sreg_gg)(double, double [4], int);
 #define ROOT_2 1.414213562373095
 #define SMALL -200   /* what to use for log(f(x)) if f(x) is zero */
 
-/* Function to calculate the log likelihood of the data
- * Inputs:
- *
- * Outputs: log likelihood
- */
-double compute_loglik(double *y_l, double *y_r,
-                      double *eta, double scale, IREG_CENSORING *censoring_type,
-                      ull n_obs, IREG_DIST dist)
-{
-  return -1;
-}
 
 // [[Rcpp::export]]
 Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVector y_r,
@@ -84,7 +73,7 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
 // TODO: if densities are close to 0! (survival)
-void compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
+double compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
                            const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                            const ull n_obs, const IREG_DIST dist, double *mu)
 {
@@ -93,7 +82,7 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
   double densities_r[4];      // F, 1-F, f, f', for the right observation y_r
   //double mu_i;                // grad of LL wrt eta; mu_i = del g / del eta_i
   double scale_2 = scale * scale, temp;
-  double dg, ddg, response;
+  double loglik, dg, ddg, response;
   double dsig, ddsig, dsg, sz;
 
   switch(dist) {
@@ -102,7 +91,7 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
   }
 
-  dsig = ddsig = dsg = 0;
+  loglik = dsig = ddsig = dsg = 0;
   /* We are skipping pointer checks to save computation time, assume valid ptrs are given */
   for (ull i = 0; i < n_obs; ++i) {
 
@@ -117,6 +106,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
           **  derivatives to gaussian limits (almost any deriv will
           **  do, since the function value triggers step-halving).
           */
+					loglik += SMALL;
+
           dg = -normalized_y[0] / scale;
           ddg = -1 / scale;
           response = y_l[i];
@@ -124,6 +115,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
           dsg = 0;
 
         } else {
+					loglik += log(densities_l[1]) - log(scale);
+
           temp = (densities_l[3]) / scale_2;
           dg = -(densities_l[2]) / scale; // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg =  temp - dg * dg;
@@ -149,6 +142,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
 
         if (temp <= 0) {
           // off the probability scale -- avoid log(0)
+					loglik += SMALL;
+
           dg = 1;
           ddg = 0;
           response = SMALL;
@@ -156,6 +151,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
           dsg = 0;
 
         } else {
+					loglik += log(temp);
+
           dg = -(densities_r[2] - densities_l[2]) / (temp * scale); // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg = (densities_r[3] - densities_l[3]) / (temp * scale_2) - dg * dg;
           response = eta[i] - dg / ddg;
@@ -176,6 +173,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
         if (densities_r[0] <= 0) {
+					loglik += SMALL;
+
           dg = -normalized_y[1] / scale;
           ddg = 0;
           response = SMALL;
@@ -183,6 +182,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
           dsg = 0;
 
         } else {
+					loglik += log(densities_r[0]);
+
           temp = densities_r[3] / densities_r[0] / scale_2;
           dg = -densities_r[2] / densities_r[0] / scale;
           ddg = temp - dg * dg;
@@ -200,6 +201,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
+					loglik += SMALL;
+
           dg = normalized_y[0]/ scale;
           ddg = 0;
           response = SMALL;
@@ -207,6 +210,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
           dsg = 0;
 
         } else {
+					loglik += log(densities_l[1]);
+
           temp = -densities_l[3] / densities_l[1] / scale_2;
           dg = densities_l[2] / densities_l[1] / scale; // dg = -(1/sigma) * (f'(z) / f(z))
           ddg = temp - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
@@ -236,6 +241,8 @@ void compute_grad_response(double *w, double *z, double *scale_update, const dou
 
   // std::cout << " dsig:" << dsig << "  ddsig" << ddsig << "\n";
   *scale_update = -dsig / ddsig;
+
+	return loglik;
 }
 
 static void logistic_d (double z, double ans[4], int j)
