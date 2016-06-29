@@ -2,16 +2,23 @@
 
 #define BIG 1e35
 
-static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type);
-static inline double soft_threshold(double x, double lambda);
-static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y,
-                            double &std_y, bool intercept);
+static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy);
+static inline double soft_threshold (double x, double lambda);
+static void standardize_x (Rcpp::NumericMatrix X,
+                           double *mean_x, double *std_x,
+                           bool intercept);
+static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST dist);
+static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs);
 
 double identity (double y)
 {
   return y;
 }
+
+/*
+ * TODO: Better initial value for mean using glim trick.. Look at survival!
+ * TODO: As a result (?) you should have a good value for the lambda path
+ */
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
@@ -31,20 +38,12 @@ double identity (double y)
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    bool intercept,
-                   double scale,     // bool estimate_scale = false,    // TODO: SCALE??
-                   bool standardize = false,
+                   double scale,      bool estimate_scale = true,
+                   bool flag_standardize_x = false,
                    double max_iter = 1000,  double threshold = 1e-4,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
-  bool estimate_scale = 0;
-  if (scale == Rcpp::NA) {
-    estimate_scale = 1;
-    // TODO: NEED INITIAL VALUE OF SCALE NOW!
-    scale = 1;
-  }
-
-
   /* Initialise some helper variables */
   ull n_obs, n_vars, n_cols_x, n_cols_y, n_params;
   IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
@@ -91,7 +90,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       transform_y = log;
       transformed_dist = IREG_DIST_EXTREME_VALUE;
       scale = 1;
-      estimate_scale = 0;
+      estimate_scale = false;
       break;
   }
 
@@ -110,8 +109,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * we have scaled y and x, so you need to scale the obtained lambda values,
    * and coef (beta) values back to the original scale before returning them.
    */
-  if (standardize) {
-    standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, intercept);      // FIXME: so that values are always estimated as for intercepts
+  if (flag_standardize_x) {
+    standardize_x(X, mean_x, std_x, intercept);      // FIXME: so that values are always estimated as for intercepts
     // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
     // std::cout << "y\n" << y << "\nx\n" << X;
     // std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
@@ -129,12 +128,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericVector out_loglik(num_lambda + 1);
   //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
 
-  double *beta  = REAL(out_beta);                           // Initially points to the first solution
+  double *beta;                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
-  double scale_update = 0, log_scale = log(scale);
-
+  double loglik = 0, scale_update = 0, log_scale;
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
   double *eta = new double [n_obs];   // vector of linear predictors = X' beta
@@ -144,10 +142,24 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *w  = new double [n_obs];    // diagonal of the hessian of LL wrt eta
                                       // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
+	double *mu = new double [n_obs];
+	double *yy = new double [n_obs];		// the values for y's
 
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
-  IREG_CENSORING censoring_type[n_obs];
-  get_censoring_types(y, censoring_type); // NANs denote censored observations in y
+  IREG_CENSORING status[n_obs];
+  get_censoring_types(y, status, yy); // NANs denote censored observations in y
+
+	/* SCALE RULES:
+	 * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
+	 *
+	 * If you provide no scale, a starting value will be calculated
+	 * If you provide a scale, it will be used as the initial value
+	 */
+  if (scale == Rcpp::NA) {
+    scale = get_init_var(yy, status, n_obs, transformed_dist);
+		scale = 2 * sqrt(scale);		// use 2 * sqrt(var) as in survival
+	}
+	log_scale = log(scale);
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -155,6 +167,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    */
 
   // set beta = 0 and eta = 0
+	beta = REAL(out_beta);
   for (ull i = 0; i < n_params; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
@@ -179,7 +192,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // Calculate w and z right here!
   compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
-                        censoring_type, n_obs, transformed_dist, NULL);
+                        status, n_obs, transformed_dist, mu);
 
   // Calculate lambda_max
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
@@ -197,8 +210,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
   }
 
+	// beta[0] = get_init_intercept(mu, w, yy, n_obs); // set initial value of intercept using glim trick (survival)
+	// std::cout << beta[0] << " <<--------- beta[0]\n";
+
   // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
 
+	/******************************************************************************************/
   /* Iterate over grid of lambda values */
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
 
@@ -256,15 +273,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }   // end for: beta_k solution
 
       if (estimate_scale) {
-        //std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+        // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
         log_scale += scale_update; scale = exp(log_scale);
 
-        if (scale_update > threshold) {		// TODO: Maybe should be different for sigma?
+          compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                                status, n_obs, transformed_dist, NULL);
+        if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
           flag_beta_converged = 0;
           // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-          compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                                censoring_type, n_obs, transformed_dist, NULL);
         }
+				old_scale = scale;
       }
 
       n_iters[m]++;
@@ -273,14 +291,14 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* beta and eta will already contain their updated values since we calculate them in place */
     // calculate w and z again (beta & hence eta would have changed)
     out_loglik[m] = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-																					censoring_type, n_obs, transformed_dist, NULL);
+                          status, n_obs, transformed_dist, NULL);
 
     out_scale[m] = scale;
 
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
-  if (standardize) {
+  if (flag_standardize_x) {
     for (ull m = 0; m < num_lambda; ++m) {
 
       for (ull i = int(intercept); i < n_vars; ++i) {	// no standardization for intercept
@@ -305,25 +323,31 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             );
 }
 
-static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *censoring_type)
+static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy)
 {
   for (ull i = 0; i < y.nrow(); ++i) {
-    // std::cout << y(i, 0) << " " << y(i, 1) << "\n";
     if (y(i, 0) == Rcpp::NA) {
 
       if (y(i, 1) == Rcpp::NA)
-        censoring_type[i] = IREG_CENSOR_INVALID;    // invalid data
-      else
-        censoring_type[i] = IREG_CENSOR_LEFT;       // left censoring
+        status[i] = IREG_CENSOR_INVALID;    // invalid data
+      else {
+        status[i] = IREG_CENSOR_LEFT;       // left censoring
+				yy[i] = y(i, 1);
+			}
 
     } else {
-      if (y(i, 1) == Rcpp::NA)                      // right censoring
-        censoring_type[i] = IREG_CENSOR_RIGHT;
+      if (y(i, 1) == Rcpp::NA) {                      // right censoring
+        status[i] = IREG_CENSOR_RIGHT;
+				yy[i] = y(i, 0);
+			}
 
-      else if (y(i, 0) == y(i, 1))
-          censoring_type[i] = IREG_CENSOR_NONE;     // no censoring
-        else
-          censoring_type[i] = IREG_CENSOR_INTERVAL; // interval censoring
+      else if (y(i, 0) == y(i, 1)) {
+        status[i] = IREG_CENSOR_NONE;     // no censoring
+				yy[i] = y(i, 1);
+			} else {
+        status[i] = IREG_CENSOR_INTERVAL; // interval censoring
+				yy[i] = (y(i, 1) + y(i, 0)) / 2;
+			}
     }
   } // end for
 }
@@ -347,18 +371,17 @@ IREG_DIST get_ireg_dist (Rcpp::String dist_str)
   return IREG_DIST_UNKNOWN;
 }
 
-static inline double soft_threshold(double x, double lambda)
+static inline double soft_threshold (double x, double lambda)
 {
   double temp = fabs(x) - lambda;
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
 }
 
-static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
-                            double *mean_x, double *std_x, double &mean_y,
-                            double &std_y, bool intercept)
+static void standardize_x (Rcpp::NumericMatrix X,
+                           double *mean_x, double *std_x,
+                           bool intercept)
 {
   double temp;
-  ull count_y = 0, n_rows_y = y.size() / 2;
 
   for (ull i = int(intercept); i < X.ncol(); ++i) {	// don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
@@ -381,4 +404,47 @@ static void standardize_x_y(Rcpp::NumericMatrix X, Rcpp::NumericVector y,
       X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
     }
   }
+}
+
+static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST dist)
+{
+	double mean = 0, var = 0;
+
+	for (int i = 0; i < n; ++i) {
+		mean += yy[i];
+	}
+	mean = mean / n;
+
+	for (int i = 0; i < n; ++i) {
+		var += pow((yy[i] - mean), 2);
+	}
+	var = var / n;
+
+	switch (dist) {
+		case IREG_DIST_EXTREME_VALUE :
+			mean = mean + 0.572;
+			var = var / 1.64;
+		break;
+
+    case IREG_DIST_LOGISTIC:
+			var = var / 3.2;
+		break;
+
+		default:
+		break;
+	}
+
+	return var;
+}
+
+static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs)
+{
+	double intercept = 0;
+
+	for (ull i = 0; i < n_obs; ++i) {
+		intercept += (mu[i] - w[i] * yy[i]);
+	}
+	intercept /= n_obs;
+
+	return intercept;
 }

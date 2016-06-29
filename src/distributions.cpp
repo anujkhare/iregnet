@@ -28,6 +28,7 @@ void (*sreg_gg)(double, double [4], int);
 #define SPI 2.506628274631001     /* sqrt(2*pi) */
 #define ROOT_2 1.414213562373095
 #define SMALL -200   /* what to use for log(f(x)) if f(x) is zero */
+#define BIG_SIGMA_UPDATE 8 /* what to use for (log) scale_update if it should be very very large */
 
 
 // [[Rcpp::export]]
@@ -209,6 +210,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           //dsig = ddsig = dsg = 0;
           dsg = 0;
 
+
         } else {
 					loglik += log(densities_l[1]);
 
@@ -240,9 +242,11 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
   } // end for: n_obs
 
   // std::cout << " dsig:" << dsig << "  ddsig" << ddsig << "\n";
-  *scale_update = -dsig / ddsig;
-
-	return loglik;
+	// std::cout << "This happened\n";
+	if (ddsig != 0)
+		*scale_update = -dsig / ddsig;
+	else
+		*scale_update = BIG_SIGMA_UPDATE;
 }
 
 static void logistic_d (double z, double ans[4], int j)

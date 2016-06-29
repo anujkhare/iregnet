@@ -49,9 +49,9 @@ iregnet <- function(x, y,
   # fit_cpp(cbind(rep(1, length(y)), x), y, family, alpha, intercept, standardize, scale=scale);
   if (intercept) {
     fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, intercept=TRUE, scale=scale,
-            standardize = standardize);
+            flag_standardize_x = standardize);
   } else {
     fit_cpp(x, y, family, alpha, intercept=FALSE, scale=scale,
-            standardize = standardize);
+            flag_standardize_x = standardize);
   }
 }

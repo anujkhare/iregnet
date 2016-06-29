@@ -35,8 +35,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fit_cpp
-Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, double alpha, bool intercept, double scale, bool standardize, double max_iter, double threshold, int num_lambda, double eps_lambda, int flag_debug);
-RcppExport SEXP iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP alphaSEXP, SEXP interceptSEXP, SEXP scaleSEXP, SEXP standardizeSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP, SEXP flag_debugSEXP) {
+Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, double alpha, bool intercept, double scale, bool estimate_scale, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda, int flag_debug);
+RcppExport SEXP iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP alphaSEXP, SEXP interceptSEXP, SEXP scaleSEXP, SEXP estimate_scaleSEXP, SEXP flag_standardize_xSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP, SEXP flag_debugSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -46,13 +46,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< bool >::type intercept(interceptSEXP);
     Rcpp::traits::input_parameter< double >::type scale(scaleSEXP);
-    Rcpp::traits::input_parameter< bool >::type standardize(standardizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type estimate_scale(estimate_scaleSEXP);
+    Rcpp::traits::input_parameter< bool >::type flag_standardize_x(flag_standardize_xSEXP);
     Rcpp::traits::input_parameter< double >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< double >::type threshold(thresholdSEXP);
     Rcpp::traits::input_parameter< int >::type num_lambda(num_lambdaSEXP);
     Rcpp::traits::input_parameter< double >::type eps_lambda(eps_lambdaSEXP);
     Rcpp::traits::input_parameter< int >::type flag_debug(flag_debugSEXP);
-    __result = Rcpp::wrap(fit_cpp(X, y, family, alpha, intercept, scale, standardize, max_iter, threshold, num_lambda, eps_lambda, flag_debug));
+    __result = Rcpp::wrap(fit_cpp(X, y, family, alpha, intercept, scale, estimate_scale, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, flag_debug));
     return __result;
 END_RCPP
 }
