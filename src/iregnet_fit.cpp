@@ -126,13 +126,14 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::IntegerVector out_n_iters(num_lambda + 1);
   Rcpp::NumericVector out_lambda(num_lambda + 1);
   Rcpp::NumericVector out_scale(num_lambda + 1);
+  Rcpp::NumericVector out_loglik(num_lambda + 1);
   //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
 
   double *beta  = REAL(out_beta);                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
-  double loglik = 0, scale_update = 0, log_scale = log(scale);
+  double scale_update = 0, log_scale = log(scale);
 
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
@@ -271,16 +272,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
     /* beta and eta will already contain their updated values since we calculate them in place */
     // calculate w and z again (beta & hence eta would have changed)
-    compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                          censoring_type, n_obs, transformed_dist, NULL);
+    out_loglik[m] = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+																					censoring_type, n_obs, transformed_dist, NULL);
 
     out_scale[m] = scale;
 
   } // end for: lambda
-
-  /* Compute the final log likelihood */
-  loglik = compute_loglik(REAL(y), REAL(y) + n_obs, eta, scale,
-                          censoring_type, n_obs, transformed_dist);
 
   /* Scale the coefs back to the original scale */
   if (standardize) {
@@ -301,7 +298,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             Rcpp::Named("lambda")       = out_lambda,
                             Rcpp::Named("num_lambda")   = num_lambda,
                             Rcpp::Named("n_iters")      = out_n_iters,
-                            Rcpp::Named("loglik")       = loglik,
+                            Rcpp::Named("loglik")       = out_loglik,
                             Rcpp::Named("scale")        = out_scale,
                             Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("error_status") = 0
