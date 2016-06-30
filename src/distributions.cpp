@@ -28,7 +28,7 @@ void (*sreg_gg)(double, double [4], int);
 #define SPI 2.506628274631001     /* sqrt(2*pi) */
 #define ROOT_2 1.414213562373095
 #define SMALL -200   /* what to use for log(f(x)) if f(x) is zero */
-#define BIG_SIGMA_UPDATE 8 /* what to use for (log) scale_update if it should be very very large */
+#define BIG_SIGMA_UPDATE 1 /* what to use for (log) scale_update if it should be very very large */
 
 
 // [[Rcpp::export]]

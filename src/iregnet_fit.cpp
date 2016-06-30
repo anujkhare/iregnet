@@ -157,9 +157,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	 */
   if (scale == Rcpp::NA) {
     scale = get_init_var(yy, status, n_obs, transformed_dist);
+		// scale = sqrt(scale);		// use 2 * sqrt(var) as in survival
 		scale = 2 * sqrt(scale);		// use 2 * sqrt(var) as in survival
+		// TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
 	}
 	log_scale = log(scale);
+	std::cout<< "Init scale value is : " << scale << " logscale: " << log_scale << "\n";
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -401,7 +404,7 @@ static void standardize_x (Rcpp::NumericMatrix X,
     for (ull j = 0; j < X.nrow(); ++j) {
       temp = std_x[i];
       //temp = (std_x[i] * sqrt(X.nrow()));
-      X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
+      // X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
     }
   }
 }
