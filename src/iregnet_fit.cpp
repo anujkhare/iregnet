@@ -9,7 +9,9 @@ static void standardize_x (Rcpp::NumericMatrix X,
                            bool intercept);
 static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST dist);
 static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs);
-
+static inline void fit_scale_intercept(double *w, double *z, double &scale_update, Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, ull &n_obs, double *eta,
+																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
+																			 double &max_iter, double &log_scale, bool &intercept);
 double identity (double y)
 {
   return y;
@@ -37,7 +39,7 @@ double identity (double y)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
-                   bool intercept,
+                   Rcpp::NumericVector lambda_path, bool intercept,
                    double scale,      bool estimate_scale = true,
                    bool flag_standardize_x = false,
                    double max_iter = 1000,  double threshold = 1e-4,
@@ -120,13 +122,22 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
   /* Create output variables */
-  // Rcpp::NumericVector out_beta(n_params);
+	if (lambda_path.size() > 0) {
+		num_lambda = lambda_path.size();
+		// std::cout<<"Using given values of lambda\n";
+	}
   Rcpp::NumericMatrix out_beta(n_params, num_lambda + 1);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda + 1);
   Rcpp::NumericVector out_lambda(num_lambda + 1);
   Rcpp::NumericVector out_scale(num_lambda + 1);
   Rcpp::NumericVector out_loglik(num_lambda + 1);
-  //Rcpp::NumericVector out_intercept(num_lambda, 0.0);         // may contain non-zero values only if intercept==T
+
+	/* use given values for the lambda path */
+	if (lambda_path.size() > 0) {
+		for(ull i = 0; i < num_lambda; ++i)
+			out_lambda[i] = lambda_path[i];
+		out_lambda[num_lambda] = 0;
+	}
 
   double *beta;                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
@@ -145,6 +156,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	double *mu = new double [n_obs];
 	double *yy = new double [n_obs];		// the values for y's
 
+	double scale_init = 0;
+
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
   IREG_CENSORING status[n_obs];
   get_censoring_types(y, status, yy); // NANs denote censored observations in y
@@ -162,7 +175,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 		// TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
 	}
 	log_scale = log(scale);
-	std::cout<< "Init scale value is : " << scale << " logscale: " << log_scale << "\n";
+	// std::cout<< "Init scale value is : " << scale << " logscale: " << log_scale << "\n";
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -183,15 +196,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 
   /* ************************************************************************************ */
-  bool flag_beta_converged = 0;
-  double w_x_z, w_x_eta, sol_num, sol_denom;
-  double beta_new;
-  double old_scale;
-	double n_iters_init = 0;
-  
-	/* TODO: Fit only intercept and scale
-	 * except when scale doesn't need to be estimated, or initial value already given
+	/***** fit0: Fit only intercept and scale **************************************************************************/
+	/* 	 * except when scale doesn't need to be estimated, or initial value already given
+	 * TODO: Mean-only should only fit scale? TODO: What if we have no intercept -> fit only scale.?
 	 */
+	if (estimate_scale && intercept) {
+		fit_scale_intercept(w, z, scale_update, X, y, n_obs, eta, scale, status, transformed_dist, mu, beta, threshold, max_iter, log_scale, intercept);
+	}
+	scale_init = scale;
+
+	/***** END fit0 ************************************************************************************************/
 
   // Calculate w and z right here!
   compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
@@ -199,19 +213,20 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // Calculate lambda_max
   // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
-  lambda_seq[0] = -BIG;
-  for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
-    double temp = 0;
-    double tt = 0;
+	if (lambda_path.size() == 0) {
+  	lambda_seq[0] = -BIG;
+  	for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
+  	  double temp = 0;
 
-    for (ull i = 0; i < n_obs; ++i) {
-      temp += (w[i] * X(i, j) * z[i]);
-
-      tt += (X(i,j) * y[i]);
-    }
-    temp = fabs(temp) / (n_obs * alpha);
-    lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
-  }
+  	  for (ull i = 0; i < n_obs; ++i) {
+  	    temp += (w[i] * X(i, j) * z[i]);
+  	  }
+  	  //temp = fabs(temp) / (n_obs * alpha);
+			temp = fabs(temp);
+  	  lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
+  	}
+		lambda_seq[0] /= (n_obs * alpha);
+	}
 
 	// beta[0] = get_init_intercept(mu, w, yy, n_obs); // set initial value of intercept using glim trick (survival)
 	// std::cout << beta[0] << " <<--------- beta[0]\n";
@@ -221,12 +236,22 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	/******************************************************************************************/
   /* Iterate over grid of lambda values */
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  bool flag_beta_converged = 0;
+  double sol_num, sol_denom;
+  double beta_new;
+  double old_scale;
+	double INDEX = 2000;
 
+  // for (int m = 0; m < 2; ++m) {
   for (int m = 0; m < num_lambda + 1; ++m) {
-    if (m == num_lambda)
-      lambda_seq[m] = 0;    // last solution should be unregularized
-    else if (m != 0)
-      lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+		// TODO: Fix lambda_max and verify that rest of values are correct
+		// TODO: The eps_ratio depends on some conditions, code them
+		if (lambda_path.size() == 0) {
+    	if (m == num_lambda)
+    	  lambda_seq[m] = 0;    // last solution should be unregularized
+    	else if (m != 0)
+    	  lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+		}
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
@@ -242,25 +267,41 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
+			if (m == INDEX) {
+				 for (int i=0; i<n_obs; ++i) {
+				 	std::cout << "w: " << w[i] << " , z: " << z[i] << "\n";
+				 }
+				 Rcpp::NumericVector aa = out_beta(Rcpp::_, m);
+				 std::cout << "lambda: " << lambda_seq[m] << "\n";
+				 std::cout << "out_beta starting: " << aa << "\n";
+			}
+
       flag_beta_converged = 1;              // = 1 if beta converges
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_params; ++k) {
-
-        sol_num = sol_denom = 0;          // TODO: You should optimize this so that we don't calculate the whole thing everytime
+        sol_num = sol_denom = 0;
         for (ull i = 0; i < n_obs; ++i) {
+				  // if (k != 0)
+					// 	eta[i] = eta[i] - X(i, k) * beta[0];
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
+					if (m == INDEX)
+						std::cout << eta[i] << ", ";
         }
+				if (m == INDEX)
+					std::cout << "\n";
 
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
-          beta_new = sol_num / sol_denom;   // TODO: Check
+          beta_new = sol_num / sol_denom;
 
         } else {
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                         (sol_denom + lambda_seq[m] * (1 - alpha));
+					if (m == INDEX)
+						std::cout << "sols: " << sol_num << " " << sol_denom << " " << beta_new << "\n \n";
 
         }
         // if any beta_k has not converged, we will come back for another cycle.
@@ -271,6 +312,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
+				  // if (k != 0)
+					// 	eta[i] = eta[i] + X(i, k) * beta[0];
         }
 
       }   // end for: beta_k solution
@@ -279,16 +322,20 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
         log_scale += scale_update; scale = exp(log_scale);
 
-          compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                                status, n_obs, transformed_dist, NULL);
         if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
           flag_beta_converged = 0;
           // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
         }
 				old_scale = scale;
       }
+      compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                            status, n_obs, transformed_dist, NULL);
 
       n_iters[m]++;
+			if (m == INDEX) {
+				 Rcpp::NumericVector aa = out_beta(Rcpp::_, m);
+				 std::cout << "out_beta ending: " << aa << "\n";
+			}
     } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
@@ -322,6 +369,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             Rcpp::Named("loglik")       = out_loglik,
                             Rcpp::Named("scale")        = out_scale,
                             Rcpp::Named("estimate_scale") = estimate_scale,
+                            Rcpp::Named("scale_init")   = scale_init,
                             Rcpp::Named("error_status") = 0
                             );
 }
@@ -450,4 +498,68 @@ static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs)
 	intercept /= n_obs;
 
 	return intercept;
+}
+
+static inline void fit_scale_intercept(double *w, double *z, double &scale_update, Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, ull &n_obs, double *eta,
+																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
+																			 double &max_iter, double &log_scale, bool &intercept)
+{
+			double n_iters_fit0 = 0;
+  		bool flag_beta_converged = 0;
+  		double sol_num, sol_denom;
+  		double beta_new;
+  		double old_scale;
+
+  		compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
+  		                      status, n_obs, transformed_dist, mu);
+
+			old_scale = scale;
+
+    	/* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
+    	n_iters_fit0 = 0;
+    	do {                                  // until Convergence of beta
+    	  flag_beta_converged = 1;              // = 1 if beta converges
+
+    	  /* iterate over beta elementwise and update using soft thresholding solution */
+    	  //for (ull k = 0; k < n_params; ++k) {
+				ull k = 0;		// only fit the intercept
+
+    	    sol_num = sol_denom = 0;          // TODO: You should optimize this so that we don't calculate the whole thing everytime
+    	    for (ull i = 0; i < n_obs; ++i) {
+    	      eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
+    	      sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
+    	      sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
+    	    }
+
+    	    /* The intercept should not be regularized, and hence is calculated directly */
+    	    if (intercept && k == 0)
+    	      beta_new = sol_num / sol_denom;
+
+    	    // if any beta_k has not converged, we will come back for another cycle.
+    	    if (fabs(beta_new - beta[k]) > threshold)
+    	      flag_beta_converged = 0;
+
+    	    beta[k] = beta_new;
+
+    	    for (ull i = 0; i < n_obs; ++i) {
+    	      eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
+    	    }
+
+    	  // }   // end for: beta_k solution
+
+    	  //if (estimate_scale) {
+    	    log_scale += scale_update; scale = exp(log_scale);
+
+    	      compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+    	                            status, n_obs, transformed_dist, NULL);
+    	    if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
+    	      flag_beta_converged = 0;
+    	      // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
+    	    }
+					old_scale = scale;
+    	  //}
+
+    	  n_iters_fit0++;
+    	} while ((n_iters_fit0 < max_iter) && (flag_beta_converged != 1));
+    // std::cout << "fit0: log scale: " << log_scale << ", scale: " << scale << " beta[0] " << beta[0]  << " n_iters " << n_iters_fit0 << "\n";
 }
