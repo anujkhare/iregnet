@@ -120,18 +120,15 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 
 	fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
 	fit_i <- iregnet(X, cbind(y, y), "gaussian", alpha = 1, intercept = T)
+
 	lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
 	# lambda_path <- fit_i$lambda * (fit_i$scale_init ** 2)
+	# lambda_path <- fit_i$lambda
 	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=FALSE)
-	# fit_g <- glmnet(X, y, "gaussian", standardize=FALSE)
-	# print(lambda_path)
+	# print (fit_i)
 	# print(fit_g)
 	# print(coef(fit_g))
 	# print (fit_s)
-	# print (fit_i$lambda * fit_i$scale_init ** 2)
-	# print (coef(fit_g))
-	# a <- abs(as.double(fit_i$beta) - as.double(coef(fit_g))) > 1e-3
-	# print(fit_i$beta[a])
 	expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
 # test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
