@@ -40,7 +40,7 @@ double identity (double y)
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   double alpha,
                    Rcpp::NumericVector lambda_path, bool intercept,
-                   double scale,      bool estimate_scale = true,
+                   double scale_init,      bool estimate_scale,
                    bool flag_standardize_x = false,
                    double max_iter = 1000,  double threshold = 1e-4,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
@@ -52,6 +52,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                           // transformed_dist will be the dist of transformed output variables.
 																					// Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
   double (*transform_y) (double y);
+	double scale;
 
   n_obs  = X.nrow();
   n_cols_x = X.ncol();
@@ -156,7 +157,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	double *mu = new double [n_obs];
 	double *yy = new double [n_obs];		// the values for y's
 
-	double scale_init = 0;
 
   /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
   IREG_CENSORING status[n_obs];
@@ -168,11 +168,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	 * If you provide no scale, a starting value will be calculated
 	 * If you provide a scale, it will be used as the initial value
 	 */
-  if (scale == Rcpp::NA) {
+  if (scale_init == Rcpp::NA) {
     scale = get_init_var(yy, status, n_obs, transformed_dist);
 		// scale = sqrt(scale);		// use 2 * sqrt(var) as in survival
 		scale = 2 * sqrt(scale);		// use 2 * sqrt(var) as in survival
 		// TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
+	} else {
+		scale = scale_init;
 	}
 	log_scale = log(scale);
 	// std::cout<< "Init scale value is : " << scale << " logscale: " << log_scale << "\n";
@@ -199,8 +201,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	/***** fit0: Fit only intercept and scale **************************************************************************/
 	/* 	 * except when scale doesn't need to be estimated, or initial value already given
 	 * TODO: Mean-only should only fit scale? TODO: What if we have no intercept -> fit only scale.?
+	 * We do the initial fit for scale only if an initial value is not already given.
 	 */
-	if (estimate_scale && intercept) {
+	if (estimate_scale && intercept && scale_init == Rcpp::NA) {
 		fit_scale_intercept(w, z, scale_update, X, y, n_obs, eta, scale, status, transformed_dist, mu, beta, threshold, max_iter, log_scale, intercept);
 	}
 	scale_init = scale;
@@ -244,7 +247,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // for (int m = 0; m < 2; ++m) {
   for (int m = 0; m < num_lambda + 1; ++m) {
-		// TODO: Fix lambda_max and verify that rest of values are correct
 		// TODO: The eps_ratio depends on some conditions, code them
 		if (lambda_path.size() == 0) {
     	if (m == num_lambda)
@@ -262,8 +264,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 			beta = beta + n_params;   // go to the next column
 		}
 
-		old_scale = scale;
-
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
@@ -277,13 +277,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 			}
 
       flag_beta_converged = 1;              // = 1 if beta converges
+			old_scale = scale;
+
+      // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
+      compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+                            status, n_obs, transformed_dist, NULL);
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_params; ++k) {
         sol_num = sol_denom = 0;
         for (ull i = 0; i < n_obs; ++i) {
-				  // if (k != 0)
-					// 	eta[i] = eta[i] - X(i, k) * beta[0];
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
@@ -300,8 +303,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         } else {
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                         (sol_denom + lambda_seq[m] * (1 - alpha));
-					if (m == INDEX)
-						std::cout << "sols: " << sol_num << " " << sol_denom << " " << beta_new << "\n \n";
+					// if (m == 0)
+					// 	std::cout << "sols: " << sol_num << " " << sol_denom << " " << beta_new << "\n \n";
 
         }
         // if any beta_k has not converged, we will come back for another cycle.
@@ -312,38 +315,40 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-				  // if (k != 0)
-					// 	eta[i] = eta[i] + X(i, k) * beta[0];
         }
 
       }   // end for: beta_k solution
 
       if (estimate_scale) {
-        // std::cout << "log scale: " << log_scale << ", scale: " << scale << " update " << scale_update << "\n";
+
         log_scale += scale_update; scale = exp(log_scale);
+				// if (m < 5)
+        // std::cout << "log scale: " << log_scale << ",\tscale: " << scale << "\tlog_update " << scale_update << ",\t" << scale-old_scale <<  "\n";
 
         if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
+        //if (fabs(scale - old_scale) > 1e-3) {		// TODO: Maybe should be different for sigma?
           flag_beta_converged = 0;
-          // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
         }
 				old_scale = scale;
       }
-      compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL);
+
+      // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
+      // compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+      //                       status, n_obs, transformed_dist, NULL);
 
       n_iters[m]++;
 			if (m == INDEX) {
 				 Rcpp::NumericVector aa = out_beta(Rcpp::_, m);
 				 std::cout << "out_beta ending: " << aa << "\n";
 			}
-    } while ((n_iters[m] < max_iter) && (flag_beta_converged != 1));
+    } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
-    // calculate w and z again (beta & hence eta would have changed)
-    out_loglik[m] = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                          status, n_obs, transformed_dist, NULL);
+    // out_loglik[m] = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+    //                       								status, n_obs, transformed_dist, NULL);
 
     out_scale[m] = scale;
+		// std::cout<<"\n\n\n" << m+1 << "\n";
 
   } // end for: lambda
 
@@ -561,5 +566,5 @@ static inline void fit_scale_intercept(double *w, double *z, double &scale_updat
 
     	  n_iters_fit0++;
     	} while ((n_iters_fit0 < max_iter) && (flag_beta_converged != 1));
-    // std::cout << "fit0: log scale: " << log_scale << ", scale: " << scale << " beta[0] " << beta[0]  << " n_iters " << n_iters_fit0 << "\n";
+     // std::cout << "fit0: log scale: " << log_scale << ", scale: " << scale << " beta[0] " << beta[0]  << " n_iters " << n_iters_fit0 << "\n";
 }

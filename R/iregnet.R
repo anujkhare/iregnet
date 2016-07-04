@@ -7,7 +7,7 @@
 # TODO: checks like - can't provide scale with exp
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme value", "exponential"), alpha=1,
-                    lambda=double(0), flag_debug=0, intercept=T, standardize=F, scale=NA, maxiter=1000, threshold=1e-4) {
+                    lambda=double(0), flag_debug=0, intercept=T, standardize=F, scale_init=NA, estimate_scale=T, maxiter=1000, threshold=1e-4) {
 
   # Parameter validation ===============================================
   # alpha should be between 0 and 1
@@ -21,9 +21,11 @@ iregnet <- function(x, y,
   }
   alpha <- as.double(alpha);
 
+	if (estimate_scale == F && is.na(scale_init))
+		stop("Value of scale required if scale is not estimated")
+
   # family should be one of ""
   family <- match.arg(family)
-  # print(family)
 
   # x should be a matrix with atleast two columns (TODO: why glmnet requires 2 or more cols?)
     # TODO: NAs in x? should be numeric
@@ -45,13 +47,11 @@ iregnet <- function(x, y,
     stop("number of rows in x and y don't match");
 
   # Call the actual fit method
-  #fit_cpp(x, y, family, alpha, intercept, standardize, scale=scale);
-  # fit_cpp(cbind(rep(1, length(y)), x), y, family, alpha, intercept, standardize, scale=scale);
   if (intercept) {
-    fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, lambda_path=lambda, intercept=TRUE, scale=scale, max_iter=maxiter,
-            flag_standardize_x = standardize, threshold=threshold);
+    fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, lambda_path=lambda, intercept=TRUE, scale_init=scale_init, max_iter=maxiter,
+            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale);
   } else {
-    fit_cpp(x, y, family, alpha, lambda_path=lambda, intercept=FALSE, scale=scale, max_iter=maxiter,
-            flag_standardize_x = standardize, threshold=threshold);
+    fit_cpp(x, y, family, alpha, lambda_path=lambda, intercept=FALSE, scale_init=scale_init, max_iter=maxiter,
+            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale);
   }
 }
