@@ -17,11 +17,6 @@ double identity (double y)
   return y;
 }
 
-/*
- * TODO: Better initial value for mean using glim trick.. Look at survival!
- * TODO: As a result (?) you should have a good value for the lambda path
- */
-
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
  * Inputs:
@@ -43,7 +38,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    double scale_init,     bool estimate_scale,
                    bool unreg_sol,        bool flag_standardize_x,
                    double max_iter,       double threshold,
-                   int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
+                   int num_lambda,        double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
   /* Initialise some helper variables */
@@ -63,10 +58,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   n_params = n_vars; // n_params is the number of parameters
 
   /* TODO: Validate all the arguments again */
-  if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == orig_dist) ||
-      (y.nrow() != n_obs)) {
-    return Rcpp::List::create(Rcpp::Named("error_status") = -1);
-  }
+  // if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == orig_dist) ||
+  //     (y.nrow() != n_obs)) {
+  //   return Rcpp::List::create(Rcpp::Named("error_status") = -1);
+  // }
 
 
   /*
@@ -125,19 +120,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   /* Create output variables */
 	if (lambda_path.size() > 0) {
 		num_lambda = lambda_path.size();
-		// std::cout<<"Using given values of lambda\n";
 	}
-  Rcpp::NumericMatrix out_beta(n_params, num_lambda + 1);       // will contain the entire series of solutions
-  Rcpp::IntegerVector out_n_iters(num_lambda + 1);
-  Rcpp::NumericVector out_lambda(num_lambda + 1);
-  Rcpp::NumericVector out_scale(num_lambda + 1);
-  Rcpp::NumericVector out_loglik(num_lambda + 1);
+  Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
+  Rcpp::IntegerVector out_n_iters(num_lambda);
+  Rcpp::NumericVector out_lambda(num_lambda);
+  Rcpp::NumericVector out_scale(num_lambda);
+  Rcpp::NumericVector out_loglik(num_lambda);
 
 	/* use given values for the lambda path */
 	if (lambda_path.size() > 0) {
 		for(ull i = 0; i < num_lambda; ++i)
 			out_lambda[i] = lambda_path[i];
-		out_lambda[num_lambda] = 0;
 	}
 
   double *beta;                           // Initially points to the first solution
@@ -233,17 +226,17 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
 	/******************************************************************************************/
   /* Iterate over grid of lambda values */
-  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));		// TODO: This should be num_lambda-1-int(unreg_sol)
   bool flag_beta_converged = 0;
   double sol_num, sol_denom;
   double beta_new;
   double old_scale;
 	double lambda_max_unscaled = lambda_seq[0] * scale * scale;
 
-  for (int m = 0; m < num_lambda + 1; ++m) {
+  for (int m = 0; m < num_lambda; ++m) {
 		// TODO: The eps_ratio depends on some conditions, code them
 		if (lambda_path.size() == 0) {
-    	if (m == num_lambda)
+      if (m == num_lambda - 1 && unreg_sol == true)
     	  lambda_seq[m] = 0;    // last solution should be unregularized
       else if (m != 0) {
         // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
@@ -304,7 +297,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        if (m != num_lambda)
+        if (m != num_lambda - 1 || unreg_sol == false)
           lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
 
         // if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
