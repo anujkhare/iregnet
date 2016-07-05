@@ -7,6 +7,6 @@ Maintainer: Anuj Khare <khareanuj18@gmail.com>
 Description: Interval regression with four types of censoring and elastic net regularization
 License: -
 LazyData: TRUE
-Suggests: testthat, survival, glmnet
+Suggests: testthat, survival, glmnet, ElemStatLearn
 LinkingTo: Rcpp
 Imports: Rcpp
