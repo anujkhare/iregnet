@@ -7,7 +7,8 @@
 # TODO: checks like - can't provide scale with exp
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme value", "exponential"), alpha=1,
-                    lambda=double(0), flag_debug=0, intercept=T, standardize=F, scale_init=NA, estimate_scale=T, maxiter=1000, threshold=1e-4) {
+                    lambda=double(0), flag_debug=0, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
+										maxiter=1000, threshold=1e-4, unreg_sol=T) {
 
   # Parameter validation ===============================================
   # alpha should be between 0 and 1
@@ -46,12 +47,11 @@ iregnet <- function(x, y,
   if (dim_y[1] != n_obs)
     stop("number of rows in x and y don't match");
 
+	# Append col of 1's for the intercept
+	if (intercept)
+		x <- cbind(rep(1, n_obs), x)
+
   # Call the actual fit method
-  if (intercept) {
-    fit_cpp(cbind(rep(1, n_obs), x), y, family, alpha, lambda_path=lambda, intercept=TRUE, scale_init=scale_init, max_iter=maxiter,
-            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale);
-  } else {
-    fit_cpp(x, y, family, alpha, lambda_path=lambda, intercept=FALSE, scale_init=scale_init, max_iter=maxiter,
-            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale);
-  }
+  fit_cpp(x, y, family, alpha, lambda_path=lambda, intercept=intercept, scale_init=scale_init, max_iter=maxiter,
+            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale, unreg_sol=unreg_sol);
 }

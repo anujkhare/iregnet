@@ -38,11 +38,11 @@ double identity (double y)
  */
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
-                   Rcpp::String family,   double alpha,
-                   Rcpp::NumericVector lambda_path, bool intercept,
-                   double scale_init,      bool estimate_scale,
-                   bool flag_standardize_x = false,
-                   double max_iter = 1000,  double threshold = 1e-4,
+                   Rcpp::String family,   Rcpp::NumericVector lambda_path,
+                   bool intercept,        double alpha,
+                   double scale_init,     bool estimate_scale,
+                   bool unreg_sol,        bool flag_standardize_x,
+                   double max_iter,       double threshold,
                    int num_lambda = 100,  double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
                    int flag_debug = 0)
 {
@@ -231,11 +231,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 		lambda_seq[0] /= (n_obs * alpha);
 	}
 
-	// beta[0] = get_init_intercept(mu, w, yy, n_obs); // set initial value of intercept using glim trick (survival)
-	// std::cout << beta[0] << " <<--------- beta[0]\n";
-
-  // TODO: you should only set lambda_max = Inf, and let it calc beta = eta = 0 itself.
-
 	/******************************************************************************************/
   /* Iterate over grid of lambda values */
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
@@ -243,16 +238,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double sol_num, sol_denom;
   double beta_new;
   double old_scale;
-	double INDEX = 2000;
+	double lambda_max_unscaled = lambda_seq[0] * scale * scale;
 
-  // for (int m = 0; m < 2; ++m) {
   for (int m = 0; m < num_lambda + 1; ++m) {
 		// TODO: The eps_ratio depends on some conditions, code them
 		if (lambda_path.size() == 0) {
     	if (m == num_lambda)
     	  lambda_seq[m] = 0;    // last solution should be unregularized
-    	else if (m != 0)
-    	  lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+      else if (m != 0) {
+        // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+        // lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale_init / scale_init;
+        lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
+      }
 		}
 
     /* Initialize the solution at this lambda using previous lambda solution */
@@ -267,14 +264,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
-			if (m == INDEX) {
-				 for (int i=0; i<n_obs; ++i) {
-				 	std::cout << "w: " << w[i] << " , z: " << z[i] << "\n";
-				 }
-				 Rcpp::NumericVector aa = out_beta(Rcpp::_, m);
-				 std::cout << "lambda: " << lambda_seq[m] << "\n";
-				 std::cout << "out_beta starting: " << aa << "\n";
-			}
 
       flag_beta_converged = 1;              // = 1 if beta converges
 			old_scale = scale;
@@ -290,11 +279,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
-					if (m == INDEX)
-						std::cout << eta[i] << ", ";
         }
-				if (m == INDEX)
-					std::cout << "\n";
 
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
@@ -303,10 +288,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         } else {
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                         (sol_denom + lambda_seq[m] * (1 - alpha));
-					// if (m == 0)
-					// 	std::cout << "sols: " << sol_num << " " << sol_denom << " " << beta_new << "\n \n";
-
         }
+
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(beta_new - beta[k]) > threshold)
           flag_beta_converged = 0;
@@ -320,27 +303,18 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }   // end for: beta_k solution
 
       if (estimate_scale) {
-
         log_scale += scale_update; scale = exp(log_scale);
-				// if (m < 5)
-        // std::cout << "log scale: " << log_scale << ",\tscale: " << scale << "\tlog_update " << scale_update << ",\t" << scale-old_scale <<  "\n";
+        if (m != num_lambda)
+          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
 
-        if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
-        //if (fabs(scale - old_scale) > 1e-3) {		// TODO: Maybe should be different for sigma?
+        // if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
+        if (fabs(scale - old_scale) > 1e-4) {		// TODO: Maybe should be different for sigma?
           flag_beta_converged = 0;
         }
-				old_scale = scale;
       }
 
-      // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      // compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-      //                       status, n_obs, transformed_dist, NULL);
-
       n_iters[m]++;
-			if (m == INDEX) {
-				 Rcpp::NumericVector aa = out_beta(Rcpp::_, m);
-				 std::cout << "out_beta ending: " << aa << "\n";
-			}
+
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     /* beta and eta will already contain their updated values since we calculate them in place */
@@ -348,7 +322,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     //                       								status, n_obs, transformed_dist, NULL);
 
     out_scale[m] = scale;
-		// std::cout<<"\n\n\n" << m+1 << "\n";
 
   } // end for: lambda
 

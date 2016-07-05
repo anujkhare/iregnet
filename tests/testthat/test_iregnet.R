@@ -35,18 +35,25 @@ get_xy <- function(n_obs, n_vars, type = "right") {
   return (list("x" = x, "y" = y, "surv" = y_surv))
 }
 
-# Right censored data from Survival, get into our format first
-data("ovarian")
-y_l <- y_r <- ovarian$futime
-y_r[ovarian$fustat == 0] <- NA
-y <- cbind(y_l, y_r)
-
-x <- cbind(ovarian$ecog.ps, ovarian$rx)
-
-fit_s <- survreg(Surv(futime, fustat) ~ ecog.ps + rx, data = ovarian, dist = "gaussian")
-# fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, scale = fit_s$scale)
-fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-2)
 test_that("iregnet calculates correct coefficients for ovarian data wrt survival", {
+  data("ovarian")
+  # Right censored data from Survival, get into our format first
+  y_l <- y_r <- ovarian$futime
+  y_r[ovarian$fustat == 0] <- NA
+  y <- cbind(y_l, y_r)
+
+  x <- cbind(ovarian$ecog.ps, ovarian$rx)
+  # # TODO: FAILS WITHOUT STANDARDIZATION
+  # x <- x - matrix(colMeans(x), nrow(x), ncol(x), byrow=TRUE)
+  # sd_x <- apply(x, 2, sd)
+  # sd_x <- diag(1 / sd_x)
+  # x <- x %*% sd_x
+  # print(apply(x, 2, mean))
+  # print(apply(x, 2, sd))
+
+  fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
+  fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-4)
+
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)
 })
@@ -120,12 +127,12 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 	y <- y.scaled
 
 	fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
-	fit_i <- iregnet(X, cbind(y, y), "gaussian", alpha = 1, intercept = T)
+	fit_i <- iregnet(X, cbind(y, y), "gaussian", alpha = 1, intercept = T, maxiter=1e5, thresh=1e-4, scale_init=NA, estimate_scale=T)
 
 	lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
 	# lambda_path <- fit_i$lambda * (fit_i$scale_init ** 2)
 	# lambda_path <- fit_i$lambda
-	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=FALSE)
+	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=FALSE, maxit=1e5, thresh=1e-7)
 	expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
 
@@ -133,7 +140,6 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
-  # n_vars <- 5;
   for (n_vars in 5:10)
   {
     # FIXME: 0 mean and 1 var assumed for BOTH x & y
@@ -143,7 +149,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
     fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T, maxiter=1e5, thresh=1e-4)
 
     lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
-    fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=lambda_path, standardize=FALSE)
+    fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=lambda_path, standardize=FALSE, thresh=1e-7)
 
     expect_equal(as.double(fit_s$coefficients),
                  fit_i$beta[, fit_i$num_lambda + 1], tolerance = 1e-3)

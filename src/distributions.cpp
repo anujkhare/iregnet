@@ -93,7 +93,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
   }
 
-  loglik = dsig = ddsig = dsg = 0;
+  loglik = 0;
   dsig_sum = ddsig_sum = 0;
   /* We are skipping pointer checks to save computation time, assume valid ptrs are given */
   for (ull i = 0; i < n_obs; ++i) {
@@ -115,7 +115,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           ddg = -1 / scale;
           response = y_l[i];
           if (scale_update) {
-            dsig = ddsig = dsg = 0;
+            dsig = ddsig = 0;
           }
 
         } else {
@@ -131,6 +131,72 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
             ddsig = sz * sz * temp2 - dsig * (1 + dsig);
             // dsg = sz * temp2 - dg*(dsig +1);
             dsig -= 1;
+          }
+        }
+
+        break;
+
+      case IREG_CENSOR_RIGHT:
+        normalized_y[0] = (y_l[i] - eta[i]) / scale;
+        sz = scale * normalized_y[0];
+        (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
+
+        if (densities_l[1] <= 0) {
+					loglik += SMALL;
+
+          dg = normalized_y[0]/ scale;
+          ddg = 0;
+          response = SMALL;
+          if (scale_update) {
+            dsig = ddsig = dsg = 0;
+          }
+
+
+        } else {
+					loglik += log(densities_l[1]);
+
+					temp  = -densities_l[2] / densities_l[1] / scale;
+          temp2 = -densities_l[3] / densities_l[1] / scale_2;
+          dg = -temp; // dg = -(1/sigma) * (f'(z) / f(z))
+          ddg = temp2 - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
+          response = eta[i] - dg / ddg;
+
+          if (scale_update) {
+            dsig = -temp * sz;
+            ddsig = sz * sz* temp2 - dsig * (1 + dsig);
+          }
+          // dsg = sz * temp2 - dg * (dsig + 1);
+        }
+
+        break;
+
+      case IREG_CENSOR_LEFT:
+        normalized_y[1] = (y_r[i] - eta[i]) / scale;
+        sz = scale * normalized_y[1];
+        (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
+
+        if (densities_r[0] <= 0) {
+					loglik += SMALL;
+
+          dg = -normalized_y[1] / scale;
+          ddg = 0;
+          response = SMALL;
+          if (scale_update) {
+            dsig = ddsig = dsg = 0;
+          }
+
+        } else {
+					loglik += log(densities_r[0]);
+
+          temp = densities_r[2] / densities_r[0] / scale;
+          temp2 = densities_r[3] / densities_r[0] / scale_2;
+          dg = -densities_r[2] / densities_r[0] / scale;
+          ddg = temp2 - dg * dg;
+          response = eta[i] - dg / ddg;
+
+          if (scale_update) {
+            dsig = -temp * sz;
+            ddsig = sz * sz * temp2 - dsig * (1 + dsig);
           }
         }
 
@@ -173,72 +239,6 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
             // dsg = ((normalized_y[1] * densities_r[3] -
             //         normalized_y[0] * densities_l[3]) / (temp * scale)) - dg * (dsig + 1);
           }
-        }
-
-        break;
-
-      case IREG_CENSOR_LEFT:
-        normalized_y[1] = (y_r[i] - eta[i]) / scale;
-        sz = scale * normalized_y[1];
-        (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
-
-        if (densities_r[0] <= 0) {
-					loglik += SMALL;
-
-          dg = -normalized_y[1] / scale;
-          ddg = 0;
-          response = SMALL;
-          if (scale_update) {
-            dsig = ddsig = dsg = 0;
-          }
-
-        } else {
-					loglik += log(densities_r[0]);
-
-          temp = densities_r[2] / densities_r[0] / scale;
-          temp2 = densities_r[3] / densities_r[0] / scale_2;
-          dg = -densities_r[2] / densities_r[0] / scale;
-          ddg = temp2 - dg * dg;
-          response = eta[i] - dg / ddg;
-
-          if (scale_update) {
-            dsig = -temp * sz;
-            ddsig = sz * sz * temp2 - dsig * (1 + dsig);
-          }
-        }
-
-        break;
-
-      case IREG_CENSOR_RIGHT:
-        normalized_y[0] = (y_l[i] - eta[i]) / scale;
-        sz = scale * normalized_y[0];
-        (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
-
-        if (densities_l[1] <= 0) {
-					loglik += SMALL;
-
-          dg = normalized_y[0]/ scale;
-          ddg = 0;
-          response = SMALL;
-          if (scale_update) {
-            dsig = ddsig = dsg = 0;
-          }
-
-
-        } else {
-					loglik += log(densities_l[1]);
-
-					temp  = -densities_l[2] / densities_l[1] / scale;
-          temp2 = -densities_l[3] / densities_l[1] / scale_2;
-          dg = -temp; // dg = -(1/sigma) * (f'(z) / f(z))
-          ddg = temp2 - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
-          response = eta[i] - dg / ddg;
-
-          if (scale_update) {
-            dsig = -temp * sz;
-            ddsig = sz * sz* temp2 - dsig * (1 + dsig);
-          }
-          // dsg = sz * temp2 - dg * (dsig + 1);
         }
 
         break;

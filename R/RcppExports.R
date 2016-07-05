@@ -9,7 +9,7 @@ compute_densities <- function(z, j, family) {
     .Call('iregnet_compute_densities', PACKAGE = 'iregnet', z, j, family)
 }
 
-fit_cpp <- function(X, y, family, alpha, lambda_path, intercept, scale_init, estimate_scale, flag_standardize_x = FALSE, max_iter = 1000, threshold = 1e-4, num_lambda = 100L, eps_lambda = 0.0001, flag_debug = 0L) {
-    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, alpha, lambda_path, intercept, scale_init, estimate_scale, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, flag_debug)
+fit_cpp <- function(X, y, family, lambda_path, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda = 100L, eps_lambda = 0.0001, flag_debug = 0L) {
+    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, flag_debug)
 }
 
