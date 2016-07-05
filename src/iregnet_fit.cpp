@@ -42,7 +42,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    int flag_debug = 0)
 {
   /* Initialise some helper variables */
-  ull n_obs, n_vars, n_cols_x, n_cols_y, n_params;
+  ull n_obs, n_vars;
   IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
                                           // transformed_dist will be the dist of transformed output variables.
 																					// Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
@@ -50,12 +50,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	double scale;
 
   n_obs  = X.nrow();
-  n_cols_x = X.ncol();
-  n_cols_y = y.ncol();
-  orig_dist = get_ireg_dist(family);
-
   n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
-  n_params = n_vars; // n_params is the number of parameters
+  orig_dist = get_ireg_dist(family);
 
   /* TODO: Validate all the arguments again */
   // if ((alpha > 1 || alpha < 0) || (IREG_DIST_UNKNOWN == orig_dist) ||
@@ -100,8 +96,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   /*
    * Standardize functions:
    */
-  double *mean_x = new double [n_vars], mean_y;
-  double *std_x = new double [n_vars], std_y;
+  double *mean_x = new double [n_vars];
+  double *std_x = new double [n_vars];
 
   /* NOTE:
    * we have scaled y and x, so you need to scale the obtained lambda values,
@@ -109,19 +105,13 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    */
   if (flag_standardize_x) {
     standardize_x(X, mean_x, std_x, intercept);      // FIXME: so that values are always estimated as for intercepts
-    // standardize_x_y(X, y, mean_x, std_x, mean_y, std_y, true);
-    // std::cout << "y\n" << y << "\nx\n" << X;
-    // std::cout << "mean_y " << mean_y << "std_y " << std_y << "mean_x:\n";
-    // for (ull i=0; i<n_vars; ++i) {
-    //   std::cout << i << " " << mean_x[i] << " " << std_x[i] << "\n";
-    // }
   }
 
   /* Create output variables */
 	if (lambda_path.size() > 0) {
 		num_lambda = lambda_path.size();
 	}
-  Rcpp::NumericMatrix out_beta(n_params, num_lambda);       // will contain the entire series of solutions
+  Rcpp::NumericMatrix out_beta(n_vars, num_lambda);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda);
   Rcpp::NumericVector out_lambda(num_lambda);
   Rcpp::NumericVector out_scale(num_lambda);
@@ -179,7 +169,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   // set beta = 0 and eta = 0
 	beta = REAL(out_beta);
-  for (ull i = 0; i < n_params; ++i) {
+  for (ull i = 0; i < n_vars; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
   }
@@ -248,10 +238,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
 		if (m != 0) {
-			for (ull i = 0; i < n_params; ++i) {
-				beta[i + n_params] = beta[i];
+			for (ull i = 0; i < n_vars; ++i) {
+				beta[i + n_vars] = beta[i];
 			}
-			beta = beta + n_params;   // go to the next column
+			beta = beta + n_vars;   // go to the next column
 		}
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
@@ -266,7 +256,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             status, n_obs, transformed_dist, NULL);
 
       /* iterate over beta elementwise and update using soft thresholding solution */
-      for (ull k = 0; k < n_params; ++k) {
+      for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
@@ -417,13 +407,11 @@ static void standardize_x (Rcpp::NumericMatrix X,
       std_x[i] += temp * temp;
     }
 
+    // not using (N-1) in denominator to agree with glmnet
     std_x[i] = sqrt(std_x[i] / X.nrow());
-    // std_x[i] = sqrt(std_x[i] - mean_x[i] * mean_x[i]);
 
     for (ull j = 0; j < X.nrow(); ++j) {
-      temp = std_x[i];
-      //temp = (std_x[i] * sqrt(X.nrow()));
-      // X(j, i) = X(j, i) / temp;         // FIXME: AS IN GLMNET!?
+      X(j, i) = X(j, i) / std_x[i];
     }
   }
 }
@@ -492,7 +480,7 @@ static inline void fit_scale_intercept(double *w, double *z, double &scale_updat
     	  flag_beta_converged = 1;              // = 1 if beta converges
 
     	  /* iterate over beta elementwise and update using soft thresholding solution */
-    	  //for (ull k = 0; k < n_params; ++k) {
+        //for (ull k = 0; k < n_vars; ++k) {
 				ull k = 0;		// only fit the intercept
 
     	    sol_num = sol_denom = 0;          // TODO: You should optimize this so that we don't calculate the whole thing everytime
