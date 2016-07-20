@@ -1,7 +1,5 @@
 #include "iregnet.h"
 
-#define BIG 1e35
-
 void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static void standardize_x (Rcpp::NumericMatrix X,
@@ -22,6 +20,25 @@ static double max(double a, double b)
   if(a > b)
     return a;
   return b;
+}
+
+static inline double
+compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
+									 double &alpha, ull n_vars, ull n_obs)
+{
+	double lambda_max = -1; // calculated values are always non-negative
+	for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
+	  double temp = 0;
+
+	  for (ull i = 0; i < n_obs; ++i) {
+	    temp += (w[i] * X(i, j) * z[i]);
+	  }
+		temp = fabs(temp);
+	  lambda_max = (lambda_max > temp)? lambda_max: temp;
+	}
+	lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
+
+	return lambda_max;
 }
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
@@ -211,25 +228,16 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
                         status, n_obs, transformed_dist, mu);
 
-  // Calculate lambda_max
-  // First, start with lambda_max = BIG (really really big), so that eta and beta are surely 0
-	if (lambda_path.size() == 0) {
-  	lambda_seq[0] = -BIG;
-  	for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
-  	  double temp = 0;
+  // First, start with a lambda_max such that eta and beta are surely 0
 
-  	  for (ull i = 0; i < n_obs; ++i) {
-  	    temp += (w[i] * X(i, j) * z[i]);
-  	  }
-			temp = fabs(temp);
-  	  lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
-  	}
-		lambda_seq[0] /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
+  // Calculate lambda_max
+	if (lambda_path.size() == 0) {
+		lambda_seq[0] = compute_lambda_max(X, w, z, intercept, alpha, n_vars, n_obs);
 	}
 
 	/******************************************************************************************/
   /* Iterate over grid of lambda values */
-  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));		// TODO: This should be num_lambda-1-int(unreg_sol)
+  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
   bool flag_beta_converged = 0;
   double sol_num, sol_denom;
   double beta_new;
@@ -237,13 +245,11 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	double lambda_max_unscaled = lambda_seq[0] * scale * scale;
 
   for (int m = 0; m < num_lambda; ++m) {
-		// TODO: The eps_ratio depends on some conditions, code them
 		if (lambda_path.size() == 0) {
       if (m == num_lambda - 1 && unreg_sol == true)
     	  lambda_seq[m] = 0;    // last solution should be unregularized
       else if (m != 0) {
         // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-        // lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale_init / scale_init;
         lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
       }
 		}
@@ -261,7 +267,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
 
-      flag_beta_converged = 1;              // = 1 if beta converges
+      flag_beta_converged = 1;            // = 1 if beta converges
 			old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
@@ -287,10 +293,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         } else {
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
-          //if(beta_new  > 0) {
-          //   std::cout << "k , beta: " << k << " " << beta_new << "\n";
-          //   std::cout << sol_num << "  " << sol_denom << "\n\n";
-          // }
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
@@ -317,15 +319,9 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }
 
       n_iters[m]++;
-
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
-    /* beta and eta will already contain their updated values since we calculate them in place */
-    // out_loglik[m] = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-    //                       								status, n_obs, transformed_dist, NULL);
-
     out_scale[m] = scale;
-
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
@@ -506,21 +502,21 @@ static inline void fit_scale_intercept(double *w, double *z, double &scale_updat
 																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
 																			 double &max_iter, double &log_scale, bool &intercept)
 {
-			double n_iters_fit0 = 0;
+		double n_iters_fit0 = 0;
   		bool flag_beta_converged = 0;
   		double sol_num, sol_denom;
   		double beta_new;
   		double old_scale;
 
-  		compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
-  		                      status, n_obs, transformed_dist, mu);
-
-			old_scale = scale;
 
     	/* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     	n_iters_fit0 = 0;
     	do {                                  // until Convergence of beta
     	  flag_beta_converged = 1;              // = 1 if beta converges
+			old_scale = scale;
+
+  		compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
+  		                      status, n_obs, transformed_dist, mu);
 
     	  /* iterate over beta elementwise and update using soft thresholding solution */
         //for (ull k = 0; k < n_vars; ++k) {
@@ -552,8 +548,6 @@ static inline void fit_scale_intercept(double *w, double *z, double &scale_updat
     	  //if (estimate_scale) {
     	    log_scale += scale_update; scale = exp(log_scale);
 
-    	      compute_grad_response(NULL, NULL, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-    	                            status, n_obs, transformed_dist, NULL);
     	    if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
     	      flag_beta_converged = 0;
     	      // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
