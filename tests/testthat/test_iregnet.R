@@ -50,7 +50,7 @@ test_that("iregnet calculates correct coefficients for ovarian data wrt survival
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
-  fit_i <- iregnet(x, y, family="gaussian", alpha=3, intercept = T, threshold=1e-4)
+  fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-4)
 
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
