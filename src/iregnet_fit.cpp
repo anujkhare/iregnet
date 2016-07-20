@@ -17,6 +17,13 @@ double identity (double y)
   return y;
 }
 
+static double max(double a, double b)
+{
+  if(a > b)
+    return a;
+  return b;
+}
+
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
  * Inputs:
@@ -30,6 +37,7 @@ double identity (double y)
  *
  * Work arrays created:
  *      ?
+ * This follows the math as outlined
  */
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
@@ -207,11 +215,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   	  for (ull i = 0; i < n_obs; ++i) {
   	    temp += (w[i] * X(i, j) * z[i]);
   	  }
-  	  //temp = fabs(temp) / (n_obs * alpha);
 			temp = fabs(temp);
   	  lambda_seq[0] = (lambda_seq[0] > temp)? lambda_seq[0]: temp;
   	}
-		lambda_seq[0] /= (n_obs * alpha);
+		lambda_seq[0] /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
 	}
 
 	/******************************************************************************************/
@@ -264,13 +271,20 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
         }
 
+        // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
+        sol_num *= -1; sol_denom *= -1;
+
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
 
         } else {
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
-                        (sol_denom + lambda_seq[m] * (1 - alpha));
+                     (sol_denom + lambda_seq[m] * (1 - alpha));
+          //if(beta_new  > 0) {
+          //   std::cout << "k , beta: " << k << " " << beta_new << "\n";
+          //   std::cout << sol_num << "  " << sol_denom << "\n\n";
+          // }
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
@@ -288,7 +302,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
         if (m != num_lambda - 1 || unreg_sol == false)
-          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
+          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
         if (fabs(scale - old_scale) > 1e-4) {		// TODO: Maybe should be different for sigma?
