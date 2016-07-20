@@ -46,7 +46,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    double scale_init,     bool estimate_scale,
                    bool unreg_sol,        bool flag_standardize_x,
                    double max_iter,       double threshold,
-                   int num_lambda,        double eps_lambda = 0.0001,   // TODO: depends on nvars vs nobs
+                   int num_lambda,        double eps_lambda,
                    int flag_debug = 0)
 {
   /* Initialise some helper variables */
