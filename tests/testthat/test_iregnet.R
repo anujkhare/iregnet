@@ -134,7 +134,8 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
-  for (n_vars in 5:10)
+	n_vars <- 5
+  # for (n_vars in 5:10)
   {
     # FIXME: to get same results from Glmnet and Iregnet, y should have 0 mean and 1 var
     xy <- get_xy(30, n_vars, "none", standardize=std)
@@ -155,7 +156,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
 test_that("Extreme value dist - coefficients are calculated correctly wrt survival:", {
   set.seed(115)
 
-  n_vars <- 5
+	n_vars <- 5
   # for (n_vars in 5:10)
   {
     # FIXME: interval censored not tested

@@ -1,5 +1,7 @@
 #include "iregnet.h"
 
+#define BIG 1e15
+
 void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static void standardize_x (Rcpp::NumericMatrix X,
@@ -7,9 +9,7 @@ static void standardize_x (Rcpp::NumericMatrix X,
                            bool intercept);
 static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
 static double get_init_intercept (double *mu, double *w, double *ym, ull n_obs);
-static inline void fit_scale_intercept(double *w, double *z, double &scale_update, Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, ull &n_obs, double *eta,
-																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
-																			 double &max_iter, double &log_scale, bool &intercept);
+
 double identity (double y)
 {
   return y;
@@ -24,22 +24,7 @@ static double max(double a, double b)
 
 static inline double
 compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
-									 double &alpha, ull n_vars, ull n_obs)
-{
-	double lambda_max = -1; // calculated values are always non-negative
-	for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
-	  double temp = 0;
-
-	  for (ull i = 0; i < n_obs; ++i) {
-	    temp += (w[i] * X(i, j) * z[i]);
-	  }
-		temp = fabs(temp);
-	  lambda_max = (lambda_max > temp)? lambda_max: temp;
-	}
-	lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
-
-	return lambda_max;
-}
+									 double &alpha, ull n_vars, ull n_obs);
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  *
@@ -191,7 +176,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 		scale = scale_init;
 	}
 	log_scale = log(scale);
-	// std::cout<< "Init scale value is : " << scale << " logscale: " << log_scale << "\n";
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -210,47 +194,38 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     eta[i] = w[i] = z[i] = 0;
   }
 
-
-  /* ************************************************************************************ */
-	/***** fit0: Fit only intercept and scale **************************************************************************/
-	/* 	 * except when scale doesn't need to be estimated, or initial value already given
-	 * TODO: Mean-only should only fit scale? TODO: What if we have no intercept -> fit only scale.?
-	 * We do the initial fit for scale only if an initial value is not already given.
-	 */
-	if (estimate_scale && intercept && scale_init == Rcpp::NA) {
-		fit_scale_intercept(w, z, scale_update, X, y, n_obs, eta, scale, status, transformed_dist, mu, beta, threshold, max_iter, log_scale, intercept);
-	}
-	scale_init = scale;
-
-	/***** END fit0 ************************************************************************************************/
-
-  // Calculate w and z right here!
-  compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
-                        status, n_obs, transformed_dist, mu);
-
-  // First, start with a lambda_max such that eta and beta are surely 0
-
-  // Calculate lambda_max
-	if (lambda_path.size() == 0) {
-		lambda_seq[0] = compute_lambda_max(X, w, z, intercept, alpha, n_vars, n_obs);
-	}
-
 	/******************************************************************************************/
   /* Iterate over grid of lambda values */
-  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
   bool flag_beta_converged = 0;
   double sol_num, sol_denom;
   double beta_new;
   double old_scale;
-	double lambda_max_unscaled = lambda_seq[0] * scale * scale;
+	double lambda_max_unscaled;
+  double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
 
   for (int m = 0; m < num_lambda; ++m) {
+		/* Compute the lambda path */
 		if (lambda_path.size() == 0) {
-      if (m == num_lambda - 1 && unreg_sol == true)
-    	  lambda_seq[m] = 0;    // last solution should be unregularized
-      else if (m != 0) {
+
+			/* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
+			if (m == 0) {
+				lambda_max_unscaled = lambda_seq[0] = 1e35;
+			}
+
+			/* Calculate lambda_max using intial scale fit */
+			if (m == 1) {
+				lambda_seq[m] = compute_lambda_max(X, w, z, intercept, alpha, n_vars, n_obs);
+				lambda_max_unscaled = lambda_seq[m] * scale * scale;
+				// lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
+
+			/* Last solution should be unregularized if the flag is set */
+			} else if (m == num_lambda - 1 && unreg_sol == true)
+    	  lambda_seq[m] = 0;
+
+			/* All other lambda calculated */
+      else if (m > 1) {
         // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-        lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;
+        lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;
       }
 		}
 
@@ -309,8 +284,10 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        if (m != num_lambda - 1 || unreg_sol == false)
-          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m) / scale / scale;    // FIXME: Scale! :O
+				// scale the lambda value according to current scale unless you are at unregularized sol
+				// done to match values with Glment for Gaussian, no censoring
+        if ((m != num_lambda - 1 || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
+          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
         if (fabs(scale - old_scale) > 1e-4) {		// TODO: Maybe should be different for sigma?
@@ -322,6 +299,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     out_scale[m] = scale;
+		if (m == 0)
+			scale_init = scale;
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
@@ -498,64 +477,21 @@ static double get_init_intercept (double *mu, double *w, double *ym, ull n_obs)
 	return intercept;
 }
 
-static inline void fit_scale_intercept(double *w, double *z, double &scale_update, Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, ull &n_obs, double *eta,
-																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
-																			 double &max_iter, double &log_scale, bool &intercept)
+static inline double
+compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
+									 double &alpha, ull n_vars, ull n_obs)
 {
-		double n_iters_fit0 = 0;
-  		bool flag_beta_converged = 0;
-  		double sol_num, sol_denom;
-  		double beta_new;
-  		double old_scale;
+	double lambda_max = -1; // calculated values are always non-negative
+	for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
+	  double temp = 0;
 
+	  for (ull i = 0; i < n_obs; ++i) {
+	    temp += (w[i] * X(i, j) * z[i]);
+	  }
+		temp = fabs(temp);
+	  lambda_max = (lambda_max > temp)? lambda_max: temp;
+	}
+	lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
 
-    	/* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
-    	n_iters_fit0 = 0;
-    	do {                                  // until Convergence of beta
-    	  flag_beta_converged = 1;              // = 1 if beta converges
-			old_scale = scale;
-
-  		compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
-  		                      status, n_obs, transformed_dist, mu);
-
-    	  /* iterate over beta elementwise and update using soft thresholding solution */
-        //for (ull k = 0; k < n_vars; ++k) {
-				ull k = 0;		// only fit the intercept
-
-    	    sol_num = sol_denom = 0;          // TODO: You should optimize this so that we don't calculate the whole thing everytime
-    	    for (ull i = 0; i < n_obs; ++i) {
-    	      eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-    	      sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
-    	      sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
-    	    }
-
-    	    /* The intercept should not be regularized, and hence is calculated directly */
-    	    if (intercept && k == 0)
-    	      beta_new = sol_num / sol_denom;
-
-    	    // if any beta_k has not converged, we will come back for another cycle.
-    	    if (fabs(beta_new - beta[k]) > threshold)
-    	      flag_beta_converged = 0;
-
-    	    beta[k] = beta_new;
-
-    	    for (ull i = 0; i < n_obs; ++i) {
-    	      eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-    	    }
-
-    	  // }   // end for: beta_k solution
-
-    	  //if (estimate_scale) {
-    	    log_scale += scale_update; scale = exp(log_scale);
-
-    	    if (fabs(scale - old_scale) > threshold) {		// TODO: Maybe should be different for sigma?
-    	      flag_beta_converged = 0;
-    	      // calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-    	    }
-					old_scale = scale;
-    	  //}
-
-    	  n_iters_fit0++;
-    	} while ((n_iters_fit0 < max_iter) && (flag_beta_converged != 1));
-     // std::cout << "fit0: log scale: " << log_scale << ", scale: " << scale << " beta[0] " << beta[0]  << " n_iters " << n_iters_fit0 << "\n";
+	return lambda_max;
 }
