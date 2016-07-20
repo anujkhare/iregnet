@@ -2,7 +2,7 @@
 
 #define BIG 1e35
 
-static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy);
+// static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy);
 static inline double soft_threshold (double x, double lambda);
 static void standardize_x (Rcpp::NumericMatrix X,
                            double *mean_x, double *std_x,
@@ -137,7 +137,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *w  = new double [n_obs];    // diagonal of the hessian of LL wrt eta
                                       // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
-	double *mu = new double [n_obs];
+	double *mu = new double [n_obs + 1];
 	double *yy = new double [n_obs];		// the values for y's
 
 
@@ -335,7 +335,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             );
 }
 
-static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy)
+void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy)
 {
   for (ull i = 0; i < y.nrow(); ++i) {
     if (y(i, 0) == Rcpp::NA) {
@@ -344,21 +344,25 @@ static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *
         status[i] = IREG_CENSOR_INVALID;    // invalid data
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
-				yy[i] = y(i, 1);
+        if (yy)
+				  yy[i] = y(i, 1);
 			}
 
     } else {
       if (y(i, 1) == Rcpp::NA) {                      // right censoring
         status[i] = IREG_CENSOR_RIGHT;
-				yy[i] = y(i, 0);
+        if (yy)
+				  yy[i] = y(i, 0);
 			}
 
       else if (y(i, 0) == y(i, 1)) {
         status[i] = IREG_CENSOR_NONE;     // no censoring
-				yy[i] = y(i, 1);
+        if (yy)
+				  yy[i] = y(i, 1);
 			} else {
         status[i] = IREG_CENSOR_INTERVAL; // interval censoring
-				yy[i] = (y(i, 1) + y(i, 0)) / 2;
+        if (yy)
+				  yy[i] = (y(i, 1) + y(i, 0)) / 2;
 			}
     }
   } // end for

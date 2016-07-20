@@ -5,22 +5,6 @@
 
 using namespace Rcpp;
 
-// compute_grad_response_cpp
-Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVector y_r, Rcpp::NumericVector eta, double scale, Rcpp::IntegerVector censoring_type, Rcpp::String family);
-RcppExport SEXP iregnet_compute_grad_response_cpp(SEXP y_lSEXP, SEXP y_rSEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP censoring_typeSEXP, SEXP familySEXP) {
-BEGIN_RCPP
-    Rcpp::RObject __result;
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type y_l(y_lSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type y_r(y_rSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type eta(etaSEXP);
-    Rcpp::traits::input_parameter< double >::type scale(scaleSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type censoring_type(censoring_typeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
-    __result = Rcpp::wrap(compute_grad_response_cpp(y_l, y_r, eta, scale, censoring_type, family));
-    return __result;
-END_RCPP
-}
 // compute_densities
 Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family);
 RcppExport SEXP iregnet_compute_densities(SEXP zSEXP, SEXP jSEXP, SEXP familySEXP) {
@@ -31,6 +15,21 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type j(jSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
     __result = Rcpp::wrap(compute_densities(z, j, family));
+    return __result;
+END_RCPP
+}
+// iregnet_compute_gradients
+Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
+RcppExport SEXP iregnet_iregnet_compute_gradients(SEXP XSEXP, SEXP ySEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP familySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type X(XSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type y(ySEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type eta(etaSEXP);
+    Rcpp::traits::input_parameter< double >::type scale(scaleSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
+    __result = Rcpp::wrap(iregnet_compute_gradients(X, y, eta, scale, family));
     return __result;
 END_RCPP
 }

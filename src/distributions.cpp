@@ -31,28 +31,6 @@ void (*sreg_gg)(double, double [4], int);
 #define BIG_SIGMA_UPDATE 1 /* what to use for (log) scale_update if it should be very very large */
 
 
-// [[Rcpp::export]]
-Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVector y_r,
-                           Rcpp::NumericVector eta, double scale, Rcpp::IntegerVector censoring_type,
-                           Rcpp::String family)
-{
-  int n_obs = y_l.size();
-  Rcpp::NumericVector w(n_obs), z(n_obs), mu(n_obs);
-  double scale_update;
-
-  IREG_CENSORING *censoring = (IREG_CENSORING *) &censoring_type[0];
-  //for (int i = 0; i < n_obs; ++i) {
-  //  std::cout << censoring[i] << "\n";
-  //}
-
-  compute_grad_response(REAL(w), REAL(z), &scale_update, REAL(y_l), REAL(y_r), REAL(eta), scale,
-                        censoring, n_obs, get_ireg_dist(family), REAL(mu));
-
-  return Rcpp::List::create(Rcpp::Named("mu") = mu,
-                            Rcpp::Named("scale_update") = scale_update,
-                            Rcpp::Named("w") = w,
-                            Rcpp::Named("z") = z);
-}
 /* Function to calculate w and z given value of eta, and output values
  *
  * Inputs:
@@ -69,7 +47,7 @@ Rcpp::List compute_grad_response_cpp(Rcpp::NumericVector y_l, Rcpp::NumericVecto
  * Returns: None
  *
  * Modifies:
- *      mu: grad of LL wrt eta
+ *      mu: grad of LL wrt eta and scale - size should be n_vars + 1
  *      w: vector with diagonal of hessian of LL wrt eta
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
@@ -263,6 +241,9 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
 		else
 			*scale_update = BIG_SIGMA_UPDATE;
 	}
+
+  if (mu)
+    mu[n_obs] = dsig_sum;
 }
 
 static void logistic_d (double z, double ans[4], int j)
@@ -382,4 +363,39 @@ Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String
     }
   }
   return ans;
+}
+
+/* Compute the gradients of the Log Likelihood wrt beta, and scale.
+ * Note that compute_grad_response returns the derivatives wrt eta (X^T beta), so we need to adjust
+ */
+// [[Rcpp::export]]
+Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
+                             Rcpp::NumericVector eta, double scale,
+                             Rcpp::String family)
+{
+  int n_obs = y.nrow(), n_vars = X.ncol();
+  Rcpp::NumericVector mu(n_obs+1), out_gradients(n_vars + 1);     // weights and 1 for scale
+  double *gradients = REAL(out_gradients);
+
+  IREG_CENSORING status[y.nrow()];
+  get_censoring_types(y, status, NULL);
+
+  compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
+                        status, n_obs, get_ireg_dist(family), REAL(mu));
+
+  for (ull j = 0; j < n_vars; ++j) {
+    gradients[j] = 0;
+    for (ull i = 0; i < n_obs; ++i) {
+      gradients[j] += X(i, j) * mu[i];
+     }
+     gradients[j] = gradients[j] / X.nrow();
+     // std::cout<<gradients[j] << " ";
+  }
+
+  gradients[n_vars] = mu[n_obs];    // wrt scale
+  //std::cout<<gradients[n_vars] << "\n";
+
+
+  return Rcpp::List::create(Rcpp::Named("gradients") = out_gradients,
+                            Rcpp::Named("mu") = mu);
 }
