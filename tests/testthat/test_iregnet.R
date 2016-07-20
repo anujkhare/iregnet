@@ -2,6 +2,8 @@ library("iregnet")
 library("survival")
 library("glmnet")
 
+# TODO: You should check if the suggested packages are present, and only then use them for testing
+
 std <- F
 # TODO: integrate Surv support into iregnet, for now generate eq. dists:
 get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
@@ -17,7 +19,6 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
 		y <- (y - mean(y))
 		y <- y / sd(y)
 	}
-
 
   if (type == "none") {
     status = rep(1, length(y))
@@ -49,7 +50,7 @@ test_that("iregnet calculates correct coefficients for ovarian data wrt survival
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
-  fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-4)
+  fit_i <- iregnet(x, y, family="gaussian", alpha=3, intercept = T, threshold=1e-4)
 
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
@@ -88,8 +89,8 @@ test_that("Gaussian, right censored data - coefficients are calculated correctly
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
     # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
     fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
-		# print(fit_i)
-		# print(fit_s)
+    # print(fit_i)
+    # print(fit_s)
     expect_equal(as.double(fit_s$coefficients),
                  fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
   }
@@ -104,6 +105,8 @@ test_that("Gaussian, right censored data - coefficients are calculated correctly
 
 
 test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survival and glmnet:", {
+	alpha <- 0.6
+
 	data(prostate,package="ElemStatLearn")
 	pros <- subset(prostate,select=-train,train==TRUE)
 	ycol <- which(names(pros)=="lpsa")
@@ -120,17 +123,16 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 	sigma <- sd(y.unscaled)
 	y.scaled <- (y.unscaled - m)/sigma
 
-	X <- X.unscaled
+	X <- X.scaled
 	y <- y.scaled
 
 	fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
-	fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F)
+	fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F, alpha=alpha, scale=1, estimate_scale=F)
 
 	lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
-	# lambda_path <- fit_i$lambda * (fit_i$scale_init ** 2)
 	# lambda_path <- fit_i$lambda
 
-	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7)
+	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
 
 	expect_equal(as.double(fit_s$coefficients), fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
 	expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
@@ -142,7 +144,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
 
   for (n_vars in 5:10)
   {
-		# FIXME: to get same results from Glmnet and Iregnet, y should have 0 mean and 1 var
+    # FIXME: to get same results from Glmnet and Iregnet, y should have 0 mean and 1 var
     xy <- get_xy(30, n_vars, "none", standardize=std)
 
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
@@ -156,4 +158,29 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
 
     expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
   }
+})
+
+test_that("Extreme value dist - coefficients are calculated correctly wrt survival:", {
+  set.seed(115)
+
+  n_vars <- 5
+  # for (n_vars in 5:10)
+  {
+    # FIXME: interval censored not tested
+    xy <- get_xy(30, n_vars, "right", standardize=std)
+
+    fit_s <- survreg(xy$surv ~ xy$x, dist = "extreme")
+    fit_i <- iregnet(xy$x, xy$y, "extreme", alpha = 1, intercept = T, thresh=1e-4, standardize=T)
+
+    expect_equal(as.double(fit_s$coefficients),
+                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+  }
+
+    xy <- get_xy(30, n_vars, "left", standardize=std)
+
+    fit_s <- survreg(xy$surv ~ xy$x, dist = "extreme")
+    fit_i <- iregnet(xy$x, xy$y, "extreme", alpha = 1, intercept = T, thresh=1e-4, standardize=T)
+
+    expect_equal(as.double(fit_s$coefficients),
+                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
 })
