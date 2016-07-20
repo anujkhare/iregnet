@@ -9,7 +9,7 @@ iregnet_compute_gradients <- function(X, y, eta, scale, family) {
     .Call('iregnet_iregnet_compute_gradients', PACKAGE = 'iregnet', X, y, eta, scale, family)
 }
 
-fit_cpp <- function(X, y, family, lambda_path, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, flag_debug = 0L) {
-    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, flag_debug)
+fit_cpp <- function(X, y, family, lambda_path, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda) {
+    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda)
 }
 

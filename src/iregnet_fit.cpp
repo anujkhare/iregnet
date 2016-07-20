@@ -2,13 +2,13 @@
 
 #define BIG 1e35
 
-// static inline void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy);
+void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static void standardize_x (Rcpp::NumericMatrix X,
                            double *mean_x, double *std_x,
                            bool intercept);
-static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST dist);
-static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs);
+static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
+static double get_init_intercept (double *mu, double *w, double *ym, ull n_obs);
 static inline void fit_scale_intercept(double *w, double *z, double &scale_update, Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, ull &n_obs, double *eta,
 																		 	 double &scale, IREG_CENSORING *status, IREG_DIST &transformed_dist, double *mu, double *beta, double &threshold,
 																			 double &max_iter, double &log_scale, bool &intercept);
@@ -42,12 +42,12 @@ static double max(double a, double b)
 // [[Rcpp::export]]
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                    Rcpp::String family,   Rcpp::NumericVector lambda_path,
+                   Rcpp::IntegerVector out_status,
                    bool intercept,        double alpha,
                    double scale_init,     bool estimate_scale,
                    bool unreg_sol,        bool flag_standardize_x,
                    double max_iter,       double threshold,
-                   int num_lambda,        double eps_lambda,
-                   int flag_debug = 0)
+                   int num_lambda,        double eps_lambda)
 {
   /* Initialise some helper variables */
   ull n_obs, n_vars;
@@ -96,7 +96,6 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       break;
   }
 
-  // TODO: unnecessary computations
   for (ull i = 0; i < 2 * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
     y[i] = transform_y(y[i]);
   }
@@ -146,12 +145,19 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                       // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
 	double *mu = new double [n_obs + 1];
-	double *yy = new double [n_obs];		// the values for y's
+	double *ym = new double [n_obs];		// the mean values for y's
+  IREG_CENSORING *status;
 
 
-  /* get censoring types of the observations */ /* TODO: Incorporate survival style censoring */
-  IREG_CENSORING status[n_obs];
-  get_censoring_types(y, status, yy); // NANs denote censored observations in y
+  /* get censoring types of the observations */
+  if (out_status.size() == 0) {
+    status = new IREG_CENSORING [n_obs];
+    get_censoring_types(y, status); // NANs denote censored observations in y, NOTE: y will be modified!
+  }
+  else {
+    status = (IREG_CENSORING *) &out_status[0];
+  }
+  get_y_means(y, status, ym);
 
 	/* SCALE RULES:
 	 * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
@@ -160,7 +166,7 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	 * If you provide a scale, it will be used as the initial value
 	 */
   if (scale_init == Rcpp::NA) {
-    scale = get_init_var(yy, status, n_obs, transformed_dist);
+    scale = get_init_var(ym, status, n_obs, transformed_dist);
 		// scale = sqrt(scale);		// use 2 * sqrt(var) as in survival
 		scale = 2 * sqrt(scale);		// use 2 * sqrt(var) as in survival
 		// TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
@@ -334,8 +340,12 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /* Free the temporary variables */
   delete [] eta;
+  delete [] mu;
   delete [] w;
   delete [] z;
+  delete [] ym;
+  if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
+    delete [] status;
 
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
                             Rcpp::Named("lambda")       = out_lambda,
@@ -349,7 +359,31 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             );
 }
 
-void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy)
+void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
+{
+  if (!ym || !status)
+    return;
+
+  for (ull i = 0; i < y.nrow(); ++i) {
+      switch (status[i]) {
+        case IREG_CENSOR_LEFT:
+        case IREG_CENSOR_RIGHT:
+        case IREG_CENSOR_NONE:
+				  ym[i] = y(i, 0);
+          break;
+
+        case IREG_CENSOR_INTERVAL:
+				  ym[i] = (y(i, 1) + y(i, 0)) / 2;
+          break;
+
+        default:
+          ym[i] = 0;
+			}
+      // std::cout<<"status, ym: " << status[i] << " " << ym[i] << "\n";
+  } // end for
+}
+
+void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   for (ull i = 0; i < y.nrow(); ++i) {
     if (y(i, 0) == Rcpp::NA) {
@@ -358,27 +392,18 @@ void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double
         status[i] = IREG_CENSOR_INVALID;    // invalid data
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
-        if (yy)
-				  yy[i] = y(i, 1);
-			}
-
-    } else {
-      if (y(i, 1) == Rcpp::NA) {                      // right censoring
-        status[i] = IREG_CENSOR_RIGHT;
-        if (yy)
-				  yy[i] = y(i, 0);
-			}
-
-      else if (y(i, 0) == y(i, 1)) {
-        status[i] = IREG_CENSOR_NONE;     // no censoring
-        if (yy)
-				  yy[i] = y(i, 1);
-			} else {
-        status[i] = IREG_CENSOR_INTERVAL; // interval censoring
-        if (yy)
-				  yy[i] = (y(i, 1) + y(i, 0)) / 2;
-			}
+        y(i, 0) = y(i, 1); // NOTE: We are putting the value in the left col, survival style!
+      }
+      continue;
     }
+
+    if (y(i, 1) == Rcpp::NA)                // right censoring
+      status[i] = IREG_CENSOR_RIGHT;
+    else if (y(i, 0) == y(i, 1))
+      status[i] = IREG_CENSOR_NONE;         // no censoring
+		else
+      status[i] = IREG_CENSOR_INTERVAL;     // interval censoring
+
   } // end for
 }
 
@@ -434,17 +459,17 @@ static void standardize_x (Rcpp::NumericMatrix X,
   }
 }
 
-static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST dist)
+static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 {
 	double mean = 0, var = 0;
 
 	for (int i = 0; i < n; ++i) {
-		mean += yy[i];
+		mean += ym[i];
 	}
 	mean = mean / n;
 
 	for (int i = 0; i < n; ++i) {
-		var += pow((yy[i] - mean), 2);
+		var += pow((ym[i] - mean), 2);
 	}
 	var = var / n;
 
@@ -465,12 +490,12 @@ static double get_init_var (double *yy, IREG_CENSORING *status, ull n, IREG_DIST
 	return var;
 }
 
-static double get_init_intercept (double *mu, double *w, double *yy, ull n_obs)
+static double get_init_intercept (double *mu, double *w, double *ym, ull n_obs)
 {
 	double intercept = 0;
 
 	for (ull i = 0; i < n_obs; ++i) {
-		intercept += (mu[i] - w[i] * yy[i]);
+		intercept += (mu[i] - w[i] * ym[i]);
 	}
 	intercept /= n_obs;
 

@@ -149,7 +149,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
         break;
 
       case IREG_CENSOR_LEFT:
-        normalized_y[1] = (y_r[i] - eta[i]) / scale;
+        normalized_y[1] = (y_l[i] - eta[i]) / scale;    // Note: because we store all vals in left column survival style
         sz = scale * normalized_y[1];
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
@@ -378,7 +378,7 @@ Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix 
   double *gradients = REAL(out_gradients);
 
   IREG_CENSORING status[y.nrow()];
-  get_censoring_types(y, status, NULL);
+  get_censoring_types(y, status); // It will modify y as well!
 
   compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
                         status, n_obs, get_ireg_dist(family), REAL(mu));
