@@ -8,7 +8,7 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme_value", "exponential"), alpha=1,
                     lambda=double(0), num_lambda=100, flag_debug=0, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
-										maxiter=1000, threshold=1e-4, unreg_sol=T) {
+										maxiter=1000, threshold=1e-4, unreg_sol=T, eps_lambda=NA) {
 
   # Parameter validation ===============================================
   # alpha should be between 0 and 1
@@ -49,7 +49,9 @@ iregnet <- function(x, y,
 	if (intercept)
 		x <- cbind(rep(1, n_obs), x)
 
+  if (is.na(eps_lambda))
+    eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
   # Call the actual fit method
   fit_cpp(x, y, family, alpha, lambda_path=lambda, num_lambda=num_lambda, intercept=intercept, scale_init=scale_init, max_iter=maxiter,
-            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale, unreg_sol=unreg_sol);
+            flag_standardize_x = standardize, threshold=threshold, estimate_scale=estimate_scale, unreg_sol=unreg_sol, eps_lambda=eps_lambda);
 }
