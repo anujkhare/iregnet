@@ -156,8 +156,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
 test_that("Extreme value dist - coefficients are calculated correctly wrt survival:", {
   set.seed(115)
 
-	n_vars <- 5
-  # for (n_vars in 5:10)
+  for (n_vars in 5:10)
   {
     # FIXME: interval censored not tested
     xy <- get_xy(30, n_vars, "right", standardize=std)
