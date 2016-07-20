@@ -5,7 +5,6 @@ library("glmnet")
 # TODO: You should check if the suggested packages are present, and only then use them for testing
 
 std <- F
-# TODO: integrate Surv support into iregnet, for now generate eq. dists:
 get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
   x <- matrix(rnorm(n_obs * n_vars), n_obs, n_vars)
   y <- rnorm(n_obs)
@@ -42,15 +41,10 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
 
 test_that("iregnet calculates correct coefficients for ovarian data wrt survival", {
   data("ovarian")
-  # Right censored data from Survival, get into our format first
-  y_l <- y_r <- ovarian$futime
-  y_r[ovarian$fustat == 0] <- NA
-  y <- cbind(y_l, y_r)
-
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
-  fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-4)
+  fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat), family="gaussian", alpha=1, intercept = T, threshold=1e-4)
 
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
@@ -65,9 +59,7 @@ test_that("Gaussian, left censored data - coefficients are calculated correctly 
   # n_vars <- 5
     xy <- get_xy(40, n_vars, "left", standardize=std)
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale, standardize = T)
-    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-    fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
+    fit_i <- iregnet(xy$x, xy$surv, "gaussian", alpha = 1, intercept = T)
     expect_equal(as.double(fit_s$coefficients),
                  fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
   }

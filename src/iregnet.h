@@ -23,14 +23,6 @@ typedef enum {
   IREG_CENSOR_INVALID
 } IREG_CENSORING;
 
-typedef enum {
-  IREG_DEBUG_NONE = 0,
-  IREG_DEBUG_INPUT,     // 1
-  IREG_DEBUG_N,
-  IREG_DEBUG_CENSORING, // 3
-  IREG_DEBUG_YTRANS
-} IREG_DEBUG;
-
 /* Functions from iregnet_fit.cpp */
 IREG_DIST get_ireg_dist (Rcpp::String dist_str);
 
@@ -39,4 +31,4 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
                            const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                            const ull n_obs, IREG_DIST dist, double *mu);
 
-void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *yy);
+void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);
