@@ -47,13 +47,6 @@ test_that("iregnet calculates correct coefficients for ovarian data wrt survival
   y <- cbind(y_l, y_r)
 
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
-  # # TODO: FAILS WITHOUT STANDARDIZATION
-  # x <- x - matrix(colMeans(x), nrow(x), ncol(x), byrow=TRUE)
-  # sd_x <- apply(x, 2, sd)
-  # sd_x <- diag(1 / sd_x)
-  # x <- x %*% sd_x
-  # print(apply(x, 2, mean))
-  # print(apply(x, 2, sd))
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
   fit_i <- iregnet(x, y, family="gaussian", alpha=1, intercept = T, threshold=1e-4)
