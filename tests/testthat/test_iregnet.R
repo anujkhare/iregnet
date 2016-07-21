@@ -9,15 +9,15 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
   x <- matrix(rnorm(n_obs * n_vars), n_obs, n_vars)
   y <- rnorm(n_obs)
 
-	# standardize x and y
-	if (standardize == T) {
-		for (i in 1:ncol(x)) {
-			x[, i] <- (x[, i] - mean(x[, i])) / sd(x[, i]);
-		}
+  # standardize x and y
+  if (standardize == T) {
+    for (i in 1:ncol(x)) {
+      x[, i] <- (x[, i] - mean(x[, i])) / sd(x[, i]);
+    }
 
-		y <- (y - mean(y))
-		y <- y / sd(y)
-	}
+    y <- (y - mean(y))
+    y <- y / sd(y)
+  }
 
   if (type == "none") {
     status = rep(1, length(y))
@@ -97,44 +97,44 @@ test_that("Gaussian, right censored data - coefficients are calculated correctly
 
 
 test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survival and glmnet:", {
-	alpha <- 0.6
+  alpha <- 0.6
 
-	data(prostate,package="ElemStatLearn")
-	pros <- subset(prostate,select=-train,train==TRUE)
-	ycol <- which(names(pros)=="lpsa")
-	X.unscaled <- as.matrix(pros[-ycol])
-	y.unscaled <- pros[[ycol]]
-	M <- matrix(
-	  colMeans(X.unscaled), nrow(X.unscaled), ncol(X.unscaled), byrow=TRUE)
-	X.centered <- X.unscaled - M
-	sd.vec <- apply(X.unscaled, 2, sd)
-	S <- diag(1/sd.vec)
-	X.scaled <- X.centered %*% S
-	dimnames(X.scaled) <- dimnames(X.unscaled)
-	m <- mean(y.unscaled)
-	sigma <- sd(y.unscaled)
-	y.scaled <- (y.unscaled - m)/sigma
+  data(prostate,package="ElemStatLearn")
+  pros <- subset(prostate,select=-train,train==TRUE)
+  ycol <- which(names(pros)=="lpsa")
+  X.unscaled <- as.matrix(pros[-ycol])
+  y.unscaled <- pros[[ycol]]
+  M <- matrix(
+    colMeans(X.unscaled), nrow(X.unscaled), ncol(X.unscaled), byrow=TRUE)
+  X.centered <- X.unscaled - M
+  sd.vec <- apply(X.unscaled, 2, sd)
+  S <- diag(1/sd.vec)
+  X.scaled <- X.centered %*% S
+  dimnames(X.scaled) <- dimnames(X.unscaled)
+  m <- mean(y.unscaled)
+  sigma <- sd(y.unscaled)
+  y.scaled <- (y.unscaled - m)/sigma
 
-	X <- X.scaled
-	y <- y.scaled
+  X <- X.scaled
+  y <- y.scaled
 
-	fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
-	fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F, alpha=alpha, scale=1, estimate_scale=F)
+  fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
+  fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F, alpha=alpha, scale=1, estimate_scale=F)
 
-	lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
-	# lambda_path <- fit_i$lambda
+  lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
+  # lambda_path <- fit_i$lambda
 
-	fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
+  fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
 
-	expect_equal(as.double(fit_s$coefficients), fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
-	expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
+  expect_equal(as.double(fit_s$coefficients), fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+  expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
 
 
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
-	n_vars <- 5
+  n_vars <- 5
   # for (n_vars in 5:10)
   {
     # FIXME: to get same results from Glmnet and Iregnet, y should have 0 mean and 1 var
@@ -156,7 +156,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
 test_that("Extreme value dist - coefficients are calculated correctly wrt survival:", {
   set.seed(115)
 
-	n_vars <- 5
+  n_vars <- 5
   # for (n_vars in 5:10)
   {
     # FIXME: interval censored not tested

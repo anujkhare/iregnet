@@ -1,3 +1,8 @@
+/*
+ * iregnet_fit.cpp
+ * Author: Anuj Khare <khareanuj18@gmail.com>
+ * We use 2 spaces per tab, and expand the tabs
+ */
 #include "iregnet.h"
 
 #define BIG 1e15
