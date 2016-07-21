@@ -10,6 +10,7 @@ typedef enum {
   IREG_DIST_LOGISTIC,
   IREG_DIST_EXTREME_VALUE,
   IREG_DIST_LOG_GAUSSIAN,
+  IREG_DIST_LOG_LOGISTIC,
   IREG_DIST_EXPONENTIAL,
   IREG_DIST_UNKNOWN
 } IREG_DIST;
@@ -30,6 +31,6 @@ IREG_DIST get_ireg_dist (Rcpp::String dist_str);
 double
 compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
                       const double *eta, const double scale, const IREG_CENSORING *censoring_type,
-                      const ull n_obs, IREG_DIST dist, double *mu);
+                      const ull n_obs, IREG_DIST dist, double *mu, bool debug);
 
 void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);

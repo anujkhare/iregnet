@@ -50,7 +50,7 @@ max(double a, double b)
 Rcpp::List
 fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         Rcpp::String family,   Rcpp::NumericVector lambda_path,
-        Rcpp::IntegerVector out_status,
+        bool debug,            Rcpp::IntegerVector out_status,
         bool intercept,        double alpha,
         double scale_init,     bool estimate_scale,
         bool unreg_sol,        bool flag_standardize_x,
@@ -58,15 +58,14 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         int num_lambda,        double eps_lambda)
 {
   /* Initialise some helper variables */
-  ull n_obs, n_vars;
   IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
                                           // transformed_dist will be the dist of transformed output variables.
                                           // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
   double (*transform_y) (double y);
   double scale;
 
-  n_obs  = X.nrow();
-  n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
+  const ull n_obs  = X.nrow();
+  const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
   orig_dist = get_ireg_dist(family);
 
   /* TODO: Validate all the arguments again */
@@ -96,6 +95,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       transformed_dist = IREG_DIST_GAUSSIAN;
       break;
 
+    case IREG_DIST_LOG_LOGISTIC:
+      transform_y = log;
+      transformed_dist = IREG_DIST_LOGISTIC;
+      break;
+
     case IREG_DIST_EXPONENTIAL:
       transform_y = log;
       transformed_dist = IREG_DIST_EXTREME_VALUE;
@@ -104,7 +108,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       break;
   }
 
-  for (ull i = 0; i < 2 * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
+  for (ull i = 0; i < y.ncol() * n_obs; ++i) {     // Rcpp::NumericMatrix is unrolled col major
     y[i] = transform_y(y[i]);
   }
 
@@ -175,13 +179,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    */
   if (scale_init == Rcpp::NA) {
     scale = get_init_var(ym, status, n_obs, transformed_dist);
-    // scale = sqrt(scale);    // use 2 * sqrt(var) as in survival
+
     scale = 2 * sqrt(scale);    // use 2 * sqrt(var) as in survival
     // TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
   } else {
     scale = scale_init;
   }
   log_scale = log(scale);
+  if (debug) {
+    std::cout << "SCALE INIT IS: " << scale << "\n";
+  }
+
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -253,7 +261,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL);
+                            status, n_obs, transformed_dist, NULL, debug && m == 0);
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
@@ -261,12 +269,16 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
+          if (debug && m == 0)
+            std::cout << "\t\t" << i <<  " w " << w[i] << " z " <<  z[i] << " eta " << eta[i] << " SOL_NUM " << sol_num << "\n";
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
         }
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
+        if (debug && m == 0)
+          std::cout << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -281,15 +293,23 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           flag_beta_converged = 0;
 
         beta[k] = beta_new;
+        if (debug && m == 0)
+          std::cout << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
+          // if (debug && m==0) {
+          //   std::cout << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
+          // }
         }
 
       }   // end for: beta_k solution
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
+        // if (debug && m==0) {
+        //   std::cout << "SCALE:, update " << scale  << " " << scale_update<< "\n";
+        // }
         // scale the lambda value according to current scale unless you are at unregularized sol
         // done to match values with Glment for Gaussian, no censoring
         if ((m != num_lambda - 1 || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
@@ -407,6 +427,8 @@ get_ireg_dist (Rcpp::String dist_str)
     return IREG_DIST_EXPONENTIAL;
   if (strcmp("loggaussian", dist_str.get_cstring()) == 0)
     return IREG_DIST_LOG_GAUSSIAN;
+  if (strcmp("loglogistic", dist_str.get_cstring()) == 0)
+    return IREG_DIST_LOG_LOGISTIC;
   return IREG_DIST_UNKNOWN;
 }
 
