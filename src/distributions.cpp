@@ -51,10 +51,10 @@ void (*sreg_gg)(double, double [4], int);
  *      w: vector with diagonal of hessian of LL wrt eta
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
-// TODO: if densities are close to 0! (survival)
-double compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
-                           const double *eta, const double scale, const IREG_CENSORING *censoring_type,
-                           const ull n_obs, const IREG_DIST dist, double *mu)
+double
+compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
+                      const double *eta, const double scale, const IREG_CENSORING *censoring_type,
+                      const ull n_obs, const IREG_DIST dist, double *mu)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -246,7 +246,8 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
     mu[n_obs] = dsig_sum;
 }
 
-static void logistic_d (double z, double ans[4], int j)
+static void
+logistic_d (double z, double ans[4], int j)
 {
   double w, temp;
   int    sign, ii;
@@ -281,7 +282,8 @@ static void logistic_d (double z, double ans[4], int j)
   }
 }
 
-static void gauss_d (double z, double ans[4], int j)
+static void
+gauss_d (double z, double ans[4], int j)
 {
   double f;
 
@@ -314,7 +316,8 @@ static void gauss_d (double z, double ans[4], int j)
  ** Perhaps a Taylor series will could be used for large z.
  */
 
-static void exvalue_d (double z, double ans[4], int j)
+static void
+exvalue_d (double z, double ans[4], int j)
 {
   double temp;
   double w;
@@ -338,7 +341,8 @@ static void exvalue_d (double z, double ans[4], int j)
 
 
 // [[Rcpp::export]]
-Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
+Rcpp::NumericVector
+compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 {
   int n_obs = z.size();
   Rcpp::NumericMatrix ans(n_obs, 4);

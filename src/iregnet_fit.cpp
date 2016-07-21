@@ -17,12 +17,14 @@ static void standardize_x (Rcpp::NumericMatrix X,
 static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
                                         bool intercept, double &alpha, ull n_vars, ull n_obs);
 
-double identity (double y)
+double
+identity (double y)
 {
   return y;
 }
 
-static double max(double a, double b)
+static double
+max(double a, double b)
 {
   if(a > b)
     return a;
@@ -45,14 +47,15 @@ static double max(double a, double b)
  * This follows the math as outlined
  */
 // [[Rcpp::export]]
-Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
-                   Rcpp::String family,   Rcpp::NumericVector lambda_path,
-                   Rcpp::IntegerVector out_status,
-                   bool intercept,        double alpha,
-                   double scale_init,     bool estimate_scale,
-                   bool unreg_sol,        bool flag_standardize_x,
-                   double max_iter,       double threshold,
-                   int num_lambda,        double eps_lambda)
+Rcpp::List
+fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
+        Rcpp::String family,   Rcpp::NumericVector lambda_path,
+        Rcpp::IntegerVector out_status,
+        bool intercept,        double alpha,
+        double scale_init,     bool estimate_scale,
+        bool unreg_sol,        bool flag_standardize_x,
+        double max_iter,       double threshold,
+        int num_lambda,        double eps_lambda)
 {
   /* Initialise some helper variables */
   ull n_obs, n_vars;
@@ -337,7 +340,8 @@ Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             );
 }
 
-void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
+void
+get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
 {
   if (!ym || !status)
     return;
@@ -361,7 +365,8 @@ void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
   } // end for
 }
 
-void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
+void
+get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   for (ull i = 0; i < y.nrow(); ++i) {
     if (y(i, 0) == Rcpp::NA) {
@@ -389,7 +394,8 @@ void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 /*
  * Takes as input Rcpp string family name, and returns corresponding enum val
  */
-IREG_DIST get_ireg_dist (Rcpp::String dist_str)
+IREG_DIST
+get_ireg_dist (Rcpp::String dist_str)
 {
   if (strcmp("gaussian", dist_str.get_cstring()) == 0)
     return IREG_DIST_GAUSSIAN;
@@ -404,15 +410,17 @@ IREG_DIST get_ireg_dist (Rcpp::String dist_str)
   return IREG_DIST_UNKNOWN;
 }
 
-static inline double soft_threshold (double x, double lambda)
+static inline double
+soft_threshold (double x, double lambda)
 {
   double temp = fabs(x) - lambda;
   return (temp > 0)? ((x > 0)? 1: -1) * temp: 0;
 }
 
-static void standardize_x (Rcpp::NumericMatrix X,
-                           double *mean_x, double *std_x,
-                           bool intercept)
+static void
+standardize_x (Rcpp::NumericMatrix X,
+               double *mean_x, double *std_x,
+               bool intercept)
 {
   double temp;
 
@@ -437,7 +445,8 @@ static void standardize_x (Rcpp::NumericMatrix X,
   }
 }
 
-static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
+static double
+get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 {
   double mean = 0, var = 0;
 
@@ -468,7 +477,8 @@ static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST
   return var;
 }
 
-static double get_init_intercept (double *mu, double *w, double *ym, ull n_obs)
+static double
+get_init_intercept (double *mu, double *w, double *ym, ull n_obs)
 {
   double intercept = 0;
 
