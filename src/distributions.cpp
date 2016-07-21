@@ -51,10 +51,10 @@ void (*sreg_gg)(double, double [4], int);
  *      w: vector with diagonal of hessian of LL wrt eta
  *      z: working response; z_i = x_i'beta - mu_i / w_i
  */
-// TODO: if densities are close to 0! (survival)
-double compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
-                           const double *eta, const double scale, const IREG_CENSORING *censoring_type,
-                           const ull n_obs, const IREG_DIST dist, double *mu)
+double
+compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
+                      const double *eta, const double scale, const IREG_CENSORING *censoring_type,
+                      const ull n_obs, const IREG_DIST dist, double *mu)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -87,7 +87,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           **  derivatives to gaussian limits (almost any deriv will
           **  do, since the function value triggers step-halving).
           */
-					loglik += SMALL;
+          loglik += SMALL;
 
           dg = -normalized_y[0] / scale;
           ddg = -1 / scale;
@@ -97,9 +97,9 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           }
 
         } else {
-					loglik += log(densities_l[1]) - log(scale);
+          loglik += log(densities_l[1]) - log(scale);
 
-					temp = densities_l[2] / scale;
+          temp = densities_l[2] / scale;
           temp2 = (densities_l[3]) / scale_2;
           dg = -temp; // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg =  temp2 - dg * dg;
@@ -120,7 +120,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
-					loglik += SMALL;
+          loglik += SMALL;
 
           dg = normalized_y[0]/ scale;
           ddg = 0;
@@ -131,9 +131,9 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
 
 
         } else {
-					loglik += log(densities_l[1]);
+          loglik += log(densities_l[1]);
 
-					temp  = -densities_l[2] / densities_l[1] / scale;
+          temp  = -densities_l[2] / densities_l[1] / scale;
           temp2 = -densities_l[3] / densities_l[1] / scale_2;
           dg = -temp; // dg = -(1/sigma) * (f'(z) / f(z))
           ddg = temp2 - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
@@ -154,7 +154,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
         if (densities_r[0] <= 0) {
-					loglik += SMALL;
+          loglik += SMALL;
 
           dg = -normalized_y[1] / scale;
           ddg = 0;
@@ -164,7 +164,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           }
 
         } else {
-					loglik += log(densities_r[0]);
+          loglik += log(densities_r[0]);
 
           temp = densities_r[2] / densities_r[0] / scale;
           temp2 = densities_r[3] / densities_r[0] / scale_2;
@@ -193,7 +193,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
 
         if (temp <= 0) {
           // off the probability scale -- avoid log(0)
-					loglik += SMALL;
+          loglik += SMALL;
 
           dg = 1;
           ddg = 0;
@@ -203,7 +203,7 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
           }
 
         } else {
-					loglik += log(temp);
+          loglik += log(temp);
 
           dg = -(densities_r[2] - densities_l[2]) / (temp * scale); // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg = (densities_r[3] - densities_l[3]) / (temp * scale_2) - dg * dg;
@@ -235,18 +235,19 @@ double compute_grad_response(double *w, double *z, double *scale_update, const d
 
   } // end for: n_obs
 
-	if (scale_update) {
-		if (ddsig_sum != 0)
-			*scale_update = -dsig_sum / ddsig_sum;
-		else
-			*scale_update = BIG_SIGMA_UPDATE;
-	}
+  if (scale_update) {
+    if (ddsig_sum != 0)
+      *scale_update = -dsig_sum / ddsig_sum;
+    else
+      *scale_update = BIG_SIGMA_UPDATE;
+  }
 
   if (mu)
     mu[n_obs] = dsig_sum;
 }
 
-static void logistic_d (double z, double ans[4], int j)
+static void
+logistic_d (double z, double ans[4], int j)
 {
   double w, temp;
   int    sign, ii;
@@ -281,7 +282,8 @@ static void logistic_d (double z, double ans[4], int j)
   }
 }
 
-static void gauss_d (double z, double ans[4], int j)
+static void
+gauss_d (double z, double ans[4], int j)
 {
   double f;
 
@@ -303,11 +305,6 @@ static void gauss_d (double z, double ans[4], int j)
   ans[3] = -z*f;
   break;
   }
-
-
-  //std::cout << ans[1] << " " << ans[2] << " " << ans[3] << " " << "\n";
-  //ans[0] = ans[1] = ans[2] = ans[3] = -100;
-  //std::cout << ans[1] << " " << ans[2] << " " << ans[3] << " " << "\n";
 }
 
 /*
@@ -319,31 +316,33 @@ static void gauss_d (double z, double ans[4], int j)
  ** Perhaps a Taylor series will could be used for large z.
  */
 
-static void exvalue_d (double z, double ans[4], int j)
+static void
+exvalue_d (double z, double ans[4], int j)
 {
   double temp;
   double w;
   if (z < SMALL) w= std::exp(SMALL);
   else if (-z < SMALL) w = std::exp(-SMALL);  /* stop infinite answers */
-else   w = std::exp(z);
+  else   w = std::exp(z);
 
-temp = std::exp(-w);
-switch(j) {
-case 1:  ans[1] = w*temp;
-  ans[2] = 1-w;
-  ans[3] = w*(w-3) +1;
-  break;
-case 2:  ans[0] = 1-temp;
-  ans[1] = temp;
-  ans[2] = w*temp;
-  ans[3] = w*temp*(1-w);
-  break;
-}
+  temp = std::exp(-w);
+  switch(j) {
+  case 1:  ans[1] = w*temp;
+    ans[2] = 1-w;
+    ans[3] = w*(w-3) +1;
+    break;
+  case 2:  ans[0] = 1-temp;
+    ans[1] = temp;
+    ans[2] = w*temp;
+    ans[3] = w*temp*(1-w);
+    break;
+  }
 }
 
 
 // [[Rcpp::export]]
-Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
+Rcpp::NumericVector
+compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 {
   int n_obs = z.size();
   Rcpp::NumericMatrix ans(n_obs, 4);
@@ -357,7 +356,6 @@ Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String
 
   for (int ii = 0; ii < n_obs; ++ii) {
     sreg_gg(z[ii], temp, j);
-    //std::cout << temp[1] << " " << temp[2] << " " << temp[3] << " " << "\n";
     for (int jj = 0; jj < 4; ++jj) {
       ans(ii, jj) = temp[jj];
     }
@@ -389,12 +387,9 @@ Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix 
       gradients[j] += X(i, j) * mu[i];
      }
      gradients[j] = gradients[j] / X.nrow();
-     // std::cout<<gradients[j] << " ";
   }
 
   gradients[n_vars] = mu[n_obs];    // wrt scale
-  //std::cout<<gradients[n_vars] << "\n";
-
 
   return Rcpp::List::create(Rcpp::Named("gradients") = out_gradients,
                             Rcpp::Named("mu") = mu);

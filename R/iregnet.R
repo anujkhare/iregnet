@@ -6,13 +6,13 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "extreme_value", "exponential"), alpha=1,
                     lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
-										maxiter=1000, threshold=1e-4, unreg_sol=T, eps_lambda=NA) {
+                    maxiter=1000, threshold=1e-4, unreg_sol=T, eps_lambda=NA) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
 
-	if (estimate_scale == F && is.na(scale_init))
-		stop("Value of scale required if scale is not estimated")
+  if (estimate_scale == F && is.na(scale_init))
+    stop("Value of scale required if scale is not estimated")
 
   # family should be one of those listed
   family <- match.arg(family)
@@ -28,16 +28,16 @@ iregnet <- function(x, y,
   stopifnot_error("y should be a 2 column matrix, or a Surv object", is.matrix(y) || survival::is.Surv(y))
 
   status <- integer(0) # used for censoring, if y is matrix, calculated in C++ code
-	if (survival::is.Surv(y)) {
+  if (survival::is.Surv(y)) {
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
-	} else {
+  } else {
     stopifnot_error("y should be a 2 column matrix with nrow(y) = nrow(x)", ncol(y) == 2, nrow(y) == n_obs)
   }
 
-	# Append col of 1's for the intercept
-	if (intercept)
-		x <- cbind(rep(1, n_obs), x)
+  # Append col of 1's for the intercept
+  if (intercept)
+    x <- cbind(rep(1, n_obs), x)
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
@@ -65,14 +65,14 @@ stopifnot_error <- function(err_message, ...)
 
 get_status_from_surv <- function(s)
 {
-	type <- attr(s, 'type')
+  type <- attr(s, 'type')
 
-	stopifnot_error("Unsupported censoring type from Surv", type == 'left' || type == 'right' ||
-																													type == 'interval' || type == 'interval2')
-	# right censored: 0, none: 1, left: 2, interval: 3
-	status <- s[, ncol(s)]
-	if (type == 'left')
-			status[status == 0] <- 2
+  stopifnot_error("Unsupported censoring type from Surv", type == 'left' || type == 'right' ||
+                                                          type == 'interval' || type == 'interval2')
+  # right censored: 0, none: 1, left: 2, interval: 3
+  status <- s[, ncol(s)]
+  if (type == 'left')
+      status[status == 0] <- 2
 
-	return(status)
+  return(status)
 }
