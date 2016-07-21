@@ -5,9 +5,12 @@ library("glmnet")
 # TODO: You should check if the suggested packages are present, and only then use them for testing
 
 std <- F
-get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
+get_xy <- function(n_obs, n_vars, type = c('right', 'left', 'none', 'interval'), standardize=std, positive=F) {
+  type <- match.arg(type)
+
   x <- matrix(rnorm(n_obs * n_vars), n_obs, n_vars)
   y <- rnorm(n_obs)
+  y_u <- rnorm(n_obs)
 
   # standardize x and y
   if (standardize == T) {
@@ -17,13 +20,29 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
 
     y <- (y - mean(y))
     y <- y / sd(y)
+
+    if (type == 'interval') {
+      y_u <- (y_u - mean(y_u))
+      y_u <-  y_u / sd(y_u)
+    }
+  }
+
+  if (positive) {
+    y <- abs(y)
+    y_u <- abs(y_u)
   }
 
   if (type == "none") {
     status = rep(1, length(y))
     y_surv <- Surv(time = y, event = status, type = "right")
 
-  } else {
+  } else if (type == 'interval') {
+    status <- sample(c(0, 1, 2, 3), size=n_obs, replace=T)
+    y <- cbind(y, y_u)
+    y <- t(apply(y, 1, sort))    # make sure intervals are increasing in time
+    y_surv <- Surv(time=y[, 1], time2=y[, 2], event = status, type = 'interval')
+
+  } else {    # left or right censored
     status <- sample(c(0, 1), size=n_obs, replace=T)
     y_surv <- Surv(time = y, event = status, type = type)
   }
@@ -32,6 +51,8 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
   y <- cbind(y, y)
   if (type=="right") {
     y[status == 0, 2] = NA
+  } else if (type == 'interval') {
+    y <- NA  # NOTE: Not implemented, not needed, use the Surv object!
   } else {
     y[status == 0, 1] = NA
   }
@@ -39,7 +60,7 @@ get_xy <- function(n_obs, n_vars, type = "right", standardize=std) {
   return (list("x" = x, "y" = y, "surv" = y_surv))
 }
 
-test_that("iregnet calculates correct coefficients for ovarian data wrt survival", {
+test_that("survival::ovarian data: iregnet calculates correct coefficients wrt survival", {
   data("ovarian")
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
@@ -48,51 +69,6 @@ test_that("iregnet calculates correct coefficients for ovarian data wrt survival
 
   expect_equal(as.double(fit_s$coefficients),
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
-})
-
-
-test_that("Gaussian, left censored data - coefficients are calculated correctly wrt survival:", {
-  set.seed(55)
-
-  # n_obs >> n_vars
-  for (n_vars in 2:10) {
-  # n_vars <- 5
-    xy <- get_xy(40, n_vars, "left", standardize=std)
-    fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-    fit_i <- iregnet(xy$x, xy$surv, "gaussian", alpha = 1, intercept = T)
-    expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
-  }
-
-  # n_obs >= n_vars, but smaller - TODO: FAILING!
-  # xy <- get_xy(11, n_vars, "left")
-  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(iter.max=1000))
-  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  # expect_equal(as.double(fit_s$coefficients),
-  #              fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
-})
-
-test_that("Gaussian, right censored data - coefficients are calculated correctly wrt survival:", {
-  set.seed(55)
-
-  # n_obs >> n_vars
-  for (n_vars in 2:10) {
-    xy <- get_xy(40, n_vars, "right", standardize=std)
-    fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
-    # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-    fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T)
-    # print(fit_i)
-    # print(fit_s)
-    expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
-  }
-
-  # n_obs >= n_vars, but smaller - TODO: FAILING!
-  # xy <- get_xy(11, n_vars, "right")
-  # fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian", control = survreg.control(maxiter=1000, iter.max=1000))
-  # fit_i <- iregnet(xy$x, xy$y, alpha = 1, intercept = T, scale = fit_s$scale)
-  # expect_equal(as.double(fit_s$coefficients),
-  #              fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
 })
 
 
@@ -122,7 +98,6 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
   fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F, alpha=alpha, scale=1, estimate_scale=F)
 
   lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
-  # lambda_path <- fit_i$lambda
 
   fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
 
@@ -130,14 +105,11 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
   expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
 
-
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
-  n_vars <- 5
-  # for (n_vars in 5:10)
+  for (n_vars in 5:10)
   {
-    # FIXME: to get same results from Glmnet and Iregnet, y should have 0 mean and 1 var
     xy <- get_xy(30, n_vars, "none", standardize=std)
 
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
@@ -153,27 +125,36 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
   }
 })
 
-test_that("Extreme value dist - coefficients are calculated correctly wrt survival:", {
-  set.seed(115)
-
-  n_vars <- 5
-  # for (n_vars in 5:10)
+test_wrt_survival <- function(dist, types = c('left', 'right', 'none'), n_vars_list = 5:10,
+                              std=F, nobs = 30, seed_test = 185, tol = 1e-3)
+{
+  set.seed(seed_test)
+  for (i in seq_along(n_vars_list))
   {
-    # FIXME: interval censored not tested
-    xy <- get_xy(30, n_vars, "right", standardize=std)
+    for (type in types) {
+      xy <- get_xy(nobs, n_vars_list[i], type, standardize=std, T)
 
-    fit_s <- survreg(xy$surv ~ xy$x, dist = "extreme")
-    fit_i <- iregnet(xy$x, xy$y, "extreme", alpha = 1, intercept = T, thresh=1e-4, standardize=T)
+      fit_s <- survreg(xy$surv ~ xy$x, dist = dist)
+      fit_i <- iregnet(xy$x, xy$surv, dist, alpha = 1, intercept = T, thresh=1e-7, standardize=T)
 
-    expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+      expect_equal(as.double(fit_s$coefficients),
+                   fit_i$beta[, fit_i$num_lambda], tolerance = tol)
+    }
   }
+}
 
-    xy <- get_xy(30, n_vars, "left", standardize=std)
+test_that("Gaussian dist - unregularized coefficients are calculated correctly wrt survival:", {
+   test_wrt_survival("gaussian", c('left', 'right', 'interval'), 2:10)
+})
 
-    fit_s <- survreg(xy$surv ~ xy$x, dist = "extreme")
-    fit_i <- iregnet(xy$x, xy$y, "extreme", alpha = 1, intercept = T, thresh=1e-4, standardize=T)
+test_that("Logistic dist - unregularized coefficients are calculated correctly wrt survival:", {
+   test_wrt_survival("logistic", c('left', 'right', 'interval'), 2:10)
+})
 
-    expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+test_that("LogGaussian - coefficients are calculated correctly wrt survival:", {
+   test_wrt_survival("loggaussian", c('left', 'right', 'interval'), 2:10)
+})
+
+test_that("LogLogistic - coefficients are calculated correctly wrt survival:", {
+  test_wrt_survival("loglogistic", c('left', 'right', 'interval'), 2:10)
 })

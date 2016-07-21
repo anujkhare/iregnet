@@ -4,9 +4,9 @@
 # Borrowed parts from survival survreg and glmnet
 
 iregnet <- function(x, y,
-                    family=c("gaussian", "logistic", "loggaussian", "extreme_value", "exponential"), alpha=1,
+                    family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential"), alpha=1,
                     lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
-                    maxiter=1000, threshold=1e-4, unreg_sol=T, eps_lambda=NA) {
+                    maxiter=1000, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=F) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
@@ -47,7 +47,7 @@ iregnet <- function(x, y,
   fit <- fit_cpp(x, y, family, alpha, lambda_path=lambda, num_lambda=num_lambda, intercept=intercept,
                  out_status=status, scale_init=scale_init, max_iter=maxiter, threshold=threshold,
                  flag_standardize_x=standardize, estimate_scale=estimate_scale, unreg_sol=unreg_sol,
-                 eps_lambda=eps_lambda);
+                 eps_lambda=eps_lambda, debug=debug);
 
   fit$call <- match.call()
   fit

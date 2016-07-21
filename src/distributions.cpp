@@ -54,7 +54,7 @@ void (*sreg_gg)(double, double [4], int);
 double
 compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
                       const double *eta, const double scale, const IREG_CENSORING *censoring_type,
-                      const ull n_obs, const IREG_DIST dist, double *mu)
+                      const ull n_obs, const IREG_DIST dist, double *mu, bool debug=false)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -65,6 +65,8 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
   double dsig, ddsig, dsg, sz;
   double dsig_sum, ddsig_sum;
 
+  // if (debug)
+  //   std::cout << "SCALE B IS " << scale << "\n";
   switch(dist) {
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
@@ -103,7 +105,11 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           temp2 = (densities_l[3]) / scale_2;
           dg = -temp; // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg =  temp2 - dg * dg;
-          response = eta[i] - dg / ddg;
+          if (ddg == 0)
+            response = eta[i];
+          else
+            response = eta[i] - dg / ddg;
+
           if (scale_update) {
             dsig = -temp * sz;
             ddsig = sz * sz * temp2 - dsig * (1 + dsig);
@@ -117,6 +123,10 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       case IREG_CENSOR_RIGHT:
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         sz = scale * normalized_y[0];
+        // if (debug) {
+        //   std::cout << "y_l[i]" << y_l[i] << " eta " << eta[i] << "\n";
+        //   std::cout<< "norm_y " << normalized_y[0] << " sz " << sz << " scale " << scale << "\n";
+        // }
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
@@ -129,7 +139,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
             dsig = ddsig = dsg = 0;
           }
 
-
         } else {
           loglik += log(densities_l[1]);
 
@@ -137,13 +146,19 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           temp2 = -densities_l[3] / densities_l[1] / scale_2;
           dg = -temp; // dg = -(1/sigma) * (f'(z) / f(z))
           ddg = temp2 - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
-          response = eta[i] - dg / ddg;
+
+          if (ddg == 0)
+            response = eta[i];
+          else
+            response = eta[i] - dg / ddg;
 
           if (scale_update) {
             dsig = -temp * sz;
             ddsig = sz * sz* temp2 - dsig * (1 + dsig);
           }
           // dsg = sz * temp2 - dg * (dsig + 1);
+          if (debug && ddg == 0)
+            std::cout << "HO! z " << response << " dg " << dg << " ddg " << ddg << "\n";
         }
 
         break;
@@ -170,7 +185,11 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           temp2 = densities_r[3] / densities_r[0] / scale_2;
           dg = -densities_r[2] / densities_r[0] / scale;
           ddg = temp2 - dg * dg;
-          response = eta[i] - dg / ddg;
+          if (ddg == 0)
+            response = eta[i];
+          else
+            response = eta[i] - dg / ddg;
+
 
           if (scale_update) {
             dsig = -temp * sz;
@@ -207,7 +226,10 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = -(densities_r[2] - densities_l[2]) / (temp * scale); // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg = (densities_r[3] - densities_l[3]) / (temp * scale_2) - dg * dg;
-          response = eta[i] - dg / ddg;
+          if (ddg == 0)
+            response = eta[i];
+          else
+            response = eta[i] - dg / ddg;
 
           if (scale_update) {
             dsig = (normalized_y[0] * densities_l[2] - normalized_y[1] * densities_r[2]) / temp;
@@ -231,9 +253,16 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
     if (scale_update) {
       dsig_sum += dsig;
       ddsig_sum += ddsig;
+      // if (debug) { 
+      //   std::cout << "Dsig: " << dsig << " ddsig " << ddsig << "\n";
+      // }
     }
 
   } // end for: n_obs
+
+  // if (debug) {
+  //   std::cout << "Dsig: " << dsig_sum << " ddsig " << ddsig_sum << "\n";
+  // }
 
   if (scale_update) {
     if (ddsig_sum != 0)
