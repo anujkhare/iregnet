@@ -2,14 +2,19 @@ Package: iregnet
 Type: Package
 Title: Regularized interval regression
 Version: 0.1.0
-Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <tdhock95@gmail.com>, Jelle Goeman
+Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <tdhock95@gmail.com>,
+    Jelle Goeman
 Maintainer: Anuj Khare <khareanuj18@gmail.com>
-Description: Interval regression with four types of censoring and elastic net regularization
+Description: Interval regression with four types of censoring and elastic net
+    regularization
 License: -
 LazyData: TRUE
-Suggests: ElemStatLearn,
-          glmnet,
-          testthat
+Suggests:
+    ElemStatLearn,
+    glmnet,
+    testthat
 LinkingTo: Rcpp
-Imports: Rcpp,
-         survival
+Imports:
+    Rcpp,
+    survival
+RoxygenNote: 5.0.1

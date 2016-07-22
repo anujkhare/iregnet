@@ -169,7 +169,7 @@ test_that("Log* with y is same as * with log(y)", {
   expect_equal(fit_lg$beta, fit_g$beta, tolerance=1e-3)
 
   fit_lg <- iregnet(X, Surv(ovarian$futime, ovarian$fustat), "loglogistic", thresh=thresh)
-  fit_g <- iregnet(X, Surv(log(ovarian$futime), ovarian$fustat), "logistic", thresh=thresh)
+  fit_g <- iregnet(X, Surv(log(ovarian$futime), ovarian$fustat), "logistic", thresh=thresh, estimate_scale=F)
   print(fit_g)
   expect_equal(fit_lg$beta, fit_g$beta, tolerance=1e-3)
 })

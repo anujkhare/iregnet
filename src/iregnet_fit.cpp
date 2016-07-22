@@ -45,6 +45,9 @@ max(double a, double b)
  *      ?
  * This follows the math as outlined
  */
+//' @title C++ function to fit regularized AFT models with interval censored data
+//' @description \strong{NOTE:} This function is not meant to be called on it's own! Please use
+//' the \code{\link{iregnet}} function.
 // [[Rcpp::export]]
 Rcpp::List
 fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
