@@ -1,3 +1,6 @@
+#ifndef IREGNET_H
+#define IREGNET_H
+
 #include <iostream>
 #include <Rcpp.h>
 #include <cmath>
@@ -25,7 +28,17 @@ typedef enum {
 } IREG_CENSORING;
 
 /* Functions from iregnet_fit.cpp */
-IREG_DIST get_ireg_dist (Rcpp::String dist_str);
+typedef double (*transform_func) (double);
+
+IREG_DIST
+get_ireg_dist (Rcpp::String dist_str);
+
+void
+get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);
+
+void
+get_transformed_dist(IREG_DIST orig_dist, IREG_DIST &transformed_dist, double *scale,
+                     bool *estimate_scale, Rcpp::NumericMatrix &y);
 
 /* Functions from distributions.cpp */
 double
@@ -33,4 +46,4 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
                       const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                       const ull n_obs, IREG_DIST dist, double *mu, bool debug);
 
-void get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);
+#endif  // IREGNET_H

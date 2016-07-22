@@ -34,7 +34,8 @@ iregnet <- function(x, y,
   } else {
     stopifnot_error("y should be a 2 column matrix with nrow(y) = nrow(x)", ncol(y) == 2, nrow(y) == n_obs)
   }
-  stopifnot_error("y should be positive for the given family", !(family %in% c('loglogistic', 'loggaussian', 'weibull') && any(y<0)))
+  stopifnot_error("y should be positive for the given family",
+                  !(family %in% c('loglogistic', 'loggaussian', 'weibull') && any(y[!is.na(y)]<0)))
 
   # Append col of 1's for the intercept
   if (intercept)

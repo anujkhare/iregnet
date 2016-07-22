@@ -158,3 +158,18 @@ test_that("LogGaussian - coefficients are calculated correctly wrt survival:", {
 test_that("LogLogistic - coefficients are calculated correctly wrt survival:", {
   test_wrt_survival("loglogistic", c('left', 'right', 'interval'), 2:10)
 })
+
+test_that("Log* with y is same as * with log(y)", {
+  data(ovarian)
+  X <- cbind(ovarian$ecog.ps, ovarian$rx)
+  thresh <- 1e-7
+
+  fit_lg <- iregnet(X, Surv(ovarian$futime, ovarian$fustat), "loggaussian", thresh=thresh)
+  fit_g <- iregnet(X, Surv(log(ovarian$futime), ovarian$fustat), "gaussian", thresh=thresh)
+  expect_equal(fit_lg$beta, fit_g$beta, tolerance=1e-3)
+
+  fit_lg <- iregnet(X, Surv(ovarian$futime, ovarian$fustat), "loglogistic", thresh=thresh)
+  fit_g <- iregnet(X, Surv(log(ovarian$futime), ovarian$fustat), "logistic", thresh=thresh)
+  print(fit_g)
+  expect_equal(fit_lg$beta, fit_g$beta, tolerance=1e-3)
+})

@@ -373,6 +373,7 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 
 /* Compute the gradients of the Log Likelihood wrt beta, and scale.
  * Note that compute_grad_response returns the derivatives wrt eta (X^T beta), so we need to adjust
+ * WARNING: No parameter validation is done, this method is for testing only!
  */
 // [[Rcpp::export]]
 Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
@@ -383,11 +384,15 @@ Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix 
   Rcpp::NumericVector mu(n_obs+1), out_gradients(n_vars + 1);     // weights and 1 for scale
   double *gradients = REAL(out_gradients);
 
+  /* Loggaussain = Gaussian with log(y), etc. */
+  IREG_DIST dist;
+  get_transformed_dist(get_ireg_dist(family), dist, NULL, NULL, y);
+
   IREG_CENSORING status[y.nrow()];
   get_censoring_types(y, status); // It will modify y as well!
 
   compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
-                        status, n_obs, get_ireg_dist(family), REAL(mu));
+                        status, n_obs, dist, REAL(mu));
 
   for (ull j = 0; j < n_vars; ++j) {
     gradients[j] = 0;
