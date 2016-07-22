@@ -146,6 +146,7 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
             ddsig = sz * sz* temp2 - dsig * (1 + dsig);
           }
           // dsg = sz * temp2 - dg * (dsig + 1);
+        }
         break;
 
       case IREG_CENSOR_LEFT:
