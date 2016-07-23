@@ -91,7 +91,8 @@
 #'  \code{lambda} \tab Vector of size \code{num_lambda} of (calculated or
 #'   supplied) regularization parameter \code{lambda} values. \cr
 #'  \code{loglik} \tab Vector of size \code{num_lambda} of log-likelihoods of
-#'    the fit at each \code{lambda} value. \cr
+#'    the fit at each \code{lambda} value, excluding the contribution of the
+#'    penalty terms. \cr
 #'  \code{num_lambda} \tab Number of \code{lambda} values. \cr
 #'  \code{n_iters} \tab Vector of size \code{num_lambda} of number of iterations
 #'    taken at each \code{lambda}. \cr
@@ -100,7 +101,8 @@
 #'    \code{scale_init} otherwise. \strong{TODO} \cr
 #'  \code{scale_init} \tab Initial value (calculated or supplied) of \code{scale}. \cr
 #'  \code{estimate_scale} \tab \code{TRUE} if the \code{scale} was estimated. \cr
-#'  \code{error_status} \tab The error status. \code{0} denotes no errors. \cr
+#'  \code{error_status} \tab The error status. \code{0} denotes no errors.
+#'    \code{-1} denotes that convergence was not reached in \code{maxiter}. \cr
 #' }
 #' @author
 #' Anuj Khare, Toby Dylan Hocking, Jelle Goeman. \cr
@@ -138,12 +140,15 @@ iregnet <- function(x, y,
   stopifnot_error("y should be a 2 column matrix, or a Surv object", is.matrix(y) || survival::is.Surv(y))
 
   status <- integer(0) # used for censoring, if y is matrix, calculated in C++ code
+
   if (survival::is.Surv(y)) {
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
   } else {
     stopifnot_error("y should be a 2 column matrix with nrow(y) = nrow(x)", ncol(y) == 2, nrow(y) == n_obs)
   }
+
+  temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
   stopifnot_error("y should be positive for the given family",
                   !(family %in% c('loglogistic', 'loggaussian', 'weibull') && any(y[!is.na(y)]<0)))
 

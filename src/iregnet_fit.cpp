@@ -7,12 +7,15 @@
 
 #define BIG 1e15
 
-void get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
+static inline double
+get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
-static void standardize_x (Rcpp::NumericMatrix X,
+static void standardize_x (Rcpp::NumericMatrix &X,
                            double *mean_x, double *std_x,
                            bool intercept);
+static void
+standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y);
 static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
                                         bool intercept, double &alpha, ull n_vars, ull n_obs);
 
@@ -57,13 +60,15 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         double scale_init,     bool estimate_scale,
         bool unreg_sol,        bool flag_standardize_x,
         double max_iter,       double threshold,
-        int num_lambda,        double eps_lambda)
+        int num_lambda,        double eps_lambda,
+        double thresh_divergence = 1)
 {
   /* Initialise some helper variables */
   IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
                                           // transformed_dist will be the dist of transformed output variables.
                                           // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
   double scale;
+  int error_status = 0;
 
   const ull n_obs  = X.nrow();
   const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
@@ -71,20 +76,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   /* Loggaussain = Gaussian with log(y), etc. */
   get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
-
-  /*
-   * Standardize functions:
-   */
-  double *mean_x = new double [n_vars];
-  double *std_x = new double [n_vars];
-
-  /* NOTE:
-   * we have scaled y and x, so you need to scale the obtained lambda values,
-   * and coef (beta) values back to the original scale before returning them.
-   */
-  if (flag_standardize_x) {
-    standardize_x(X, mean_x, std_x, intercept);      // FIXME: so that values are always estimated as for intercepts
-  }
 
   /* Create output variables */
   if (lambda_path.size() > 0) {
@@ -117,7 +108,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                       // these are the weights of the IRLS linear reg
   double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
   double *mu = new double [n_obs + 1];
-  double *ym = new double [n_obs];    // the mean values for y's
+  double *ym = new double [n_obs];    // the observation wise mean values for y's
+  double mean_y;
+  double *mean_x = new double [n_vars];
+  double *std_x = new double [n_vars];
   IREG_CENSORING *status;
 
 
@@ -129,7 +123,15 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   else {
     status = (IREG_CENSORING *) &out_status[0];
   }
-  get_y_means(y, status, ym);
+
+  /* X is columnwise variance normalized, mean is NOT set to 0
+   * y is mean normalized.
+   */
+  if (flag_standardize_x) {
+    standardize_x(X, mean_x, std_x, intercept);
+  }
+  mean_y = get_y_means(y, status, ym);
+  standardize_y(y, ym, mean_y);
 
   /* SCALE RULES:
    * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
@@ -138,18 +140,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    * If you provide a scale, it will be used as the initial value
    */
   if (scale_init == Rcpp::NA) {
-    scale = get_init_var(ym, status, n_obs, transformed_dist);
-
-    scale = 2 * sqrt(scale);    // use 2 * sqrt(var) as in survival
+    scale_init = get_init_var(ym, status, n_obs, transformed_dist);
+    scale_init = 2 * sqrt(scale_init);    // use 2 * sqrt(var) as in survival
     // TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
-  } else {
-    scale = scale_init;
   }
-  log_scale = log(scale);
-  if (debug) {
-    std::cout << "SCALE INIT IS: " << scale << "\n";
-  }
-
+  scale = scale_init; log_scale = log(scale);
 
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
@@ -205,7 +200,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
-    if (m != 0) {
+    if (m != 0) {                         // Initialise solutions using previous value
       for (ull i = 0; i < n_vars; ++i) {
         beta[i + n_vars] = beta[i];
       }
@@ -220,7 +215,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+      loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug && m == 0);
 
       /* iterate over beta elementwise and update using soft thresholding solution */
@@ -229,8 +224,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
-          if (debug && m == 0)
-            std::cout << "\t\t" << i <<  " w " << w[i] << " z " <<  z[i] << " eta " << eta[i] << " SOL_NUM " << sol_num << "\n";
           sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
         }
 
@@ -238,7 +231,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         sol_num *= -1; sol_denom *= -1;
 
         if (debug && m == 0)
-          std::cout << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
+          std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -254,12 +247,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         beta[k] = beta_new;
         if (debug && m == 0)
-          std::cout << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
+          std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug && m==0) {
-          //   std::cout << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
+          //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
         }
 
@@ -267,9 +260,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        // if (debug && m==0) {
-        //   std::cout << "SCALE:, update " << scale  << " " << scale_update<< "\n";
-        // }
         // scale the lambda value according to current scale unless you are at unregularized sol
         // done to match values with Glment for Gaussian, no censoring
         if ((m != num_lambda - 1 || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
@@ -284,15 +274,26 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       n_iters[m]++;
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
+    out_loglik[m] = loglik;
     out_scale[m] = scale;
-    if (m == 0)
-      scale_init = scale;
+
+    /* Check for errors */
+    if (n_iters[m] == max_iter)
+      error_status = -1;
+    if (std::isinf(out_loglik[m]))
+      error_status = -3;
+    if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
+      error_status = 1;
+      break;
+    }
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
-  if (flag_standardize_x) {
-    for (ull m = 0; m < num_lambda; ++m) {
+  for (ull m = 0; m < num_lambda; ++m) {
+    //if (transformed_dist == IREG_DIST_LOGISTIC)
+      out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
+    if (flag_standardize_x) {
       for (ull i = int(intercept); i < n_vars; ++i) {  // no standardization for intercept
         out_beta(i, m) = out_beta(i, m) / std_x[i];
       }
@@ -316,16 +317,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                             Rcpp::Named("scale")        = out_scale,
                             Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("scale_init")   = scale_init,
-                            Rcpp::Named("error_status") = 0
+                            Rcpp::Named("error_status") = error_status
                             );
 }
 
-void
+static inline double
 get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
 {
   if (!ym || !status)
-    return;
+    return 0;
 
+  double mean_y = 0;
   for (ull i = 0; i < y.nrow(); ++i) {
       switch (status[i]) {
         case IREG_CENSOR_LEFT:
@@ -341,8 +343,10 @@ get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
         default:
           ym[i] = 0;
       }
-      // std::cout<<"status, ym: " << status[i] << " " << ym[i] << "\n";
+      mean_y += ym[i];
   } // end for
+  mean_y /= y.nrow();
+  return mean_y;
 }
 
 void
@@ -400,7 +404,7 @@ soft_threshold (double x, double lambda)
 }
 
 static void
-standardize_x (Rcpp::NumericMatrix X,
+standardize_x (Rcpp::NumericMatrix &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
@@ -425,6 +429,16 @@ standardize_x (Rcpp::NumericMatrix X,
       X(j, i) = X(j, i) / std_x[i];
     }
   }
+}
+
+static void
+standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y)
+{
+  for (ull i = 0; i < y.nrow() * y.ncol(); ++i) {
+    y[i] -= mean_y;
+  }
+  for (ull i = 0; i < y.nrow(); ++i)
+    ym[i] -= mean_y;
 }
 
 static double

@@ -50,6 +50,7 @@ void (*sreg_gg)(double, double [4], int);
  *      mu: grad of LL wrt eta and scale - size should be n_vars + 1
  *      w: vector with diagonal of hessian of LL wrt eta
  *      z: working response; z_i = x_i'beta - mu_i / w_i
+ *      scale_update: the Newton update term for scale parameter
  */
 double
 compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
@@ -65,8 +66,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
   double dsig, ddsig, dsg, sz;
   double dsig_sum, ddsig_sum;
 
-  // if (debug)
-  //   std::cout << "SCALE B IS " << scale << "\n";
   switch(dist) {
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
@@ -118,10 +117,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       case IREG_CENSOR_RIGHT:
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         sz = scale * normalized_y[0];
-        // if (debug) {
-        //   std::cout << "y_l[i]" << y_l[i] << " eta " << eta[i] << "\n";
-        //   std::cout<< "norm_y " << normalized_y[0] << " sz " << sz << " scale " << scale << "\n";
-        // }
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
@@ -221,7 +216,7 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       default:
         break;
     }
-    if (ddg == 0)
+    if (dsig == 0 || ddg == 0)
       response = eta[i];
     else
       response = eta[i] - dg / ddg;
@@ -232,16 +227,13 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
     if (scale_update) {
       dsig_sum += dsig;
       ddsig_sum += ddsig;
-      // if (debug) { 
-      //   std::cout << "Dsig: " << dsig << " ddsig " << ddsig << "\n";
-      // }
+    }
+
+    if (debug) {
+      std::cerr << "\t\t" << z[i] << "\t" << dg << "\t" << ddg << "\n";
     }
 
   } // end for: n_obs
-
-  // if (debug) {
-  //   std::cout << "Dsig: " << dsig_sum << " ddsig " << ddsig_sum << "\n";
-  // }
 
   if (scale_update) {
     if (ddsig_sum != 0)

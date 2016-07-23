@@ -12,7 +12,7 @@ iregnet_compute_gradients <- function(X, y, eta, scale, family) {
 #' @title C++ function to fit regularized AFT models with interval censored data
 #' @description \strong{NOTE:} This function is not meant to be called on it's own! Please use
 #' the \code{\link{iregnet}} function.
-fit_cpp <- function(X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda) {
-    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda)
+fit_cpp <- function(X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, thresh_divergence = 1) {
+    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, thresh_divergence)
 }
 
