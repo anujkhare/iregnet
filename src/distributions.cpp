@@ -252,6 +252,8 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
   if (mu)
     mu[n_obs] = dsig_sum;
+
+  return loglik;
 }
 
 static void
