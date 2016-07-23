@@ -50,6 +50,7 @@ void (*sreg_gg)(double, double [4], int);
  *      mu: grad of LL wrt eta and scale - size should be n_vars + 1
  *      w: vector with diagonal of hessian of LL wrt eta
  *      z: working response; z_i = x_i'beta - mu_i / w_i
+ *      scale_update: the Newton update term for scale parameter
  */
 double
 compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
@@ -65,8 +66,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
   double dsig, ddsig, dsg, sz;
   double dsig_sum, ddsig_sum;
 
-  // if (debug)
-  //   std::cout << "SCALE B IS " << scale << "\n";
   switch(dist) {
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
@@ -93,7 +92,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = -normalized_y[0] / scale;
           ddg = -1 / scale;
-          response = y_l[i];
           if (scale_update) {
             dsig = ddsig = 0;
           }
@@ -105,10 +103,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           temp2 = (densities_l[3]) / scale_2;
           dg = -temp; // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg =  temp2 - dg * dg;
-          if (ddg == 0)
-            response = eta[i];
-          else
-            response = eta[i] - dg / ddg;
 
           if (scale_update) {
             dsig = -temp * sz;
@@ -123,10 +117,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       case IREG_CENSOR_RIGHT:
         normalized_y[0] = (y_l[i] - eta[i]) / scale;
         sz = scale * normalized_y[0];
-        // if (debug) {
-        //   std::cout << "y_l[i]" << y_l[i] << " eta " << eta[i] << "\n";
-        //   std::cout<< "norm_y " << normalized_y[0] << " sz " << sz << " scale " << scale << "\n";
-        // }
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
         if (densities_l[1] <= 0) {
@@ -134,7 +124,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = normalized_y[0]/ scale;
           ddg = 0;
-          response = SMALL;
           if (scale_update) {
             dsig = ddsig = dsg = 0;
           }
@@ -147,20 +136,12 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           dg = -temp; // dg = -(1/sigma) * (f'(z) / f(z))
           ddg = temp2 - dg * dg;     // f'(z^l) / f()] / [1-F()] ...
 
-          if (ddg == 0)
-            response = eta[i];
-          else
-            response = eta[i] - dg / ddg;
-
           if (scale_update) {
             dsig = -temp * sz;
             ddsig = sz * sz* temp2 - dsig * (1 + dsig);
           }
           // dsg = sz * temp2 - dg * (dsig + 1);
-          if (debug && ddg == 0)
-            std::cout << "HO! z " << response << " dg " << dg << " ddg " << ddg << "\n";
         }
-
         break;
 
       case IREG_CENSOR_LEFT:
@@ -173,7 +154,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = -normalized_y[1] / scale;
           ddg = 0;
-          response = SMALL;
           if (scale_update) {
             dsig = ddsig = dsg = 0;
           }
@@ -185,11 +165,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
           temp2 = densities_r[3] / densities_r[0] / scale_2;
           dg = -densities_r[2] / densities_r[0] / scale;
           ddg = temp2 - dg * dg;
-          if (ddg == 0)
-            response = eta[i];
-          else
-            response = eta[i] - dg / ddg;
-
 
           if (scale_update) {
             dsig = -temp * sz;
@@ -216,7 +191,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = 1;
           ddg = 0;
-          response = SMALL;
           if (scale_update) {
             dsig = ddsig = dsg = 0;
           }
@@ -226,10 +200,6 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
           dg = -(densities_r[2] - densities_l[2]) / (temp * scale); // mu_i = -(1/sigma) * (f'(z) / f(z))
           ddg = (densities_r[3] - densities_l[3]) / (temp * scale_2) - dg * dg;
-          if (ddg == 0)
-            response = eta[i];
-          else
-            response = eta[i] - dg / ddg;
 
           if (scale_update) {
             dsig = (normalized_y[0] * densities_l[2] - normalized_y[1] * densities_r[2]) / temp;
@@ -246,6 +216,10 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       default:
         break;
     }
+    if (dsig == 0 || ddg == 0)
+      response = eta[i];
+    else
+      response = eta[i] - dg / ddg;
 
     if (mu) mu[i] = dg;
     if (w) w[i] = ddg;
@@ -253,16 +227,13 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
     if (scale_update) {
       dsig_sum += dsig;
       ddsig_sum += ddsig;
-      // if (debug) { 
-      //   std::cout << "Dsig: " << dsig << " ddsig " << ddsig << "\n";
-      // }
+    }
+
+    if (debug) {
+      std::cerr << "\t\t" << z[i] << "\t" << dg << "\t" << ddg << "\n";
     }
 
   } // end for: n_obs
-
-  // if (debug) {
-  //   std::cout << "Dsig: " << dsig_sum << " ddsig " << ddsig_sum << "\n";
-  // }
 
   if (scale_update) {
     if (ddsig_sum != 0)
@@ -273,6 +244,8 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
   if (mu)
     mu[n_obs] = dsig_sum;
+
+  return loglik;
 }
 
 static void
@@ -394,6 +367,7 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 
 /* Compute the gradients of the Log Likelihood wrt beta, and scale.
  * Note that compute_grad_response returns the derivatives wrt eta (X^T beta), so we need to adjust
+ * WARNING: No parameter validation is done, this method is for testing only!
  */
 // [[Rcpp::export]]
 Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
@@ -404,11 +378,15 @@ Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix 
   Rcpp::NumericVector mu(n_obs+1), out_gradients(n_vars + 1);     // weights and 1 for scale
   double *gradients = REAL(out_gradients);
 
+  /* Loggaussain = Gaussian with log(y), etc. */
+  IREG_DIST dist;
+  get_transformed_dist(get_ireg_dist(family), dist, NULL, NULL, y);
+
   IREG_CENSORING status[y.nrow()];
   get_censoring_types(y, status); // It will modify y as well!
 
   compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
-                        status, n_obs, get_ireg_dist(family), REAL(mu));
+                        status, n_obs, dist, REAL(mu));
 
   for (ull j = 0; j < n_vars; ++j) {
     gradients[j] = 0;
