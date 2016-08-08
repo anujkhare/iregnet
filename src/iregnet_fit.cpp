@@ -352,23 +352,27 @@ get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
 void
 get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
+  double y_l, y_r;
   for (ull i = 0; i < y.nrow(); ++i) {
-    if (y(i, 0) == Rcpp::NA) {
+    if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
+    if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
+    y_l = y(i, 0); y_r = y(i ,1);
 
-      if (y(i, 1) == Rcpp::NA)
+    if (y_l == Rcpp::NA) {
+      if (y_r == Rcpp::NA)
         Rcpp::stop("Invalid interval: both limits NA");
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
-        y(i, 0) = y(i, 1); // NOTE: We are putting the value in the left col, survival style!
+        y(i, 0) = y_r; // NOTE: We are putting the value in the left col, survival style!
       }
       continue;
     }
 
-    if (y(i, 1) == Rcpp::NA)                // right censoring
+    if (y_r == Rcpp::NA)                // right censoring
       status[i] = IREG_CENSOR_RIGHT;
-    else if (y(i, 0) == y(i, 1))
+    else if (y_l == y_r)
       status[i] = IREG_CENSOR_NONE;         // no censoring
-    else if (y(i, 0) > y(i, 1))
+    else if (y_l > y_r)
       Rcpp::stop("Invalid interval: start > stop");
     else
       status[i] = IREG_CENSOR_INTERVAL;     // interval censoring
