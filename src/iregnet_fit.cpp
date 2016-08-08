@@ -64,18 +64,19 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         double thresh_divergence = 1)
 {
   /* Initialise some helper variables */
-  IREG_DIST orig_dist, transformed_dist;  // Orig dist is the one that is initially given
-                                          // transformed_dist will be the dist of transformed output variables.
-                                          // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
+  IREG_DIST transformed_dist;  // Orig dist is the one that is initially given
+                               // transformed_dist will be the dist of transformed output variables.
+                               // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
+                               // NOTE: This transformation is done before coming to this routine
   double scale;
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
   const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
-  orig_dist = get_ireg_dist(family);
+  transformed_dist = get_ireg_dist(family);
 
   /* Loggaussain = Gaussian with log(y), etc. */
-  get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
+  // get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
 
   /* Create output variables */
   if (lambda_path.size() > 0) {
@@ -395,6 +396,8 @@ get_ireg_dist (Rcpp::String dist_str)
     return IREG_DIST_EXTREME_VALUE;
   if (strcmp("exponential", dist_str.get_cstring()) == 0)
     return IREG_DIST_EXPONENTIAL;
+  if (strcmp("weibull", dist_str.get_cstring()) == 0)
+    return IREG_DIST_WEIBULL;
   if (strcmp("loggaussian", dist_str.get_cstring()) == 0)
     return IREG_DIST_LOG_GAUSSIAN;
   if (strcmp("loglogistic", dist_str.get_cstring()) == 0)
@@ -493,45 +496,4 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
 
   return lambda_max;
-}
-
-/* Apply the required transformation to the time scale (t = log(y))
- * the transformation depends on the distribution used.
- */
-void
-get_transformed_dist(IREG_DIST orig_dist, IREG_DIST &transformed_dist, double *scale,
-                     bool *estimate_scale, Rcpp::NumericMatrix &y)
-{
-  transform_func transform_y;
-  switch(orig_dist) {
-    case IREG_DIST_EXTREME_VALUE:
-    case IREG_DIST_GAUSSIAN:
-    case IREG_DIST_LOGISTIC:
-      transform_y = identity;
-      transformed_dist = orig_dist;
-      break;
-
-    case IREG_DIST_LOG_GAUSSIAN:
-      transform_y = log;
-      transformed_dist = IREG_DIST_GAUSSIAN;
-      break;
-
-    case IREG_DIST_LOG_LOGISTIC:
-      transform_y = log;
-      transformed_dist = IREG_DIST_LOGISTIC;
-      break;
-
-    case IREG_DIST_EXPONENTIAL:
-      transform_y = log;
-      transformed_dist = IREG_DIST_EXTREME_VALUE;
-      if (scale)
-        *scale = 1;
-      if (estimate_scale)
-        *estimate_scale = false;
-      break;
-  }
-
-  for (ull i = 0; i < y.ncol() * y.nrow(); ++i) {     // Rcpp::NumericMatrix is unrolled col major
-    y[i] = transform_y(y[i]);
-  }
 }

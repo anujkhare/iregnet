@@ -14,6 +14,7 @@ typedef enum {
   IREG_DIST_LOG_GAUSSIAN,
   IREG_DIST_LOG_LOGISTIC,
   IREG_DIST_EXPONENTIAL,
+  IREG_DIST_WEIBULL,
   IREG_DIST_UNKNOWN
 } IREG_DIST;
 
@@ -34,10 +35,6 @@ get_ireg_dist (Rcpp::String dist_str);
 
 void
 get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);
-
-void
-get_transformed_dist(IREG_DIST orig_dist, IREG_DIST &transformed_dist, double *scale,
-                     bool *estimate_scale, Rcpp::NumericMatrix &y);
 
 /* Functions from distributions.cpp */
 double
