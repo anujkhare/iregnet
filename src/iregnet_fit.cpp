@@ -284,7 +284,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       error_status = -3;
     if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
       error_status = 1;
-      break;
+      Rcpp::stop("NANs produced");
     }
   } // end for: lambda
 
@@ -356,7 +356,7 @@ get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
     if (y(i, 0) == Rcpp::NA) {
 
       if (y(i, 1) == Rcpp::NA)
-        status[i] = IREG_CENSOR_INVALID;    // invalid data
+        Rcpp::stop("Invalid interval: both limits NA");
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
         y(i, 0) = y(i, 1); // NOTE: We are putting the value in the left col, survival style!
@@ -368,6 +368,8 @@ get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
       status[i] = IREG_CENSOR_RIGHT;
     else if (y(i, 0) == y(i, 1))
       status[i] = IREG_CENSOR_NONE;         // no censoring
+    else if (y(i, 0) > y(i, 1))
+      Rcpp::stop("Invalid interval: start > stop");
     else
       status[i] = IREG_CENSOR_INTERVAL;     // interval censoring
 
