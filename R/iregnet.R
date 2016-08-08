@@ -181,6 +181,8 @@ iregnet <- function(x, y,
                  eps_lambda=eps_lambda, debug=debug);
 
   fit$call <- match.call()
+  fit$intercept <- intercept
+  fit$family <- family
   class(fit) <- 'iregnet'
   fit
 }
@@ -210,8 +212,8 @@ get_status_from_surv <- function(s)
 }
 
 transformed_distributions <- list(
-  "loggaussian" = list(trans = function(y) log(y), dist = 'gaussian'),
-  "loglogistic" = list(trans = function(y) log(y), dist = 'logistic'),
-  "weibull" = list(trans = function(y) log(y), dist = 'extreme_value'),
-  "exponential" = list(trans = function(y) log(y), dist = 'extreme_value')
+  "loggaussian" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'gaussian'),
+  "loglogistic" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'logistic'),
+  "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
+  "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
 )
