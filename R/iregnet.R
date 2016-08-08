@@ -145,8 +145,9 @@ iregnet <- function(x, y,
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
   } else {
-    stopifnot_error("y should be a 2 column matrix with nrow(y) = nrow(x)", ncol(y) == 2, nrow(y) == n_obs)
+    stopifnot_error("y should be a 2 column matrix", ncol(y) == 2)
   }
+  stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == n_obs)
 
   temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
   stopifnot_error("y should be positive for the given family",
