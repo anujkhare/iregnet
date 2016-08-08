@@ -1,7 +1,6 @@
 #ifndef IREGNET_H
 #define IREGNET_H
 
-#include <iostream>
 #include <Rcpp.h>
 #include <cmath>
 
