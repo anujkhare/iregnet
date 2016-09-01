@@ -1,33 +1,8 @@
-library("iregnet")
-library("survival")
-library("glmnet")
+library(iregnet)
+library(survival)
+library(glmnet)
 
 # TODO: You should check if the suggested packages are present, and only then use them for testing
-
-test_that("Output y is validated properly", {
-  data("ovarian")
-  x <- cbind(ovarian$ecog.ps, ovarian$rx)
-  y_l <- ovarian$futime
-  y_r <- ovarian$futime
-  y_r[ovarian$fustat == 0] <- NA
-
-  expect_error(iregnet(x, 10), "y should be a 2 column matrix, or a Surv object")
-  # 2 column matrix
-  expect_error(iregnet(x, cbind(y_l, y_r-1)), "Invalid interval*")
-  expect_error(iregnet(x, cbind(y_r, y_r)), "Invalid interval*")
-  expect_error(iregnet(x, cbind(y_l, y_l, y_l)), "y should be a 2 column matrix")
-
-  # Surv object
-  expect_error(iregnet(x, Surv(y_l, ovarian$fustat, type="mstate")), "Unsupported censoring type from Surv")
-
-  # Size wrt X
-  expect_error(iregnet(x, cbind(y_l[1:2], y_r[1:2])), "*")
-  expect_error(iregnet(x, Surv(y_l[1:2], y_r[1:2], type="interval2")), "*")
-
-  # postivity
-  expect_error(iregnet(x, cbind(-y_l, y_r), family="loglogistic"), "y should be positive for the given family")
-});
-
 std <- F
 get_xy <- function(n_obs, n_vars, type = c('right', 'left', 'none', 'interval'), standardize=std, positive=F) {
   type <- match.arg(type)
@@ -95,40 +70,6 @@ test_that("survival::ovarian data: iregnet calculates correct coefficients wrt s
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
 })
 
-
-test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survival and glmnet:", {
-  alpha <- 0.6
-
-  data(prostate,package="ElemStatLearn")
-  pros <- subset(prostate,select=-train,train==TRUE)
-  ycol <- which(names(pros)=="lpsa")
-  X.unscaled <- as.matrix(pros[-ycol])
-  y.unscaled <- pros[[ycol]]
-  M <- matrix(
-    colMeans(X.unscaled), nrow(X.unscaled), ncol(X.unscaled), byrow=TRUE)
-  X.centered <- X.unscaled - M
-  sd.vec <- apply(X.unscaled, 2, sd)
-  S <- diag(1/sd.vec)
-  X.scaled <- X.centered %*% S
-  dimnames(X.scaled) <- dimnames(X.unscaled)
-  m <- mean(y.unscaled)
-  sigma <- sd(y.unscaled)
-  y.scaled <- (y.unscaled - m)/sigma
-
-  X <- X.scaled
-  y <- y.scaled
-
-  fit_s <- survreg(Surv(y, rep(1, length(y))) ~ X, dist = "gaussian")
-  fit_i <- iregnet(X, cbind(y, y), "gaussian", maxiter=1e5, thresh=1e-7, standardize=F, alpha=alpha, scale=1, estimate_scale=F)
-
-  lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
-
-  fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
-
-  expect_equal(as.double(fit_s$coefficients), as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = 1e-3)
-  expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
-})
-
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
@@ -184,23 +125,4 @@ test_that("LogGaussian - coefficients are calculated correctly wrt survival:", {
 
 test_that("LogLogistic - coefficients are calculated correctly wrt survival:", {
   test_wrt_survival("loglogistic", c('left', 'right', 'interval'), 2:10)
-})
-
-test_that("Log* with y is same as * with log(y)", {
-  data(ovarian)
-  X <- cbind(ovarian$ecog.ps, ovarian$rx)
-  y <- Surv(ovarian$futime, ovarian$fustat)
-  y_log <- Surv(log(ovarian$futime), ovarian$fustat)
-  thresh <- 1e-7
-
-  dists <- c("gaussian", "logistic")
-  log_dists <- c("loggaussian", "loglogistic")
-  for (i in seq_along(dists)) {
-    fit_il <- iregnet(X, y, log_dists[i], thresh=thresh)
-    fit_i <- iregnet(X, y_log, dists[i], thresh=thresh)
-    fit_s <- survreg(y_log ~ X, dist=dists[i])
-    expect_equal(fit_il$beta, fit_i$beta, tolerance=1e-3)
-    expect_equal(as.double(fit_s$coefficients),
-                 as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = 1e-3)
-  }
 })
