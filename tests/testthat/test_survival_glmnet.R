@@ -73,8 +73,7 @@ test_that("survival::ovarian data: iregnet calculates correct coefficients wrt s
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
   set.seed(115)
 
-  #for (n_vars in 5:10)
-  n_vars <- 5
+  for (n_vars in 5:10)
   {
     xy <- get_xy(30, n_vars, "none", standardize=std)
     xy1 <- xy
