@@ -116,8 +116,8 @@
 #' @examples
 #' \strong{TODO}
 iregnet <- function(x, y,
-                    family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential"), alpha=1,
-                    lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
+                    family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
+                    alpha=1, lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
                     maxiter=1e3, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=F) {
 
   # Parameter validation ===============================================
@@ -151,11 +151,32 @@ iregnet <- function(x, y,
 
   temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
   stopifnot_error("y should be positive for the given family",
-                  !(family %in% c('loglogistic', 'loggaussian', 'weibull') && any(y[!is.na(y)]<0)))
+                  !(family %in% names(transformed_distributions) && any(y[!is.na(y)]<0)))
+
+  # Fix scale for exponential: (least) extreme value distribution with scale = 1
+  if (family == "exponential") {
+    warning("Exponential distribution: fixing scale to 1")
+    estimate_scale <- F
+    scale_init <- 1
+  }
+  # Transform the outputs, and get new dist
+  if (family %in% names(transformed_distributions)) {
+    trans <- transformed_distributions[[family]]
+    y <- trans$trans(y)
+    family <- trans$dist
+  }
+
+  # Get column names
+  varnames <- colnames(x)
+  if (is.null(varnames)) {
+    varnames <- paste('x', 1: n_vars, sep='')
+  }
 
   # Append col of 1's for the intercept
-  if (intercept)
+  if (intercept) {
     x <- cbind(rep(1, n_obs), x)
+    varnames = c("(Intercept)", varnames)
+  }
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
@@ -168,6 +189,9 @@ iregnet <- function(x, y,
                  eps_lambda=eps_lambda, debug=debug);
 
   fit$call <- match.call()
+  fit$intercept <- intercept
+  fit$family <- family
+  rownames(fit$beta) <- varnames
   class(fit) <- 'iregnet'
   fit
 }
@@ -186,8 +210,8 @@ get_status_from_surv <- function(s)
 {
   type <- attr(s, 'type')
 
-  stopifnot_error("Unsupported censoring type from Surv", type == 'left' || type == 'right' ||
-                                                          type == 'interval' || type == 'interval2')
+  stopifnot_error("Unsupported censoring type from Surv", type %in% c('left', 'right',
+                                                                      'interval', 'interval2'))
   # right censored: 0, none: 1, left: 2, interval: 3
   status <- s[, ncol(s)]
   if (type == 'left')
@@ -195,3 +219,10 @@ get_status_from_surv <- function(s)
 
   return(status)
 }
+
+transformed_distributions <- list(
+  "loggaussian" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'gaussian'),
+  "loglogistic" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'logistic'),
+  "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
+  "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
+)

@@ -91,7 +91,7 @@ test_that("survival::ovarian data: iregnet calculates correct coefficients wrt s
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
   fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat), family="gaussian", alpha=1, intercept = T, threshold=1e-4)
 
-  expect_equal(as.double(fit_s$coefficients),
+  expect_equal(fit_s$coefficients,
                fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
 })
 
@@ -125,7 +125,7 @@ test_that("ElemStatsLearn data - coefficients are calculated correctly wrt survi
 
   fit_g <- glmnet(X, y, "gaussian", lambda = lambda_path, standardize=F, maxit=1e5, thresh=1e-7, alpha=alpha)
 
-  expect_equal(as.double(fit_s$coefficients), fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+  expect_equal(as.double(fit_s$coefficients), as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = 1e-3)
   expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
 })
 
@@ -146,7 +146,7 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
     fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=lambda_path, thresh=1e-7, standardize=T)
 
     expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+                 as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = 1e-3)
 
     expect_equal(as.double(fit_i$beta), as.double(coef(fit_g)), tolerance=1e-3)
   }
@@ -165,7 +165,7 @@ test_wrt_survival <- function(dist, types = c('left', 'right', 'none'), n_vars_l
       fit_i <- iregnet(xy$x, xy$surv, dist, alpha = 1, intercept = T, thresh=1e-7, standardize=T)
 
       expect_equal(as.double(fit_s$coefficients),
-                   fit_i$beta[, fit_i$num_lambda], tolerance = tol)
+                   as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = tol)
     }
   }
 }
@@ -201,6 +201,6 @@ test_that("Log* with y is same as * with log(y)", {
     fit_s <- survreg(y_log ~ X, dist=dists[i])
     expect_equal(fit_il$beta, fit_i$beta, tolerance=1e-3)
     expect_equal(as.double(fit_s$coefficients),
-                 fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+                 as.double(fit_i$beta[, fit_i$num_lambda]), tolerance = 1e-3)
   }
 })
