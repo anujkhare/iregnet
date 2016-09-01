@@ -166,9 +166,17 @@ iregnet <- function(x, y,
     family <- trans$dist
   }
 
+  # Get column names
+  varnames <- colnames(x)
+  if (is.null(varnames)) {
+    varnames <- paste('x', 1: n_vars, sep='')
+  }
+
   # Append col of 1's for the intercept
-  if (intercept)
+  if (intercept) {
     x <- cbind(rep(1, n_obs), x)
+    varnames = c("(Intercept)", varnames)
+  }
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
@@ -183,6 +191,7 @@ iregnet <- function(x, y,
   fit$call <- match.call()
   fit$intercept <- intercept
   fit$family <- family
+  rownames(fit$beta) <- varnames
   class(fit) <- 'iregnet'
   fit
 }
