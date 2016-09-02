@@ -180,12 +180,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
       if (m == 0) {
-        lambda_max_unscaled = lambda_seq[0] = 1e35;
+        lambda_max_unscaled = lambda_seq[0] = BIG;
       }
 
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
-        lambda_seq[m] = compute_lambda_max(X, w, z, intercept, alpha, n_vars, n_obs);
+        lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
         lambda_max_unscaled = lambda_seq[m] * scale * scale;
         // lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
 
@@ -484,17 +484,23 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
-                   double &alpha, ull n_vars, ull n_obs)
+compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
+                   bool intercept, double &alpha, ull n_vars, ull n_obs,
+                   bool debug=0)
 {
   double lambda_max = -1; // calculated values are always non-negative
   for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
     double temp = 0;
 
     for (ull i = 0; i < n_obs; ++i) {
-      temp += (w[i] * X(i, j) * z[i]);
+      // NOTE: `eta` contains only the contribution of the intercept, since all
+      // other `beta` values are 0.
+      temp += (w[i] * X(i, j) * (z[i] - eta[i]));
     }
     temp = fabs(temp);
+    if (debug) {
+      std::cerr << "LAMBDA " << temp / n_obs << "\n";
+    }
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
