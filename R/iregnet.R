@@ -118,7 +118,7 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
-                    maxiter=1e3, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=F) {
+                    maxiter=1e3, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=0) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)

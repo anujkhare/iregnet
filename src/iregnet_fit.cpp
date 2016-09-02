@@ -5,7 +5,7 @@
  */
 #include "iregnet.h"
 
-#define BIG 1e15
+#define BIG 1e35
 
 static inline double
 get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
@@ -17,7 +17,8 @@ static void standardize_x (Rcpp::NumericMatrix &X,
 static void
 standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y);
 static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
-                                        bool intercept, double &alpha, ull n_vars, ull n_obs);
+                                        double *eta, bool intercept, double &alpha,
+                                        ull n_vars, ull n_obs, bool debug);
 
 double
 identity (double y)
@@ -55,7 +56,7 @@ max(double a, double b)
 Rcpp::List
 fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         Rcpp::String family,   Rcpp::NumericVector lambda_path,
-        bool debug,            Rcpp::IntegerVector out_status,
+        int debug,             Rcpp::IntegerVector out_status,
         bool intercept,        double alpha,
         double scale_init,     bool estimate_scale,
         bool unreg_sol,        bool flag_standardize_x,
@@ -217,8 +218,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL, debug && m == 0);
-
+                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
@@ -231,7 +231,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
-        if (debug && m == 0)
+        if (debug == 1 && m == 0)
           std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
@@ -241,18 +241,22 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
         }
+        cond = debug == 2 && (m == 1 || m==2 || (m==0 && n_iters[m]==19));
+        if (cond) { // 0 values issue
+          std::cerr << k << " " << sol_num << "\n";
+        }
 
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(beta_new - beta[k]) > threshold)
           flag_beta_converged = 0;
 
         beta[k] = beta_new;
-        if (debug && m == 0)
+        if (debug==1 && m == 1)
           std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-          // if (debug && m==0) {
+          // if (debug==1 && m==0) {
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
         }
