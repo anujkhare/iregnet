@@ -243,10 +243,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
-        if (fabs(beta_new - beta[k]) > threshold)
+        if (fabs(beta_new - beta[k]) > threshold) {
           flag_beta_converged = 0;
+          beta[k] = beta_new;
+        }
 
-        beta[k] = beta_new;
         if (debug==1 && m == 1)
           std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
