@@ -122,6 +122,13 @@ iregnet <- function(x, y,
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
+  stopifnot_error("num_lambda > 0 is required", num_lambda > 0)
+  stopifnot_error("lambdas must be numeric", is.numeric(lambda))
+  stopifnot_error("intercept must be a boolean flag", is.logical(intercept))
+  stopifnot_error("standardize must be a boolean flag", is.logical(standardize))
+  stopifnot_error("unreg_sol must be a boolean flag", is.logical(unreg_sol))
+  stopifnot_error("estimate_scale must be a boolean flag", is.logical(estimate_scale))
+  stopifnot_error("threshold must be positive", threshold > 0)
 
   # if (estimate_scale == F && is.na(scale_init))
   #   stop("Value of scale required if scale is not estimated")
@@ -180,7 +187,7 @@ iregnet <- function(x, y,
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
-  stopifnot_error("eps_lambda should be in [0, 1)", 0 <= eps_lambda && eps_lambda < 1)
+  stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
 
   # Call the actual fit method
   fit <- fit_cpp(x, y, family, alpha, lambda_path=lambda, num_lambda=num_lambda, intercept=intercept,
