@@ -241,10 +241,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
         }
-        cond = debug == 2 && (m == 1 || m==2 || (m==0 && n_iters[m]==19));
-        if (cond) { // 0 values issue
-          std::cerr << k << " " << sol_num << "\n";
-        }
 
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(beta_new - beta[k]) > threshold)
