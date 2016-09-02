@@ -34,7 +34,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // fit_cpp
-Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, Rcpp::NumericVector lambda_path, bool debug, Rcpp::IntegerVector out_status, bool intercept, double alpha, double scale_init, bool estimate_scale, bool unreg_sol, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda, double thresh_divergence);
+Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, Rcpp::NumericVector lambda_path, int debug, Rcpp::IntegerVector out_status, bool intercept, double alpha, double scale_init, bool estimate_scale, bool unreg_sol, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda, double thresh_divergence);
 RcppExport SEXP iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP lambda_pathSEXP, SEXP debugSEXP, SEXP out_statusSEXP, SEXP interceptSEXP, SEXP alphaSEXP, SEXP scale_initSEXP, SEXP estimate_scaleSEXP, SEXP unreg_solSEXP, SEXP flag_standardize_xSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP, SEXP thresh_divergenceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
@@ -43,7 +43,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type y(ySEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type lambda_path(lambda_pathSEXP);
-    Rcpp::traits::input_parameter< bool >::type debug(debugSEXP);
+    Rcpp::traits::input_parameter< int >::type debug(debugSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type out_status(out_statusSEXP);
     Rcpp::traits::input_parameter< bool >::type intercept(interceptSEXP);
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);

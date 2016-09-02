@@ -5,7 +5,7 @@
  */
 #include "iregnet.h"
 
-#define BIG 1e15
+#define BIG 1e35
 
 static inline double
 get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
@@ -17,7 +17,8 @@ static void standardize_x (Rcpp::NumericMatrix &X,
 static void
 standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y);
 static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
-                                        bool intercept, double &alpha, ull n_vars, ull n_obs);
+                                        double *eta, bool intercept, double &alpha,
+                                        ull n_vars, ull n_obs, bool debug);
 
 double
 identity (double y)
@@ -55,7 +56,7 @@ max(double a, double b)
 Rcpp::List
 fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         Rcpp::String family,   Rcpp::NumericVector lambda_path,
-        bool debug,            Rcpp::IntegerVector out_status,
+        int debug,             Rcpp::IntegerVector out_status,
         bool intercept,        double alpha,
         double scale_init,     bool estimate_scale,
         bool unreg_sol,        bool flag_standardize_x,
@@ -179,12 +180,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
       if (m == 0) {
-        lambda_max_unscaled = lambda_seq[0] = 1e35;
+        lambda_max_unscaled = lambda_seq[0] = BIG;
       }
 
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
-        lambda_seq[m] = compute_lambda_max(X, w, z, intercept, alpha, n_vars, n_obs);
+        lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
         lambda_max_unscaled = lambda_seq[m] * scale * scale;
         // lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
 
@@ -217,8 +218,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL, debug && m == 0);
-
+                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
@@ -231,7 +231,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
-        if (debug && m == 0)
+        if (debug == 1 && m == 0)
           std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
@@ -243,16 +243,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
-        if (fabs(beta_new - beta[k]) > threshold)
+        if (fabs(beta_new - beta[k]) > threshold) {
           flag_beta_converged = 0;
+          beta[k] = beta_new;
+        }
 
-        beta[k] = beta_new;
-        if (debug && m == 0)
+        if (debug==1 && m == 1)
           std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-          // if (debug && m==0) {
+          // if (debug==1 && m==0) {
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
         }
@@ -480,17 +481,23 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, bool intercept,
-                   double &alpha, ull n_vars, ull n_obs)
+compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
+                   bool intercept, double &alpha, ull n_vars, ull n_obs,
+                   bool debug=0)
 {
   double lambda_max = -1; // calculated values are always non-negative
   for (ull j = int(intercept); j < n_vars; ++j) {   // dont include intercept col in lambda calc.
     double temp = 0;
 
     for (ull i = 0; i < n_obs; ++i) {
-      temp += (w[i] * X(i, j) * z[i]);
+      // NOTE: `eta` contains only the contribution of the intercept, since all
+      // other `beta` values are 0.
+      temp += (w[i] * X(i, j) * (z[i] - eta[i]));
     }
     temp = fabs(temp);
+    if (debug) {
+      std::cerr << "LAMBDA " << temp / n_obs << "\n";
+    }
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
