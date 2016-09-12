@@ -7,8 +7,8 @@ test_zeros <- function(x, y, dist="gaussian") {
                    alpha=1, intercept = T, threshold=1e-4, debug=0)
 
   # TODO: Currently, the first solution is for the initial fit. remove it!
-  first_solution  <- as.double(fit_i$beta[, 2])
-  second_solution <- as.double(fit_i$beta[, 3])
+  first_solution  <- as.double(fit_i$beta[, 1])
+  second_solution <- as.double(fit_i$beta[, 2])
   nvars <- length(first_solution)
 
   expect_equal(first_solution[2: nvars], rep(0, nvars - 1))
