@@ -73,3 +73,7 @@ test_that("LogGaussian - coefficients are calculated correctly wrt survival:", {
 test_that("LogLogistic - coefficients are calculated correctly wrt survival:", {
   test_wrt_survival("loglogistic", c('left', 'right', 'interval'), 2:10)
 })
+
+test_that("Exponential dist - unregularized coefficients are calculated correctly wrt survival:", {
+   test_wrt_survival("exponential", c('left', 'right', 'interval'), 2:10)
+})
