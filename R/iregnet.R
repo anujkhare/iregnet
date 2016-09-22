@@ -162,7 +162,7 @@ iregnet <- function(x, y,
 
   # Fix scale for exponential: (least) extreme value distribution with scale = 1
   if (family == "exponential") {
-    warning("Exponential distribution: fixing scale to 1")
+    cat("Exponential distribution: fixing scale to 1\n")
     estimate_scale <- F
     scale_init <- 1
   }
