@@ -121,8 +121,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (lambda_path.size() > 0) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
-      if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1]))
-        Rcpp::stop("lambdas must be positive and decreasing");
+      if (lambda_path[i] < 0) {
+        Rcpp::stop("lambdas must be positive.");
+      }
 
       out_lambda[i] = lambda_path[i];
     }
