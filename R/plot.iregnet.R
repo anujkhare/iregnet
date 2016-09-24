@@ -50,8 +50,7 @@ plot.iregnet <- function(fit, xvar=c("norm", "lambda"), label=T, ...) {
   else
     matplot(xdata, coefficients, lty=1, xlab=xlab, ylab=ylab, ...)
 
-  # TODO: label, ..., 
   if (label) {
-    print("labels")
+     legend("topright", varnames, col=seq_len(n -1),cex=0.8,fill=seq_len(n))
   }
 }
