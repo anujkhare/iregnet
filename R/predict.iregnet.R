@@ -14,7 +14,7 @@
 #' These should be a subset of the values on which the model was fit. To obtain
 #' predictions at other lambda values, re-fit the model.
 #' \cr \emph{Default: \code{NULL} (\code{fit$lambda} is used)}
-predict.iregnet <- function(fit, newx, lambda=NULL, type=c("link", "response")) {
+predict.iregnet <- function(fit, newx, lambda=NULL, type=c("link", "response"), ...) {
   stopifnot_error("Invalid / no fit object provided", !missing(fit),
     class(fit) == "iregnet")
   stopifnot_error("No 'newx' matrix provided", !missing(newx))
