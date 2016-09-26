@@ -1,3 +1,15 @@
 exportPattern("^[[:alpha:]]+")
 useDynLib(iregnet)
 importFrom(Rcpp, sourceCpp)
+
+importFrom("graphics", "legend", "matplot")
+importFrom("methods", "cbind2")
+importFrom("utils", "head")
+
+importFrom("survival", "Surv")
+
+S3method("coef", "iregnet")
+S3method("logLik", "iregnet")
+S3method("print", "iregnet")
+S3method("predict", "iregnet")
+S3method("plot", "iregnet")

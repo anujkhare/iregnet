@@ -14,8 +14,10 @@ Suggests:
     glmnet,
     testthat
 LinkingTo: Rcpp
-Imports:
-    Rcpp,
-    ggplot2,
+Depends:
     survival
+Imports:
+    ggplot2,
+    methods,
+    Rcpp
 RoxygenNote: 5.0.1
