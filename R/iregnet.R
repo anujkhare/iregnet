@@ -144,11 +144,11 @@
 #' X <- matrix(rnorm(50), 10, 5)
 #' y <- matrix(rnorm(20), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
-#' fit5 <- iregnet(X, y, scale_init=1, estimate_scale=F)
+#' fit5 <- iregnet(X, y, scale_init=1, estimate_scale=FALSE)
 #'
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
-                    alpha=1, lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
+                    alpha=1, lambda=double(0), num_lambda=100, intercept=T, standardize=FALSE, scale_init=NA, estimate_scale=T,
                     maxiter=1e3, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=0) {
 
   # Parameter validation ===============================================
@@ -161,7 +161,7 @@ iregnet <- function(x, y,
   stopifnot_error("estimate_scale must be a boolean flag", is.logical(estimate_scale))
   stopifnot_error("threshold must be positive", threshold > 0)
 
-  # if (estimate_scale == F && is.na(scale_init))
+  # if (estimate_scale == FALSE && is.na(scale_init))
   #   stop("Value of scale required if scale is not estimated")
 
   # family should be one of those listed
@@ -194,7 +194,7 @@ iregnet <- function(x, y,
   # Fix scale for exponential: (least) extreme value distribution with scale = 1
   if (family == "exponential") {
     cat("Exponential distribution: fixing scale to 1\n")
-    estimate_scale <- F
+    estimate_scale <- FALSE
     scale_init <- 1
   }
   # Transform the outputs, and get new dist

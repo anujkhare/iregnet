@@ -1,6 +1,9 @@
-logLik.iregnet <- function(fit, ...) {
-  stopifnot_error("Invalid / no fit object provided",
-                  class(fit) == "iregnet")
+#' Extract Log-Likelihood
+#' 
+#' @method
+logLik.iregnet <- function(object, ...) {
+  stopifnot_error("Invalid / no object provided",
+                  class(object) == "iregnet")
 
-  fit$loglik
+  object$loglik
 }

@@ -24,15 +24,16 @@
 #' \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 #' since it is never regularized. It is also not plotted.
 #'
-plot.iregnet <- function(fit, xvar=c("norm", "lambda"), label=T, ...) {
-  stopifnot_error("Invalid / no fit object provided", !missing(fit),
-                  class(fit) == "iregnet")
+#' @method
+plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=T, ...) {
+  stopifnot_error("Invalid / no x object provided", !missing(x),
+                  class(x) == "iregnet")
   xvar <- match.arg(xvar)
 
-  tidy.df <- tidydf(fit)
-  start_index <- as.integer(fit$intercept) + 1
-  n <- nrow(fit$beta)
-  varnames <- rownames(fit$beta)[start_index:n]
+  tidy.df <- tidydf(x)
+  start_index <- as.integer(x$intercept) + 1
+  n <- nrow(x$beta)
+  varnames <- rownames(x$beta)[start_index:n]
   tidy.df <- tidy.df[tidy.df$variable %in% varnames, ]
   switch(xvar,
     "lambda" = {

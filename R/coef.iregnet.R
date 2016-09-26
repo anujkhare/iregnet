@@ -1,6 +1,7 @@
-coef.iregnet <- function(fit, ...) {
-  stopifnot_error("Invalid / no fit object provided",
-                  class(fit) == "iregnet")
+#' @method
+coef.iregnet <- function(object, ...) {
+  stopifnot_error("Invalid / no object provided",
+                  class(object) == "iregnet")
 
-  fit$beta
+  object$beta
 }
