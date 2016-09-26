@@ -4,12 +4,9 @@
 \alias{plot.iregnet}
 \title{Plot the path of the variables of iregnet fit}
 \usage{
-\method{plot}{iregnet}(fit, xvar = c("norm", "lambda"), label = T, ...)
+\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = T, ...)
 }
 \arguments{
-\item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
-method.}
-
 \item{xvar}{Variable on the X-axis against which the coefficients are
 plotted. \code{norm} plots against the L1 norm of the coefficients, i.e.,
 arclength. \code{lambda} plots against log-lambda sequence.}
@@ -18,6 +15,9 @@ arclength. \code{lambda} plots against log-lambda sequence.}
 are plotted along with the curves.}
 
 \item{...}{Other parameters to be passed to the \code{matplot} function.}
+
+\item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
+method.}
 }
 \description{
 Produces a coefficient profile plot of the coefficient paths for a fitted

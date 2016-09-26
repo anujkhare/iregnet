@@ -6,7 +6,7 @@
 \usage{
 iregnet(x, y, family = c("gaussian", "logistic", "loggaussian", "loglogistic",
   "extreme_value", "exponential", "weibull"), alpha = 1, lambda = double(0),
-  num_lambda = 100, intercept = T, standardize = F, scale_init = NA,
+  num_lambda = 100, intercept = T, standardize = FALSE, scale_init = NA,
   estimate_scale = T, maxiter = 1000, threshold = 1e-04, unreg_sol = T,
   eps_lambda = NA, debug = 0)
 }
@@ -35,8 +35,7 @@ alpha=1 is the lasso penalty, and alpha=0 is ridge penalty.
 parameter lambda values. \cr If not supplied, the function will calculate a
 lambda path of length \code{num_lambda} itself. \strong{NOTE:} The lambda
 values are scaled because of the nuisance parameter, and hence not directly
-comparable to those of other packages like \code{\link{glmnet}}. See \strong{TODO}
-for more details.
+comparable to those of other packages like \code{\link{glmnet}}.
 \cr \emph{Default: \code{NA}}}
 
 \item{num_lambda}{The number of lambda values calculated by the function.
@@ -58,7 +57,7 @@ a suitable value is calculated depending on the distribution.
 
 \item{estimate_scale}{\code{TRUE} if \code{scale} is to be estimated. To
 use a fixed value \code{scale0} for \code{scale}, set \code{scale_init=scale0
-, estimate_scale=FALSE}. \strong{See examples.}
+, estimate_scale=FALSE}. \emph{See examples.}
 \cr \emph{Default: \code{TRUE}}}
 
 \item{maxiter}{Maximum number of iterations over data per lambda value.
@@ -75,7 +74,7 @@ unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
 
 \item{eps_lambda}{The ratio of the minimum value of \code{lambda} to the
 (calculated) maximum value, in case no lambda is supplied. \code{num_lambda}
-\code{lambda} values are calculated between \code{lambda_max} and 
+\code{lambda} values are calculated between \code{lambda_max} and
 \code{lambda_min} on the log scale.
 \cr \emph{Default: 0.0001 if n_vars < n_obs, 0.1 otherwise.}}
 
@@ -97,9 +96,9 @@ Returns a S3 object iregnet with the following elements:\cr
  \code{num_lambda} \tab Number of \code{lambda} values. \cr
  \code{n_iters} \tab Vector of size \code{num_lambda} of number of iterations
    taken at each \code{lambda}. \cr
- \code{scale} \tab Vector of size \code{num_lambda} of number of estimated
+ \code{scale} \tab Vector of size \code{num_lambda} of estimated
    scale at each \code{lambda} value, if \code{estimate_scale == T}. Same as
-   \code{scale_init} otherwise. \strong{TODO} \cr
+   \code{scale_init} otherwise. \cr
  \code{scale_init} \tab Initial value (calculated or supplied) of \code{scale}. \cr
  \code{estimate_scale} \tab \code{TRUE} if the \code{scale} was estimated. \cr
  \code{error_status} \tab The error status. \code{0} denotes no errors.
@@ -121,14 +120,45 @@ lambda} value.
 }
 \section{References}{
 
-Glmnet paper, coxnet paper \strong{TODO}
+Friedman, J., Hastie, T. and Tibshirani, R. (2008) Regularization Paths for
+Generalized Linear Models via Coordinate Descent,
+\url{http://www.stanford.edu/~hastie/Papers/glmnet.pdf}
+
+Simon, N., Friedman, J., Hastie, T., Tibshirani, R. (2011) Regularization
+Paths for Cox's Proportional Hazards Model via Coordinate Descent, Journal
+of Statistical Software, Vol. 39(5) 1-13
+\url{http://www.jstatsoft.org/v39/i05/}
 }
 \examples{
-\\strong{TODO}
+# y can be a 2 column matrix.
+X <- matrix(rnorm(50), 10, 5)
+y <- matrix(rnorm(20), 10, 2)
+y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+fit1 <- iregnet(X, y)
+
+# Surv objects from survival are also supported.
+data("ovarian")
+X <- cbind(ovarian$ecog.ps, ovarian$rx)
+y <- Surv(ovarian$futime, ovarian$fustat)
+fit2 <- iregnet(X, y)
+
+# Log-Gaussian is same as Gaussian with log-transformed data
+X <- matrix(rnorm(50), 10, 5)
+y <- matrix(abs(rnorm(20)), 10, 2)
+y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+fit3 <- iregnet(X, log(y), "gaussian")
+fit4 <- iregnet(X, y, "loggaussian")
+
+# Scale parameter can be fixed by setting the estimate_scale flag.
+X <- matrix(rnorm(50), 10, 5)
+y <- matrix(rnorm(20), 10, 2)
+y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+fit5 <- iregnet(X, y, scale_init=1, estimate_scale=FALSE)
+
 }
 \author{
 Anuj Khare, Toby Dylan Hocking, Jelle Goeman. \cr
-Maintainer: Anuj Khare \link{khareanuj18@gmail.com}
+Maintainer: Anuj Khare \email{khareanuj18@gmail.com}
 }
 \seealso{
 \code{\link{predict.iregnet}}, \code{\link{cv.iregnet}}, \code{\link{plot.iregnet}}

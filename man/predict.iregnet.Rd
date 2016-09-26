@@ -5,7 +5,7 @@
 \title{Predict response using new covariates}
 \usage{
 \method{predict}{iregnet}(fit, newx, lambda = NULL, type = c("link",
-  "response"))
+  "response"), ...)
 }
 \arguments{
 \item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
