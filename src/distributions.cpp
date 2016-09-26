@@ -229,9 +229,9 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
       ddsig_sum += ddsig;
     }
 
-    if (debug) {
-      std::cerr << "\t\t" << z[i] << "\t" << dg << "\t" << ddg << "\n";
-    }
+    // if (debug) {
+    //   std::cerr << "\t\t" << z[i] << "\t" << dg << "\t" << ddg << "\n";
+    // }
 
   } // end for: n_obs
 

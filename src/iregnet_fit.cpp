@@ -236,8 +236,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
-        if (debug == 1 && m == 0)
-          std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
+        // if (debug == 1 && m == 0)
+        //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -253,8 +253,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta[k] = beta_new;
         }
 
-        if (debug==1 && m == 1)
-          std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
+        // if (debug==1 && m == 1)
+        //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
@@ -500,9 +500,9 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
       temp += (w[i] * X(i, j) * (z[i] - eta[i]));
     }
     temp = fabs(temp);
-    if (debug) {
-      std::cerr << "LAMBDA " << temp / n_obs << "\n";
-    }
+    // if (debug) {
+    //   std::cerr << "LAMBDA " << temp / n_obs << "\n";
+    // }
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
