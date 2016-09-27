@@ -4,7 +4,7 @@
 \alias{plot.iregnet}
 \title{Plot the path of the variables of iregnet fit}
 \usage{
-\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = T, ...)
+\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE, ...)
 }
 \arguments{
 \item{xvar}{Variable on the X-axis against which the coefficients are
@@ -14,7 +14,7 @@ arclength. \code{lambda} plots against log-lambda sequence.}
 \item{label}{If \code{TRUE}, coefficient names / variable sequence numbers
 are plotted along with the curves.}
 
-\item{...}{Other parameters to be passed to the \code{matplot} function.}
+\item{...}{Optional parameters to be passed to the \code{matplot} function.}
 
 \item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
 method.}

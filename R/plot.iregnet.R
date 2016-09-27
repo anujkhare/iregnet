@@ -24,8 +24,8 @@
 #' \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 #' since it is never regularized. It is also not plotted.
 #'
-#' @method
-plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=T, ...) {
+#' @method plot iregnet
+plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {
   stopifnot_error("Invalid / no x object provided", !missing(x),
                   class(x) == "iregnet")
   xvar <- match.arg(xvar)
