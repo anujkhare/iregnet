@@ -26,7 +26,7 @@ is allowed.
 \cr \emph{Default: "gaussian"}}
 
 \item{alpha}{Elastic net mixing parameter, with \eqn{0 \le \alpha \le 1}. The
-elastic net penalty is defined as in glmnet:
+elastic net penalty is defined as in \code{glmnet}:
 \deqn{0.5 * (1-\alpha) \|\beta\|_2^2 | + \alpha \|\beta\|_1}
 alpha=1 is the lasso penalty, and alpha=0 is ridge penalty.
 \cr \emph{Default: 1}}
@@ -35,7 +35,7 @@ alpha=1 is the lasso penalty, and alpha=0 is ridge penalty.
 parameter lambda values. \cr If not supplied, the function will calculate a
 lambda path of length \code{num_lambda} itself. \strong{NOTE:} The lambda
 values are scaled because of the nuisance parameter, and hence not directly
-comparable to those of other packages like \code{\link{glmnet}}.
+comparable to those of other packages like \code{glmnet}.
 \cr \emph{Default: \code{NA}}}
 
 \item{num_lambda}{The number of lambda values calculated by the function.

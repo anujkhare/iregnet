@@ -9,7 +9,8 @@
 \arguments{
 \item{x}{The result of an iregnet fit.}
 
-\item{...}{Optional parameters for print.}
+\item{...}{Optional parameters for print. If \code{n} is supplied, only the
+first \code{n} models will be printed.}
 }
 \description{
 Prints a summary of the results of the

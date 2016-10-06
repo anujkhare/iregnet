@@ -38,14 +38,14 @@ plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {
   switch(xvar,
     "lambda" = {
       fig.iregnet.profile <- ggplot()+
-        geom_line(aes(log(lambda), weight, color=variable),
+        geom_line(aes_string(log(lambda), weight, color=variable),
                    data=tidy.df)+
         xlab("Log Lambda")+
         ylab("Coefficients")
     },
     "norm" = {
       fig.iregnet.profile <- ggplot()+
-        geom_line(aes(arclength, weight, color=variable),
+        geom_line(aes_string(arclength, weight, color=variable),
                    data=tidy.df)+
         xlab("L1 Norm of Coefficients")+
         ylab("Coefficients")

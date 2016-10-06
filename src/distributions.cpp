@@ -342,6 +342,24 @@ exvalue_d (double z, double ans[4], int j)
 }
 
 
+//' @title Compute the densities of given vector
+//'
+//' @description
+//' C++ function to compute the density or distibution at each point of a
+//' given vector. The supported distributions are \code{gaussian},
+//' \code{logistic} and (least) \code{extreme value}.
+//' \emph{This is used for testing, and may not be useful otherwise.}
+//'
+//' @param z Vector of points at which the densities are to be calculated.
+//'
+//' @param j If \code{1}, the returned vector contains
+//' 0, f, f'/f and f''/f, where, f is the
+//' density function of the given distribution.
+//' If 2, returned vector contains F, 1-F, f and f', where F is the
+//' distribution function.
+//'
+//' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
+//' (least) \code{extreme value} distributions are supported.
 // [[Rcpp::export]]
 Rcpp::NumericVector
 compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
@@ -354,6 +372,11 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
+    default: {
+      Rcpp::Function warning("warning");
+      warning("Unsupported distribution providied");
+      return ans;
+    }
   }
 
   for (int ii = 0; ii < n_obs; ++ii) {
@@ -365,15 +388,25 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
   return ans;
 }
 
-/* Compute the gradients of the Log Likelihood wrt beta, and scale.
- * Note that compute_grad_response returns the derivatives wrt eta (X^T beta), so we need to adjust
- * WARNING: No parameter validation is done, this method is for testing only!
- * NOTE: ONLY SUPPORTS NON-TRANSFORMED DISTS AS OF NOW
- */
+//' @title Compute the gradients of the log Likelihood wrt beta, and scale
+//'
+//' @description
+//' C++ function to compute the gradients of log likelihood with respect to the
+//' coefficients \code{beta} and \code{scale}.
+//' The supported distributions are \code{gaussian},
+//' \code{logistic} and (least) \code{extreme value}.
+//' \emph{This is used for testing, and may not be useful otherwise.}
+//'
+//' @param X Design matrix.
+//' @param y Output matrix in 2 column format.
+//' @param eta Linear predictors.
+//' @param scale Scale.
+//' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
+//' (least) \code{extreme value} distributions are supported.
 // [[Rcpp::export]]
 Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
-                             Rcpp::NumericVector eta, double scale,
-                             Rcpp::String family)
+                                     Rcpp::NumericVector eta, double scale,
+                                     Rcpp::String family)
 {
   int n_obs = y.nrow(), n_vars = X.ncol();
   Rcpp::NumericVector mu(n_obs+1), out_gradients(n_vars + 1);     // weights and 1 for scale
@@ -385,6 +418,8 @@ Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix 
   IREG_CENSORING status[y.nrow()];
   get_censoring_types(y, status); // It will modify y as well!
 
+  // Note that compute_grad_response returns the derivatives wrt eta (X^T beta),
+  // so we need to adjust
   compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
                         status, n_obs, dist, REAL(mu));
 

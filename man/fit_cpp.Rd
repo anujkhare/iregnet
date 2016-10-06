@@ -56,4 +56,9 @@ path. Only used if \code{lambda_path} is not specified.}
 the distribution and the data. Only used if \code{lambda_path} is not
 specified.}
 }
+\description{
+\strong{This function is not meant to be called
+on it's own!} Please use the \code{\link{iregnet}} function which includes
+data validation and pre-processing.
+}
 

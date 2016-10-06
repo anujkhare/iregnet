@@ -45,7 +45,7 @@ max(double a, double b)
 //' @title C++ function to fit interval censored models with elastic net
 //'   penalty.
 //'
-//' @description {\strong{This function is not meant to be called
+//' @description \strong{This function is not meant to be called
 //' on it's own!} Please use the \code{\link{iregnet}} function which includes
 //' data validation and pre-processing.
 //'

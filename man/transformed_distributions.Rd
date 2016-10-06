@@ -13,8 +13,11 @@ A \code{list} containing the supported distributions that are
 transformations of other "base" distributions. For instance,
 \code{loggaussian} is the same as \code{gaussian} after log transforming the
 output \code{y}.
+}
+\details{
 The list contains the transformation \code{trans}, the base distribution
-\code{dist},  and the inverse transformation \code{itrans}.
+\code{dist},  and the inverse transformation \code{itrans}. It is used
+internally to fit such distributions.
 }
 \keyword{datasets}
 
