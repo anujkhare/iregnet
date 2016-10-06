@@ -4,7 +4,7 @@
 #' Produces a coefficient profile plot of the coefficient paths for a fitted
 #' "iregnet" object.
 #'
-#' @param fit The S3 object of type \code{iregnet} returned by the \code{iregnet}
+#' @param x The S3 object of type \code{iregnet} returned by the \code{iregnet}
 #' method.
 #'
 #' @param xvar Variable on the X-axis against which the coefficients are

@@ -9,10 +9,45 @@ iregnet_compute_gradients <- function(X, y, eta, scale, family) {
     .Call('iregnet_iregnet_compute_gradients', PACKAGE = 'iregnet', X, y, eta, scale, family)
 }
 
-#' @title C++ function to fit regularized AFT models with interval censored data
-#' @description \strong{NOTE:} This function is not meant to be called on it's own! Please use
-#' the \code{\link{iregnet}} function.
-fit_cpp <- function(X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, thresh_divergence = 1) {
-    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda, thresh_divergence)
+#' @title C++ function to fit interval censored models with elastic net
+#'   penalty.
+#' 
+#' @description {\strong{This function is not meant to be called
+#' on it's own!} Please use the \code{\link{iregnet}} function which includes
+#' data validation and pre-processing.
+#' 
+#' @param X Design matrix.
+#' @param y Output matrix in a 2 column format. \code{NA}s denote censoring.
+#' @param family String denoting the distribution to be fit.
+#' @param lambda_path Vector containing the path of hyper-parameter lambda
+#'   values.
+#' @param debug Integer used for debugging during development. Unused otherwise.
+#' @param out_status Vector containing censoring status of each observation.
+#'   If not provided, it will be calculated using the \code{y} matrix.
+#' @param intercept If \code{true}, intercept is to be fit. The first column
+#'   of X must be \code{1}s if \code{intercept} is \code{true}.
+#' @param alpha Hyper parameter for the elastic-net penalty.
+#' @param scale_init The initial value of \code{scale} to be used for the fit.
+#'   If not provided, a value is calculated depending on the distribution.
+#' @param estimate_scale If \code{true}, \code{scale} is estimated. Else, the
+#'     \code{scale} remains fixed at \code{scale_init}.
+#' @param max_iter Maximum number of iterations to allow for \strong{each}
+#'     model (\code{lambda} value) along the regularization path.
+#' @param unreg_sol If \code{true}, the last model fit will be unregularized,
+#'    i.e., the final \code{lambda} value will be \code{0}. Only used if
+#'    \code{lambda_path} is not specified.
+#' @param flag_standardize_x If \code{true}, the design matrix \code{X} will
+#'     column-wise standardized.
+#' @param threshold Convergence detected if absolute change in a coefficient
+#'     is less than this value.
+#' @param num_lambda Number of lambda values to use in the regularization
+#'    path. Only used if \code{lambda_path} is not specified.
+#' @param eps_lambda Ratio between the maximum and minimum values of
+#'     \code{lambda}. Maximum value of \code{lambda} is calculated based on
+#'     the distribution and the data. Only used if \code{lambda_path} is not
+#'     specified.
+#'
+fit_cpp <- function(X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda) {
+    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda)
 }
 

@@ -7,26 +7,28 @@
 \method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE, ...)
 }
 \arguments{
+\item{x}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
+method.}
+
 \item{xvar}{Variable on the X-axis against which the coefficients are
 plotted. \code{norm} plots against the L1 norm of the coefficients, i.e.,
-arclength. \code{lambda} plots against log-lambda sequence.}
+arclength. \code{lambda} plots against log-lambda sequence.
+\cr \emph{Default: "norm"}}
 
 \item{label}{If \code{TRUE}, coefficient names / variable sequence numbers
 are plotted along with the curves.}
 
-\item{...}{Optional parameters to be passed to the \code{matplot} function.}
-
-\item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
-method.}
+\item{...}{Other parameters. Currently unused.}
 }
 \description{
 Produces a coefficient profile plot of the coefficient paths for a fitted
 "iregnet" object.
 }
 \details{
+This function uses \link{tidydf} function to obtain a \code{data.frame}
+from the \link{iregnet} object. \link{ggplot} is used for the plotting
+It can be directly used to produce other plots.
 \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 since it is never regularized. It is also not plotted.
-This function uses \link{tidymatrix} function to obtain a matrix from the
-\link{iregnet} object. It can be directly used to produce other plots.
 }
 

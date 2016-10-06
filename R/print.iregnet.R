@@ -3,7 +3,7 @@
 #' @description
 #' Prints a summary of the results of the 
 #'
-#' @param object The result of an iregnet fit.
+#' @param x The result of an iregnet fit.
 #'
 #' @param ... Optional parameters for print.
 #' @method print iregnet

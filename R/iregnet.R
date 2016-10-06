@@ -21,7 +21,7 @@
 #' \cr \emph{Default: "gaussian"}
 #'
 #' @param alpha Elastic net mixing parameter, with \eqn{0 \le \alpha \le 1}. The
-#' elastic net penalty is defined as in glmnet:
+#' elastic net penalty is defined as in \code{glmnet}:
 #' \deqn{0.5 * (1-\alpha) \|\beta\|_2^2 | + \alpha \|\beta\|_1}
 #' alpha=1 is the lasso penalty, and alpha=0 is ridge penalty.
 #' \cr \emph{Default: 1}
@@ -30,7 +30,7 @@
 #' parameter lambda values. \cr If not supplied, the function will calculate a
 #' lambda path of length \code{num_lambda} itself. \strong{NOTE:} The lambda
 #' values are scaled because of the nuisance parameter, and hence not directly
-#' comparable to those of other packages like \code{\link{glmnet}}.
+#' comparable to those of other packages like \code{glmnet}.
 #' \cr \emph{Default: \code{NA}}
 #'
 #' @param num_lambda The number of lambda values calculated by the function.
@@ -233,34 +233,3 @@ iregnet <- function(x, y,
   class(fit) <- 'iregnet'
   fit
 }
-
-# like stopifnot, but with a custom error message
-stopifnot_error <- function(err_message, ...)
-{
-  n <- length(ll <- list(...))
-  for (i in 1:n)
-    if (!(is.logical(r <- ll[[i]]) && !anyNA(r) && all(r))) {
-      stop(err_message)
-    }
-}
-
-get_status_from_surv <- function(s)
-{
-  type <- attr(s, 'type')
-
-  stopifnot_error("Unsupported censoring type from Surv", type %in% c('left', 'right',
-                                                                      'interval', 'interval2'))
-  # right censored: 0, none: 1, left: 2, interval: 3
-  status <- s[, ncol(s)]
-  if (type == 'left')
-      status[status == 0] <- 2
-
-  return(status)
-}
-
-transformed_distributions <- list(
-  "loggaussian" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'gaussian'),
-  "loglogistic" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'logistic'),
-  "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
-  "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
-)

@@ -8,7 +8,7 @@
   "response"), ...)
 }
 \arguments{
-\item{fit}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
+\item{fit}{The S3 object of type \code{iregnet} returned by the \link{iregnet}
 method.}
 
 \item{newx}{New input matrix of covariates with dimension n_vars same as used
@@ -18,9 +18,19 @@ for fit. Sparse matrices are not supported.}
 These should be a subset of the values on which the model was fit. To obtain
 predictions at other lambda values, re-fit the model.
 \cr \emph{Default: \code{NULL} (\code{fit$lambda} is used)}}
+
+\item{type}{Type of prediction required. Type \code{link} returns the linear
+predictors. Type \code{response} returns the fitted values.
+In the case of \code{gaussian}, \code{logistic} and
+\code{extreme_value}, the link and response are the same.}
+
+\item{...}{Optional arguments. Currently unused.}
 }
 \description{
 Prediction is just X'beta for non-transformed distributions, and
 itrans(X'beta) for transformed distributions.
+In the case of \code{gaussian}, \code{logistic} and
+\code{extreme_value}, types link and response both return the linear
+predictors.
 }
 

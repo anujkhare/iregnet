@@ -35,23 +35,51 @@ max(double a, double b)
 }
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
- *
- * Inputs:
- *
  * Outputs:
  *      beta:     the final coef vector
  *      score:    the final score vector
  *      loglik:   the final log-likelihood
  *      n_iters:  number of iterations consumed
  *      error_status: 0 = no errors, -1 = input error, -2 = did not converge
- *
- * Work arrays created:
- *      ?
- * This follows the math as outlined
  */
-//' @title C++ function to fit regularized AFT models with interval censored data
-//' @description \strong{NOTE:} This function is not meant to be called on it's own! Please use
-//' the \code{\link{iregnet}} function.
+//' @title C++ function to fit interval censored models with elastic net
+//'   penalty.
+//'
+//' @description {\strong{This function is not meant to be called
+//' on it's own!} Please use the \code{\link{iregnet}} function which includes
+//' data validation and pre-processing.
+//'
+//' @param X Design matrix.
+//' @param y Output matrix in a 2 column format. \code{NA}s denote censoring.
+//' @param family String denoting the distribution to be fit.
+//' @param lambda_path Vector containing the path of hyper-parameter lambda
+//'   values.
+//' @param debug Integer used for debugging during development. Unused otherwise.
+//' @param out_status Vector containing censoring status of each observation.
+//'   If not provided, it will be calculated using the \code{y} matrix.
+//' @param intercept If \code{true}, intercept is to be fit. The first column
+//'   of X must be \code{1}s if \code{intercept} is \code{true}.
+//' @param alpha Hyper parameter for the elastic-net penalty.
+//' @param scale_init The initial value of \code{scale} to be used for the fit.
+//'   If not provided, a value is calculated depending on the distribution.
+//' @param estimate_scale If \code{true}, \code{scale} is estimated. Else, the
+//'     \code{scale} remains fixed at \code{scale_init}.
+//' @param max_iter Maximum number of iterations to allow for \strong{each}
+//'     model (\code{lambda} value) along the regularization path.
+//' @param unreg_sol If \code{true}, the last model fit will be unregularized,
+//'    i.e., the final \code{lambda} value will be \code{0}. Only used if
+//'    \code{lambda_path} is not specified.
+//' @param flag_standardize_x If \code{true}, the design matrix \code{X} will
+//'     column-wise standardized.
+//' @param threshold Convergence detected if absolute change in a coefficient
+//'     is less than this value.
+//' @param num_lambda Number of lambda values to use in the regularization
+//'    path. Only used if \code{lambda_path} is not specified.
+//' @param eps_lambda Ratio between the maximum and minimum values of
+//'     \code{lambda}. Maximum value of \code{lambda} is calculated based on
+//'     the distribution and the data. Only used if \code{lambda_path} is not
+//'     specified.
+//'
 // [[Rcpp::export]]
 Rcpp::List
 fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
@@ -61,8 +89,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         double scale_init,     bool estimate_scale,
         bool unreg_sol,        bool flag_standardize_x,
         double max_iter,       double threshold,
-        int num_lambda,        double eps_lambda,
-        double thresh_divergence = 1)
+        int num_lambda,        double eps_lambda
+        )
 {
   /* Initialise some helper variables */
   IREG_DIST transformed_dist;  // Orig dist is the one that is initially given
