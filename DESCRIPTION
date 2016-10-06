@@ -16,5 +16,6 @@ Suggests:
 LinkingTo: Rcpp
 Imports:
     Rcpp,
+    ggplot2,
     survival
 RoxygenNote: 5.0.1
