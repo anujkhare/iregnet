@@ -1,7 +1,9 @@
 # Print the iregnet fit
 # <TODO>
-print.iregnet <- function(x) {
-  cat('\nCall:', deparse(x$call), '\n')
-  out_matrix <- t(with(x, rbind(niters=n_iters, lambda=lambda, scale=scale, beta)))
-  print(out_matrix[1:10, ])
+print.iregnet <- function(fit) {
+  stopifnot_error("Invalid / no fit object provided", !missing(fit),
+                  class(fit) == "iregnet")
+  cat('\nCall:', deparse(fit$call), '\n\n')
+  tidy_matrix <- tidymatrix(fit)
+  print(head(tidy_matrix, n=10))
 }
