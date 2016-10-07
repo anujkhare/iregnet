@@ -161,6 +161,6 @@ Anuj Khare, Toby Dylan Hocking, Jelle Goeman. \cr
 Maintainer: Anuj Khare \email{khareanuj18@gmail.com}
 }
 \seealso{
-\code{\link{predict.iregnet}}, \code{\link{cv.iregnet}}, \code{\link{plot.iregnet}}
+\code{\link{predict.iregnet}}, \code{cv.iregnet}, \code{\link{plot.iregnet}}
 }
 
