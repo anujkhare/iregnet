@@ -2,7 +2,7 @@ exportPattern("^[[:alpha:]]+")
 useDynLib(iregnet)
 importFrom(Rcpp, sourceCpp)
 
-importFrom("ggplot2", "geom_line", "ggplot", "aes")
+importFrom("ggplot2", "geom_line", "ggplot", "aes_string", "xlab", "ylab")
 importFrom("methods", "cbind2")
 importFrom("utils", "head")
 
