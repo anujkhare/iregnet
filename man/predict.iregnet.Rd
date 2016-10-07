@@ -4,11 +4,11 @@
 \alias{predict.iregnet}
 \title{Predict response using new covariates}
 \usage{
-\method{predict}{iregnet}(fit, newx, lambda = NULL, type = c("link",
+\method{predict}{iregnet}(object, newx, lambda = NULL, type = c("link",
   "response"), ...)
 }
 \arguments{
-\item{fit}{The S3 object of type \code{iregnet} returned by the \link{iregnet}
+\item{object}{The S3 object of type \code{iregnet} returned by the \link{iregnet}
 method.}
 
 \item{newx}{New input matrix of covariates with dimension n_vars same as used
@@ -17,7 +17,7 @@ for fit. Sparse matrices are not supported.}
 \item{lambda}{The values of lambda at which prediction is to be obtained.
 These should be a subset of the values on which the model was fit. To obtain
 predictions at other lambda values, re-fit the model.
-\cr \emph{Default: \code{NULL} (\code{fit$lambda} is used)}}
+\cr \emph{Default: \code{NULL} (\code{object$lambda} is used)}}
 
 \item{type}{Type of prediction required. Type \code{link} returns the linear
 predictors. Type \code{response} returns the fitted values.
