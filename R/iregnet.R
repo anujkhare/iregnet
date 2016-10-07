@@ -118,7 +118,7 @@
 #' \url{http://www.jstatsoft.org/v39/i05/}
 #'
 #' @seealso
-#' \code{\link{predict.iregnet}}, \code{\link{cv.iregnet}}, \code{\link{plot.iregnet}}
+#' \code{\link{predict.iregnet}}, \code{cv.iregnet}, \code{\link{plot.iregnet}}
 #'
 #' @examples
 #' # y can be a 2 column matrix.
