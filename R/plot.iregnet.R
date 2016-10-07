@@ -4,7 +4,7 @@
 #' Produces a coefficient profile plot of the coefficient paths for a fitted
 #' "iregnet" object.
 #'
-#' @param fit The S3 object of type \code{iregnet} returned by the \code{iregnet}
+#' @param x The S3 object of type \code{iregnet} returned by the \code{iregnet}
 #' method.
 #'
 #' @param xvar Variable on the X-axis against which the coefficients are
@@ -24,27 +24,28 @@
 #' \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 #' since it is never regularized. It is also not plotted.
 #'
-plot.iregnet <- function(fit, xvar=c("norm", "lambda"), label=T, ...) {
-  stopifnot_error("Invalid / no fit object provided", !missing(fit),
-                  class(fit) == "iregnet")
+#' @method plot iregnet
+plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {
+  stopifnot_error("Invalid / no x object provided", !missing(x),
+                  class(x) == "iregnet")
   xvar <- match.arg(xvar)
 
-  tidy.df <- tidydf(fit)
-  start_index <- as.integer(fit$intercept) + 1
-  n <- nrow(fit$beta)
-  varnames <- rownames(fit$beta)[start_index:n]
+  tidy.df <- tidydf(x)
+  start_index <- as.integer(x$intercept) + 1
+  n <- nrow(x$beta)
+  varnames <- rownames(x$beta)[start_index:n]
   tidy.df <- tidy.df[tidy.df$variable %in% varnames, ]
   switch(xvar,
     "lambda" = {
       fig.iregnet.profile <- ggplot()+
-        geom_line(aes(log(lambda), weight, color=variable),
+        geom_line(aes_string(log(lambda), weight, color=variable),
                    data=tidy.df)+
         xlab("Log Lambda")+
         ylab("Coefficients")
     },
     "norm" = {
       fig.iregnet.profile <- ggplot()+
-        geom_line(aes(arclength, weight, color=variable),
+        geom_line(aes_string(arclength, weight, color=variable),
                    data=tidy.df)+
         xlab("L1 Norm of Coefficients")+
         ylab("Coefficients")

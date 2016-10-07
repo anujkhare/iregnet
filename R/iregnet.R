@@ -21,7 +21,7 @@
 #' \cr \emph{Default: "gaussian"}
 #'
 #' @param alpha Elastic net mixing parameter, with \eqn{0 \le \alpha \le 1}. The
-#' elastic net penalty is defined as in glmnet:
+#' elastic net penalty is defined as in \code{glmnet}:
 #' \deqn{0.5 * (1-\alpha) \|\beta\|_2^2 | + \alpha \|\beta\|_1}
 #' alpha=1 is the lasso penalty, and alpha=0 is ridge penalty.
 #' \cr \emph{Default: 1}
@@ -30,8 +30,7 @@
 #' parameter lambda values. \cr If not supplied, the function will calculate a
 #' lambda path of length \code{num_lambda} itself. \strong{NOTE:} The lambda
 #' values are scaled because of the nuisance parameter, and hence not directly
-#' comparable to those of other packages like \code{\link{glmnet}}. See \strong{TODO}
-#' for more details.
+#' comparable to those of other packages like \code{glmnet}.
 #' \cr \emph{Default: \code{NA}}
 #'
 #' @param num_lambda The number of lambda values calculated by the function.
@@ -53,7 +52,7 @@
 #'
 #' @param estimate_scale \code{TRUE} if \code{scale} is to be estimated. To
 #' use a fixed value \code{scale0} for \code{scale}, set \code{scale_init=scale0
-#' , estimate_scale=FALSE}. \strong{See examples.}
+#' , estimate_scale=FALSE}. \emph{See examples.}
 #' \cr \emph{Default: \code{TRUE}}
 #'
 #' @param maxiter Maximum number of iterations over data per lambda value.
@@ -66,7 +65,7 @@
 #'
 #' @param eps_lambda The ratio of the minimum value of \code{lambda} to the
 #' (calculated) maximum value, in case no lambda is supplied. \code{num_lambda}
-#' \code{lambda} values are calculated between \code{lambda_max} and 
+#' \code{lambda} values are calculated between \code{lambda_max} and
 #' \code{lambda_min} on the log scale.
 #' \cr \emph{Default: 0.0001 if n_vars < n_obs, 0.1 otherwise.}
 #'
@@ -96,9 +95,9 @@
 #'  \code{num_lambda} \tab Number of \code{lambda} values. \cr
 #'  \code{n_iters} \tab Vector of size \code{num_lambda} of number of iterations
 #'    taken at each \code{lambda}. \cr
-#'  \code{scale} \tab Vector of size \code{num_lambda} of number of estimated
-#'    scale at each \code{lambda} value, if \code{estimate_scale == T}. Same as
-#'    \code{scale_init} otherwise. \strong{TODO} \cr
+#'  \code{scale} \tab Vector of size \code{num_lambda} of estimated
+#'    scale at each \code{lambda} value, if \code{estimate_scale == TRUE}. Same as
+#'    \code{scale_init} otherwise. \cr
 #'  \code{scale_init} \tab Initial value (calculated or supplied) of \code{scale}. \cr
 #'  \code{estimate_scale} \tab \code{TRUE} if the \code{scale} was estimated. \cr
 #'  \code{error_status} \tab The error status. \code{0} denotes no errors.
@@ -106,19 +105,51 @@
 #' }
 #' @author
 #' Anuj Khare, Toby Dylan Hocking, Jelle Goeman. \cr
-#' Maintainer: Anuj Khare \link{khareanuj18@gmail.com}
+#' Maintainer: Anuj Khare \email{khareanuj18@gmail.com}
 #'
 #' @section References:
-#' Glmnet paper, coxnet paper \strong{TODO}
+#' Friedman, J., Hastie, T. and Tibshirani, R. (2008) Regularization Paths for
+#' Generalized Linear Models via Coordinate Descent,
+#' \url{http://www.stanford.edu/~hastie/Papers/glmnet.pdf}
+#'
+#' Simon, N., Friedman, J., Hastie, T., Tibshirani, R. (2011) Regularization
+#' Paths for Cox's Proportional Hazards Model via Coordinate Descent, Journal
+#' of Statistical Software, Vol. 39(5) 1-13
+#' \url{http://www.jstatsoft.org/v39/i05/}
+#'
 #' @seealso
-#' \code{\link{predict.iregnet}}, \code{\link{cv.iregnet}}, \code{\link{plot.iregnet}}
+#' \code{\link{predict.iregnet}}, \code{cv.iregnet}, \code{\link{plot.iregnet}}
 #'
 #' @examples
-#' \strong{TODO}
+#' # y can be a 2 column matrix.
+#' X <- matrix(rnorm(50), 10, 5)
+#' y <- matrix(rnorm(20), 10, 2)
+#' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+#' fit1 <- iregnet(X, y)
+#'
+#' # Surv objects from survival are also supported.
+#' data("ovarian")
+#' X <- cbind(ovarian$ecog.ps, ovarian$rx)
+#' y <- Surv(ovarian$futime, ovarian$fustat)
+#' fit2 <- iregnet(X, y)
+#'
+#' # Log-Gaussian is same as Gaussian with log-transformed data
+#' X <- matrix(rnorm(50), 10, 5)
+#' y <- matrix(abs(rnorm(20)), 10, 2)
+#' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+#' fit3 <- iregnet(X, log(y), "gaussian")
+#' fit4 <- iregnet(X, y, "loggaussian")
+#'
+#' # Scale parameter can be fixed by setting the estimate_scale flag.
+#' X <- matrix(rnorm(50), 10, 5)
+#' y <- matrix(rnorm(20), 10, 2)
+#' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
+#' fit5 <- iregnet(X, y, scale_init=1, estimate_scale=FALSE)
+#'
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
-                    alpha=1, lambda=double(0), num_lambda=100, intercept=T, standardize=F, scale_init=NA, estimate_scale=T,
-                    maxiter=1e3, threshold=1e-4, unreg_sol=T, eps_lambda=NA, debug=0) {
+                    alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=FALSE, scale_init=NA, estimate_scale=TRUE,
+                    maxiter=1e3, threshold=1e-4, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
@@ -130,7 +161,7 @@ iregnet <- function(x, y,
   stopifnot_error("estimate_scale must be a boolean flag", is.logical(estimate_scale))
   stopifnot_error("threshold must be positive", threshold > 0)
 
-  # if (estimate_scale == F && is.na(scale_init))
+  # if (estimate_scale == FALSE && is.na(scale_init))
   #   stop("Value of scale required if scale is not estimated")
 
   # family should be one of those listed
@@ -163,7 +194,7 @@ iregnet <- function(x, y,
   # Fix scale for exponential: (least) extreme value distribution with scale = 1
   if (family == "exponential") {
     cat("Exponential distribution: fixing scale to 1\n")
-    estimate_scale <- F
+    estimate_scale <- FALSE
     scale_init <- 1
   }
   # Transform the outputs, and get new dist
@@ -202,34 +233,3 @@ iregnet <- function(x, y,
   class(fit) <- 'iregnet'
   fit
 }
-
-# like stopifnot, but with a custom error message
-stopifnot_error <- function(err_message, ...)
-{
-  n <- length(ll <- list(...))
-  for (i in 1:n)
-    if (!(is.logical(r <- ll[[i]]) && !anyNA(r) && all(r))) {
-      stop(err_message)
-    }
-}
-
-get_status_from_surv <- function(s)
-{
-  type <- attr(s, 'type')
-
-  stopifnot_error("Unsupported censoring type from Surv", type %in% c('left', 'right',
-                                                                      'interval', 'interval2'))
-  # right censored: 0, none: 1, left: 2, interval: 3
-  status <- s[, ncol(s)]
-  if (type == 'left')
-      status[status == 0] <- 2
-
-  return(status)
-}
-
-transformed_distributions <- list(
-  "loggaussian" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'gaussian'),
-  "loglogistic" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'logistic'),
-  "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
-  "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
-)

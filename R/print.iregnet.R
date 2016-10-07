@@ -1,9 +1,20 @@
-# Print the iregnet fit
-# <TODO>
-print.iregnet <- function(fit) {
-  stopifnot_error("Invalid / no fit object provided", !missing(fit),
-                  class(fit) == "iregnet")
-  cat('\nCall:', deparse(fit$call), '\n\n')
-  tidy_matrix <- tidymatrix(fit)
-  print(head(tidy_matrix, n=10))
+#' @title Print the iregnet fit
+#'
+#' @description
+#' Prints a summary of the results of the 
+#'
+#' @param x The result of an iregnet fit.
+#'
+#' @param ... Optional parameters for print. If \code{n} is supplied, only the
+#' first \code{n} models will be printed.
+#' @method print iregnet
+print.iregnet <- function(x, ...) {
+  stopifnot_error("Invalid / no x object provided", !missing(x),
+                  class(x) == "iregnet")
+  cat('\nCall:', deparse(x$call), '\n\n')
+  varargs <- list(...)
+  n <- varargs$n
+  if(is.null(n))
+    n <- x$num_lambda
+  print(head(with(x, cbind(lambda, scale, loglik, n_iters, t(beta))), ...))
 }
