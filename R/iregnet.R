@@ -122,6 +122,7 @@
 #'
 #' @examples
 #' # y can be a 2 column matrix.
+#' set.seed(10)
 #' X <- matrix(rnorm(50), 10, 5)
 #' y <- matrix(rnorm(20), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
@@ -134,6 +135,7 @@
 #' fit2 <- iregnet(X, y)
 #'
 #' # Log-Gaussian is same as Gaussian with log-transformed data
+#' set.seed(10)
 #' X <- matrix(rnorm(50), 10, 5)
 #' y <- matrix(abs(rnorm(20)), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
@@ -141,6 +143,7 @@
 #' fit4 <- iregnet(X, y, "loggaussian")
 #'
 #' # Scale parameter can be fixed by setting the estimate_scale flag.
+#' set.seed(10)
 #' X <- matrix(rnorm(50), 10, 5)
 #' y <- matrix(rnorm(20), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
