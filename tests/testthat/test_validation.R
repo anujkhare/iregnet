@@ -1,3 +1,4 @@
+context("\nInput validations")
 library(iregnet)
 
 test_that("Output y is validated properly", {

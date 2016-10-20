@@ -1,3 +1,4 @@
+context("\nAll zero first model")
 library(iregnet)
 
 source('get_xy.R')

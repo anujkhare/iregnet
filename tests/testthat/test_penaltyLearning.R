@@ -1,4 +1,4 @@
-context("penalty learning data set")
+context("\npenalty learning data set")
 
 data(penalty.learning)
 
