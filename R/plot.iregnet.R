@@ -37,19 +37,22 @@ plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {
   tidy.df <- tidy.df[tidy.df$variable %in% varnames, ]
   switch(xvar,
     "lambda" = {
-      fig.iregnet.profile <- ggplot()+
-        geom_line(aes_string(log(lambda), weight, color=variable),
-                   data=tidy.df)+
-        xlab("Log Lambda")+
-        ylab("Coefficients")
+      fig.iregnet.profile <- with(tidy.df, {
+        ggplot()+
+          geom_line(aes(log(lambda), weight, color=variable))+
+          xlab("Log Lambda")
+      })
     },
     "norm" = {
-      fig.iregnet.profile <- ggplot()+
-        geom_line(aes_string(arclength, weight, color=variable),
-                   data=tidy.df)+
-        xlab("L1 Norm of Coefficients")+
-        ylab("Coefficients")
+      fig.iregnet.profile <- with(tidy.df, {
+        ggplot()+
+          geom_line(aes(arclength, weight, color=variable))+
+          xlab("L1 Norm of Coefficients")
+      })
     }
   )
+
+  fig.iregnet.profile <- fig.iregnet.profile + ylab("Coefficients") +
+                         labs(color="Variable name")
   print(fig.iregnet.profile)
 }
