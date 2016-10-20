@@ -111,11 +111,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (lambda_path.size() > 0) {
     num_lambda = lambda_path.size();
   }
-  Rcpp::NumericMatrix out_beta(n_vars, num_lambda);       // will contain the entire series of solutions
-  Rcpp::IntegerVector out_n_iters(num_lambda);
-  Rcpp::NumericVector out_lambda(num_lambda);
-  Rcpp::NumericVector out_scale(num_lambda);
-  Rcpp::NumericVector out_loglik(num_lambda);
+  Rcpp::NumericMatrix out_beta(n_vars, num_lambda + 1);       // will contain the entire series of solutions
+  Rcpp::IntegerVector out_n_iters(num_lambda + 1);
+  Rcpp::NumericVector out_lambda(num_lambda + 1);
+  Rcpp::NumericVector out_scale(num_lambda + 1);
+  Rcpp::NumericVector out_loglik(num_lambda + 1);
 
   /* use given values for the lambda path */
   if (lambda_path.size() > 0) {
@@ -207,7 +207,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
 
-  for (int m = 0; m < num_lambda; ++m) {
+  for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
     if (lambda_path.size() == 0) {
 
@@ -223,7 +223,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
 
       /* Last solution should be unregularized if the flag is set */
-      } else if (m == num_lambda - 1 && unreg_sol == true)
+      } else if (m == num_lambda && unreg_sol == true)
         lambda_seq[m] = 0;
 
       /* All other lambda calculated */
@@ -297,7 +297,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         log_scale += scale_update; scale = exp(log_scale);
         // scale the lambda value according to current scale unless you are at unregularized sol
         // done to match values with Glment for Gaussian, no censoring
-        if ((m != num_lambda - 1 || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
+        if ((m != num_lambda || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
           lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
@@ -324,7 +324,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
-  for (ull m = 0; m < num_lambda; ++m) {
+  for (ull m = 0; m < num_lambda + 1; ++m) {
     //if (transformed_dist == IREG_DIST_LOGISTIC)
       out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
@@ -344,12 +344,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
-  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta,
-                            Rcpp::Named("lambda")       = out_lambda,
+  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(1,num_lambda)),
+                            Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(1,num_lambda)],
                             Rcpp::Named("num_lambda")   = num_lambda,
-                            Rcpp::Named("n_iters")      = out_n_iters,
-                            Rcpp::Named("loglik")       = out_loglik,
-                            Rcpp::Named("scale")        = out_scale,
+                            Rcpp::Named("n_iters")      = out_n_iters[Rcpp::Range(1,num_lambda)],
+                            Rcpp::Named("loglik")       = out_loglik[Rcpp::Range(1,num_lambda)],
+                            Rcpp::Named("scale")        = out_scale[Rcpp::Range(1,num_lambda)],
                             Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("scale_init")   = scale_init,
                             Rcpp::Named("error_status") = error_status
