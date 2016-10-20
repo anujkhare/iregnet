@@ -1,3 +1,4 @@
+context("\nPredict function")
 library("iregnet")
 
 test_that("predict.iregnet returns expected results", {

@@ -6,7 +6,7 @@
 \usage{
 iregnet(x, y, family = c("gaussian", "logistic", "loggaussian", "loglogistic",
   "extreme_value", "exponential", "weibull"), alpha = 1, lambda = double(0),
-  num_lambda = 100, intercept = TRUE, standardize = FALSE,
+  num_lambda = 100, intercept = TRUE, standardize = TRUE,
   scale_init = NA, estimate_scale = TRUE, maxiter = 1000,
   threshold = 1e-04, unreg_sol = TRUE, eps_lambda = NA, debug = 0)
 }
@@ -131,6 +131,7 @@ of Statistical Software, Vol. 39(5) 1-13
 }
 \examples{
 # y can be a 2 column matrix.
+set.seed(10)
 X <- matrix(rnorm(50), 10, 5)
 y <- matrix(rnorm(20), 10, 2)
 y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
@@ -143,6 +144,7 @@ y <- Surv(ovarian$futime, ovarian$fustat)
 fit2 <- iregnet(X, y)
 
 # Log-Gaussian is same as Gaussian with log-transformed data
+set.seed(10)
 X <- matrix(rnorm(50), 10, 5)
 y <- matrix(abs(rnorm(20)), 10, 2)
 y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
@@ -150,6 +152,7 @@ fit3 <- iregnet(X, log(y), "gaussian")
 fit4 <- iregnet(X, y, "loggaussian")
 
 # Scale parameter can be fixed by setting the estimate_scale flag.
+set.seed(10)
 X <- matrix(rnorm(50), 10, 5)
 y <- matrix(rnorm(20), 10, 2)
 y <- t(apply(y, 1, sort)) # intervals must be non-decreasing

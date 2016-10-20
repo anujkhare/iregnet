@@ -1,3 +1,4 @@
+context("\nAll zero first model")
 library(iregnet)
 
 source('get_xy.R')
@@ -6,14 +7,9 @@ test_zeros <- function(x, y, dist="gaussian") {
   fit_i <- iregnet(x, y, family=dist,
                    alpha=1, intercept = T, threshold=1e-4, debug=0)
 
-  # TODO: Currently, the first solution is for the initial fit. remove it!
-  first_solution  <- as.double(fit_i$beta[, 2])
-  second_solution <- as.double(fit_i$beta[, 3])
-  nvars <- length(first_solution)
-
-  expect_equal(first_solution[2: nvars], rep(0, nvars - 1))
-  # want at least one non-zero coefficient besides intercept
-  expect_equal(any(second_solution[2: nvars] != 0), T)
+  l1.norm.vec <- colSums(abs(fit_i$beta[-1,]))
+  expect_equal(l1.norm.vec[1], 0) # first fit should be all zeros
+  expect_equal(sum(l1.norm.vec[-1] == 0), 0)
 }
 
 test_that("G right censored: First solution is intercept only, rest are not", {

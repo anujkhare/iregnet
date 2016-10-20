@@ -1,3 +1,4 @@
+context("\nComparision with survival and glmnet")
 library(iregnet)
 library(survival)
 library(glmnet)
