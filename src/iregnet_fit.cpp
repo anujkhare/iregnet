@@ -4,6 +4,8 @@
  * We use 2 spaces per tab, and expand the tabs
  */
 #include "iregnet.h"
+#include <ctime>
+#include <vector>
 
 #define BIG 1e35
 
@@ -92,6 +94,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         int num_lambda,        double eps_lambda
         )
 {
+  clock_t begin_1 = clock(), begin, end;
   /* Initialise some helper variables */
   IREG_DIST transformed_dist;  // Orig dist is the one that is initially given
                                // transformed_dist will be the dist of transformed output variables.
@@ -108,6 +111,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
 
   /* Create output variables */
+  begin = clock();
   if (lambda_path.size() > 0) {
     num_lambda = lambda_path.size();
   }
@@ -128,8 +132,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       out_lambda[i] = lambda_path[i];
     }
   }
+  end = clock();
+  std::cout << "output vars \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
 
   double *beta;                           // Initially points to the first solution
+  begin = clock();
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
@@ -149,8 +156,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *mean_x = new double [n_vars];
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
+  end = clock();
+  std::cout << "temp vars \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
 
-
+  begin = clock();
   /* get censoring types of the observations */
   if (out_status.size() == 0) {
     status = new IREG_CENSORING [n_obs];
@@ -159,7 +168,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   else {
     status = (IREG_CENSORING *) &out_status[0];
   }
+  end = clock();
+  std::cout << "censoring \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
 
+  begin = clock();
   /* X is columnwise variance normalized, mean is NOT set to 0
    * y is mean normalized.
    */
@@ -169,6 +181,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
 
+  end = clock();
+  std::cout << "standardize \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
+
+  begin = clock();
   /* SCALE RULES:
    * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
    *
@@ -207,9 +223,15 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  std::vector<double> clocks(10, 0.0);
+  end = clock();
+  std::cout << "scale and init \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
 
+  begin = clock();
+  clock_t b, e;
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
+    b = clock();
     if (lambda_path.size() == 0) {
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
@@ -233,6 +255,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;
       }
     }
+    e = clock();
+    clocks[0] += double(e - b);
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
@@ -250,12 +274,20 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
 
+      b = clock();
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
+      e = clock();
+      clocks[1] += double(e - b);
+
+      b = clock();
+      e = clock();
+      clocks[9] += double(e - b);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
+        b = clock();
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
@@ -264,9 +296,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
+        e = clock();
+        clocks[2] += double(e - b);
 
         // if (debug == 1 && m == 0)
         //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
+        b = clock();
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -275,12 +310,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
         }
+        e = clock();
+        clocks[3] += double(e - b);
 
+        b = clock(); // FIXME opt
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(beta_new - beta[k]) > threshold) {
           flag_beta_converged = 0;
           beta[k] = beta_new;
         }
+        e = clock();
+        clocks[4] += double(e - b);
 
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
@@ -294,6 +334,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       }   // end for: beta_k solution
 
+      b = clock();
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
         // scale the lambda value according to current scale unless you are at unregularized sol
@@ -306,10 +347,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           flag_beta_converged = 0;
         }
       }
+      e = clock();
+      clocks[5] += double(e - b);
 
       n_iters[m]++;
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
+    b = clock();
     out_loglik[m] = loglik;
     out_scale[m] = scale;
 
@@ -322,8 +366,14 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       error_status = 1;
       Rcpp::stop("NANs produced");
     }
+    e = clock();
+    clocks[6] += double(e - b);
   } // end for: lambda
 
+  end = clock();
+  std::cout << "BIG LOOP! \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
+
+  begin = clock();
   /* Scale the coefs back to the original scale */
   for (ull m = 0; m < num_lambda + 1; ++m) {
     //if (transformed_dist == IREG_DIST_LOGISTIC)
@@ -336,6 +386,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
   }
 
+  end = clock();
+  std::cout << "Scale back \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
+
+  for (int i = 0; i < 10; ++i) {
+    std::cout << "INSIDE \t" << i << "\t" << clocks[i] * 1000 / CLOCKS_PER_SEC << " ms\n";
+  }
+
   /* Free the temporary variables */
   delete [] eta;
   delete [] mu;
@@ -345,6 +402,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
+
+  clock_t end_1 = clock();
+  std::cout << "TOTAL!! \t" << double(end_1 - begin_1) * 1000 / CLOCKS_PER_SEC << " ms\n";
   return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(1,num_lambda)),
                             Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(1,num_lambda)],
                             Rcpp::Named("num_lambda")   = num_lambda,
