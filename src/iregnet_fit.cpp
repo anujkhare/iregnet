@@ -135,8 +135,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   end = clock();
   std::cout << "output vars \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
 
-  double *beta;                           // Initially points to the first solution
   begin = clock();
+  double *beta = new double [n_vars];                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
@@ -204,7 +204,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    */
 
   // set beta = 0 and eta = 0
-  beta = REAL(out_beta);
+  // beta = REAL(out_beta);
   for (ull i = 0; i < n_vars; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
@@ -226,6 +226,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   std::vector<double> clocks(10, 0.0);
   end = clock();
   std::cout << "scale and init \t" << double(end - begin) * 1000 / CLOCKS_PER_SEC << " ms\n";
+  double temp_sols[n_obs];
+  double temp;
 
   begin = clock();
   clock_t b, e;
@@ -282,16 +284,21 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       clocks[1] += double(e - b);
 
       b = clock();
+      for (ull i = 0; i < n_obs; ++i) {
+        temp_sols[i] = w[i] / n_obs;
+      }
       e = clock();
       clocks[9] += double(e - b);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
-        sol_num = sol_denom = 0;
         b = clock();
+        sol_num = sol_denom = 0;  // FIXME opt BIGGESTSSETSEJTNSIFUNIO!
         for (ull i = 0; i < n_obs; ++i) {
-          eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-          sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
-          sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
+          // double temp = w[i] * X(i, k) / n_obs;
+          temp = temp_sols[i] * X(i, k);
+          // eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
+          sol_num +=   temp * (z[i] - eta[i] + X(i, k) * beta[k]);
+          sol_denom += temp * X(i, k);
         }
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
@@ -317,6 +324,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // if any beta_k has not converged, we will come back for another cycle.
         if (fabs(beta_new - beta[k]) > threshold) {
           flag_beta_converged = 0;
+          for (ull i = 0; i < n_obs; ++i) {
+            eta[i] = eta[i] + X(i, k) * (beta_new - beta[k]);  // this will contain the new beta_k
+            // if (debug==1 && m==0) {
+            //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
+            // }
+          }
           beta[k] = beta_new;
         }
         e = clock();
@@ -368,6 +381,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
     e = clock();
     clocks[6] += double(e - b);
+
+    std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
   } // end for: lambda
 
   end = clock();
@@ -394,6 +409,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
   /* Free the temporary variables */
+  delete [] beta;
   delete [] eta;
   delete [] mu;
   delete [] w;
