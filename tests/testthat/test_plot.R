@@ -1,5 +1,6 @@
 library(testthat)
 library(iregnet)
+library(ggplot2)
 context("\nplot")
 
 data(prostate,package="ElemStatLearn")
