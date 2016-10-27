@@ -455,8 +455,6 @@ standardize_x (Rcpp::NumericMatrix &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
-  double temp;
-
   for (ull i = int(intercept); i < X.ncol(); ++i) {  // don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
     for (ull j = 0; j < X.nrow(); ++j) {
