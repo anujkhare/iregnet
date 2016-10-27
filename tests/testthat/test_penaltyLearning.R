@@ -77,6 +77,7 @@ if(interactive()){
                data=subset(some, weight != 0))
 
   ggplot()+
+    ggtitle("iregnet on penalty.learning data set")+
     theme_bw()+
     theme(panel.margin=grid::unit(0, "lines"))+
     facet_grid(metric ~ ., scales="free")+
