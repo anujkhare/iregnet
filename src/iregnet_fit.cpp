@@ -330,9 +330,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
     if (flag_standardize_x) {
+      double intercept_diff = 0;
       for (ull i = int(intercept); i < n_vars; ++i) {  // no standardization for intercept
         out_beta(i, m) = out_beta(i, m) / std_x[i];
+        intercept_diff += out_beta(i, m) * mean_x[i];
       }
+      out_beta(0, m) -= intercept_diff;
     }
   }
 
@@ -452,8 +455,6 @@ standardize_x (Rcpp::NumericMatrix &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
-  double temp;
-
   for (ull i = int(intercept); i < X.ncol(); ++i) {  // don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
     for (ull j = 0; j < X.nrow(); ++j) {
@@ -462,8 +463,8 @@ standardize_x (Rcpp::NumericMatrix &X,
     mean_x[i] /= X.nrow();
 
     for (ull j = 0; j < X.nrow(); ++j) {
-      temp = X(j, i) - mean_x[i];
-      std_x[i] += temp * temp;
+      X(j, i) = X(j, i) - mean_x[i];  // center X
+      std_x[i] += X(j, i) * X(j, i);
     }
 
     // not using (N-1) in denominator to agree with glmnet
