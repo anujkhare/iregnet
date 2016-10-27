@@ -14,6 +14,7 @@ X.train <- penalty.learning$X.mat[sets$train,]
 y.train <- penalty.learning$y.mat[sets$train,]
 fit <- iregnet(
   X.train, y.train,
+  ##threshold=1e-1,
   standardize=TRUE)
 
 test_that("predict function same as matrix multiplication when standardize=TRUE", {
@@ -63,7 +64,7 @@ if(interactive()){
   library(ggplot2)
 
   tidy <- tidydf(fit)
-  some <- subset(tidy, variable != "(Intercept)" & arclength < 2)
+  some <- subset(tidy, variable != "(Intercept)" & arclength < 0.25)
 
   ggplot()+
     geom_path(aes(-log(lambda), weight, color=variable, group=variable),
@@ -77,7 +78,15 @@ if(interactive()){
                data=subset(some, weight != 0))
 
   ggplot()+
+    geom_line(aes(arclength, weight, color=variable, group=variable),
+              data=some)+
+    geom_point(aes(arclength, weight, color=variable, group=variable),
+               shape=1,
+               data=subset(some, weight != 0))
+
+  ggplot()+
     ggtitle("iregnet on penalty.learning data set")+
+    ylab("")+
     theme_bw()+
     theme(panel.margin=grid::unit(0, "lines"))+
     facet_grid(metric ~ ., scales="free")+
@@ -110,7 +119,6 @@ X.centered <- X.unscaled - M
 sd.vec <- sqrt(colSums(X.centered * X.centered)/nrow(X.centered))
 S <- diag(1/sd.vec)
 X.scaled <- X.centered %*% S
-##X.scaled <- X.unscaled %*% S #UNCOMMENT TO MAKE TESTS BELOW PASS.
 dimnames(X.scaled) <- dimnames(X.unscaled)
 ufit <- iregnet(
   X.scaled, y.train,
@@ -130,11 +138,14 @@ test_that("predict function same as matrix multiplication when standardize=FALSE
 ## data.
 scaled.beta.mat <- S %*% ufit$beta[-1,]
 intercept.vec <- ufit$beta[1,] - mean.vec %*% scaled.beta.mat
-##intercept.vec <- ufit$beta[1,] #UNCOMMENT TO MAKE TESTS BELOW PASS.
 pred.weight.mat <- rbind(intercept.vec, scaled.beta.mat)
 my.pred.mat <- cbind(1, X.train) %*% pred.weight.mat
 test_that("lambda seq is the same", {
   expect_equal(fit$lambda, ufit$lambda)
+})
+lambda.diff <- diff(fit$lambda)
+test_that("lambda seq decreases", {
+  expect_true(all(lambda.diff < 0))
 })
 test_that("learned weights are the same", {
   expect_equal(unname(pred.weight.mat), unname(fit$beta))
