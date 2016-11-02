@@ -1,3 +1,18 @@
+TODOs
+
+vignette with speed/accuracy comparisons (fista, glmnet).
+
+2016.11.xx
+
+Convergence on penalty.learning data set?
+
+Bugfix for standardization (was not centering before scaling) and
+lambda grid computation (sometimes was not strictly decreasing).
+
+2016.10.27
+
+plot.iregnet returns a ggplot object.
+
 2016.09.26
 
 TDH added penalty.learning data set and tests.
