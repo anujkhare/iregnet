@@ -15,7 +15,8 @@ y.train <- penalty.learning$y.mat[sets$train,]
 fit <- iregnet(
   X.train, y.train,
   ##threshold=1e-1,
-  standardize=TRUE)
+  standardize=TRUE,
+  debug=1)
 
 test_that("predict function same as matrix multiplication when standardize=TRUE", {
   expect_equal(cbind(1, X.train) %*% fit$beta, predict(fit, X.train))

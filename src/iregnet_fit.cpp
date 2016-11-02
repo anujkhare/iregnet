@@ -1,3 +1,5 @@
+/* for easy compilation in emacs -*- compile-command: "R CMD INSTALL .." -*- */
+
 /*
  * iregnet_fit.cpp
  * Author: Anuj Khare <khareanuj18@gmail.com>
@@ -247,6 +249,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
 
+      n_iters[m]++;
+
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
 
@@ -277,7 +281,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
-        if (fabs(beta_new - beta[k]) > threshold) {
+	double abs_change = fabs(beta_new - beta[k]);
+        if (abs_change > threshold) {
+	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
           beta[k] = beta_new;
         }
@@ -302,12 +308,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
-        if (fabs(scale - old_scale) > 1e-4) {    // TODO: Maybe should be different for sigma?
+	double abs_change = fabs(scale - old_scale);
+        if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
+	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
           flag_beta_converged = 0;
         }
       }
-
-      n_iters[m]++;
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     out_loglik[m] = loglik;
