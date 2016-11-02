@@ -54,5 +54,5 @@ plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {
 
   fig.iregnet.profile <- fig.iregnet.profile + ylab("Coefficients") +
                          labs(color="Variable name")
-  print(fig.iregnet.profile)
+  fig.iregnet.profile
 }
