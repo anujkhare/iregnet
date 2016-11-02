@@ -25,12 +25,13 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
   for (n_vars in 5:10)
   {
     xy <- get_xy(30, n_vars, "none", standardize=std)
-    xy1 <- xy
 
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
     fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T, thresh=1e-4, standardize=T,
     debug=F)
 
+    # Note: fit$lambda returned by iregnet are scaled by (1/scale^2) in the
+    # case of gaussian exact data. Rescale to compare the solutions.
     lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
     fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=lambda_path, thresh=1e-7, standardize=T)
 

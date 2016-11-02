@@ -121,8 +121,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (lambda_path.size() > 0) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
-      if (lambda_path[i] < 0) {
-        Rcpp::stop("lambdas must be positive.");
+      if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
+        Rcpp::stop("lambdas must be positive and decreasing.");
       }
 
       out_lambda[i] = lambda_path[i];
@@ -220,8 +220,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
         lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
-        lambda_max_unscaled = lambda_seq[m] * scale * scale;
-        // lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
 
       /* Last solution should be unregularized if the flag is set */
       } else if (m == num_lambda && unreg_sol == true)
@@ -229,8 +227,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       /* All other lambda calculated */
       else if (m > 1) {
-        // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-        lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;
+        lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
       }
     }
 
@@ -296,10 +293,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        // scale the lambda value according to current scale unless you are at unregularized sol
-        // done to match values with Glment for Gaussian, no censoring
-        if ((m != num_lambda || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
-          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
         if (fabs(scale - old_scale) > 1e-4) {    // TODO: Maybe should be different for sigma?
