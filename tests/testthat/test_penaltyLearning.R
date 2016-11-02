@@ -14,9 +14,191 @@ X.train <- penalty.learning$X.mat[sets$train,]
 y.train <- penalty.learning$y.mat[sets$train,]
 fit <- iregnet(
   X.train, y.train,
-  ##threshold=1e-1,
+  unreg_sol=FALSE,
   standardize=TRUE,
-  debug=1)
+  debug=1,
+  maxiter=1e5)
+
+if(FALSE){
+  conv.txt <- "
+iter=1000 lambda=68 beta_19 not converged, abs_change=0.000319 > 0.000100=threshold
+iter=1000 lambda=68 beta_22 not converged, abs_change=0.000334 > 0.000100=threshold
+iter=1000 lambda=69 beta_19 not converged, abs_change=0.000524 > 0.000100=threshold
+iter=1000 lambda=69 beta_22 not converged, abs_change=0.000548 > 0.000100=threshold
+iter=1000 lambda=70 beta_19 not converged, abs_change=0.000705 > 0.000100=threshold
+iter=1000 lambda=70 beta_22 not converged, abs_change=0.000735 > 0.000100=threshold
+iter=1000 lambda=85 beta_9 not converged, abs_change=0.000231 > 0.000100=threshold
+iter=1000 lambda=85 beta_22 not converged, abs_change=0.000324 > 0.000100=threshold
+iter=1000 lambda=86 beta_3 not converged, abs_change=0.000659 > 0.000100=threshold
+iter=1000 lambda=86 beta_8 not converged, abs_change=0.000476 > 0.000100=threshold
+iter=1000 lambda=86 beta_9 not converged, abs_change=0.000264 > 0.000100=threshold
+iter=1000 lambda=86 beta_11 not converged, abs_change=0.000102 > 0.000100=threshold
+iter=1000 lambda=86 beta_13 not converged, abs_change=0.000119 > 0.000100=threshold
+iter=1000 lambda=86 beta_18 not converged, abs_change=0.000133 > 0.000100=threshold
+iter=1000 lambda=86 beta_22 not converged, abs_change=0.000363 > 0.000100=threshold
+iter=1000 lambda=87 beta_3 not converged, abs_change=0.000146 > 0.000100=threshold
+iter=1000 lambda=87 beta_8 not converged, abs_change=0.000173 > 0.000100=threshold
+iter=1000 lambda=87 beta_9 not converged, abs_change=0.000240 > 0.000100=threshold
+iter=1000 lambda=87 beta_22 not converged, abs_change=0.000342 > 0.000100=threshold
+iter=1000 lambda=88 beta_0 not converged, abs_change=0.000149 > 0.000100=threshold
+iter=1000 lambda=88 beta_1 not converged, abs_change=0.000666 > 0.000100=threshold
+iter=1000 lambda=88 beta_3 not converged, abs_change=0.000838 > 0.000100=threshold
+iter=1000 lambda=88 beta_8 not converged, abs_change=0.000294 > 0.000100=threshold
+iter=1000 lambda=88 beta_9 not converged, abs_change=0.000192 > 0.000100=threshold
+iter=1000 lambda=88 beta_11 not converged, abs_change=0.000388 > 0.000100=threshold
+iter=1000 lambda=88 beta_13 not converged, abs_change=0.000286 > 0.000100=threshold
+iter=1000 lambda=88 beta_14 not converged, abs_change=0.000106 > 0.000100=threshold
+iter=1000 lambda=88 beta_18 not converged, abs_change=0.000115 > 0.000100=threshold
+iter=1000 lambda=88 beta_22 not converged, abs_change=0.000299 > 0.000100=threshold
+iter=1000 lambda=89 beta_0 not converged, abs_change=0.000124 > 0.000100=threshold
+iter=1000 lambda=89 beta_1 not converged, abs_change=0.001011 > 0.000100=threshold
+iter=1000 lambda=89 beta_3 not converged, abs_change=0.001495 > 0.000100=threshold
+iter=1000 lambda=89 beta_5 not converged, abs_change=0.000104 > 0.000100=threshold
+iter=1000 lambda=89 beta_8 not converged, abs_change=0.000595 > 0.000100=threshold
+iter=1000 lambda=89 beta_9 not converged, abs_change=0.000161 > 0.000100=threshold
+iter=1000 lambda=89 beta_11 not converged, abs_change=0.000610 > 0.000100=threshold
+iter=1000 lambda=89 beta_13 not converged, abs_change=0.000308 > 0.000100=threshold
+iter=1000 lambda=89 beta_14 not converged, abs_change=0.000158 > 0.000100=threshold
+iter=1000 lambda=89 beta_15 not converged, abs_change=0.000111 > 0.000100=threshold
+iter=1000 lambda=89 beta_18 not converged, abs_change=0.000138 > 0.000100=threshold
+iter=1000 lambda=89 beta_20 not converged, abs_change=0.000246 > 0.000100=threshold
+iter=1000 lambda=89 beta_22 not converged, abs_change=0.000180 > 0.000100=threshold
+iter=1000 lambda=90 beta_0 not converged, abs_change=0.000116 > 0.000100=threshold
+iter=1000 lambda=90 beta_1 not converged, abs_change=0.000875 > 0.000100=threshold
+iter=1000 lambda=90 beta_3 not converged, abs_change=0.001022 > 0.000100=threshold
+iter=1000 lambda=90 beta_4 not converged, abs_change=0.000110 > 0.000100=threshold
+iter=1000 lambda=90 beta_8 not converged, abs_change=0.000281 > 0.000100=threshold
+iter=1000 lambda=90 beta_9 not converged, abs_change=0.000151 > 0.000100=threshold
+iter=1000 lambda=90 beta_11 not converged, abs_change=0.000531 > 0.000100=threshold
+iter=1000 lambda=90 beta_13 not converged, abs_change=0.000217 > 0.000100=threshold
+iter=1000 lambda=90 beta_14 not converged, abs_change=0.000138 > 0.000100=threshold
+iter=1000 lambda=90 beta_15 not converged, abs_change=0.000109 > 0.000100=threshold
+iter=1000 lambda=90 beta_18 not converged, abs_change=0.000119 > 0.000100=threshold
+iter=1000 lambda=90 beta_20 not converged, abs_change=0.000186 > 0.000100=threshold
+iter=1000 lambda=90 beta_22 not converged, abs_change=0.000183 > 0.000100=threshold
+iter=1000 lambda=91 beta_1 not converged, abs_change=0.000423 > 0.000100=threshold
+iter=1000 lambda=91 beta_3 not converged, abs_change=0.000395 > 0.000100=threshold
+iter=1000 lambda=91 beta_4 not converged, abs_change=0.000324 > 0.000100=threshold
+iter=1000 lambda=91 beta_9 not converged, abs_change=0.000138 > 0.000100=threshold
+iter=1000 lambda=91 beta_11 not converged, abs_change=0.000379 > 0.000100=threshold
+iter=1000 lambda=91 beta_14 not converged, abs_change=0.000277 > 0.000100=threshold
+iter=1000 lambda=91 beta_20 not converged, abs_change=0.000190 > 0.000100=threshold
+iter=1000 lambda=91 beta_22 not converged, abs_change=0.000142 > 0.000100=threshold
+iter=1000 lambda=92 beta_3 not converged, abs_change=0.000577 > 0.000100=threshold
+iter=1000 lambda=92 beta_4 not converged, abs_change=0.000194 > 0.000100=threshold
+iter=1000 lambda=92 beta_8 not converged, abs_change=0.000424 > 0.000100=threshold
+iter=1000 lambda=92 beta_9 not converged, abs_change=0.000147 > 0.000100=threshold
+iter=1000 lambda=92 beta_13 not converged, abs_change=0.000118 > 0.000100=threshold
+iter=1000 lambda=92 beta_14 not converged, abs_change=0.000151 > 0.000100=threshold
+iter=1000 lambda=92 beta_18 not converged, abs_change=0.000144 > 0.000100=threshold
+iter=1000 lambda=92 beta_20 not converged, abs_change=0.000128 > 0.000100=threshold
+iter=1000 lambda=92 beta_22 not converged, abs_change=0.000176 > 0.000100=threshold
+iter=1000 lambda=93 beta_1 not converged, abs_change=0.000529 > 0.000100=threshold
+iter=1000 lambda=93 beta_3 not converged, abs_change=0.000795 > 0.000100=threshold
+iter=1000 lambda=93 beta_4 not converged, abs_change=0.000256 > 0.000100=threshold
+iter=1000 lambda=93 beta_8 not converged, abs_change=0.000819 > 0.000100=threshold
+iter=1000 lambda=93 beta_9 not converged, abs_change=0.000175 > 0.000100=threshold
+iter=1000 lambda=93 beta_11 not converged, abs_change=0.000240 > 0.000100=threshold
+iter=1000 lambda=93 beta_13 not converged, abs_change=0.000116 > 0.000100=threshold
+iter=1000 lambda=93 beta_18 not converged, abs_change=0.000179 > 0.000100=threshold
+iter=1000 lambda=93 beta_22 not converged, abs_change=0.000241 > 0.000100=threshold
+iter=1000 lambda=94 beta_1 not converged, abs_change=0.000535 > 0.000100=threshold
+iter=1000 lambda=94 beta_3 not converged, abs_change=0.000725 > 0.000100=threshold
+iter=1000 lambda=94 beta_4 not converged, abs_change=0.000244 > 0.000100=threshold
+iter=1000 lambda=94 beta_8 not converged, abs_change=0.000751 > 0.000100=threshold
+iter=1000 lambda=94 beta_9 not converged, abs_change=0.000181 > 0.000100=threshold
+iter=1000 lambda=94 beta_11 not converged, abs_change=0.000288 > 0.000100=threshold
+iter=1000 lambda=94 beta_13 not converged, abs_change=0.000130 > 0.000100=threshold
+iter=1000 lambda=94 beta_18 not converged, abs_change=0.000148 > 0.000100=threshold
+iter=1000 lambda=94 beta_22 not converged, abs_change=0.000252 > 0.000100=threshold
+iter=1000 lambda=95 beta_1 not converged, abs_change=0.000611 > 0.000100=threshold
+iter=1000 lambda=95 beta_3 not converged, abs_change=0.000681 > 0.000100=threshold
+iter=1000 lambda=95 beta_4 not converged, abs_change=0.000136 > 0.000100=threshold
+iter=1000 lambda=95 beta_8 not converged, abs_change=0.000686 > 0.000100=threshold
+iter=1000 lambda=95 beta_9 not converged, abs_change=0.000185 > 0.000100=threshold
+iter=1000 lambda=95 beta_11 not converged, abs_change=0.000381 > 0.000100=threshold
+iter=1000 lambda=95 beta_13 not converged, abs_change=0.000107 > 0.000100=threshold
+iter=1000 lambda=95 beta_18 not converged, abs_change=0.000114 > 0.000100=threshold
+iter=1000 lambda=95 beta_22 not converged, abs_change=0.000253 > 0.000100=threshold
+iter=1000 lambda=96 beta_1 not converged, abs_change=0.000676 > 0.000100=threshold
+iter=1000 lambda=96 beta_3 not converged, abs_change=0.000696 > 0.000100=threshold
+iter=1000 lambda=96 beta_4 not converged, abs_change=0.000162 > 0.000100=threshold
+iter=1000 lambda=96 beta_8 not converged, abs_change=0.000626 > 0.000100=threshold
+iter=1000 lambda=96 beta_9 not converged, abs_change=0.000185 > 0.000100=threshold
+iter=1000 lambda=96 beta_11 not converged, abs_change=0.000344 > 0.000100=threshold
+iter=1000 lambda=96 beta_13 not converged, abs_change=0.000153 > 0.000100=threshold
+iter=1000 lambda=96 beta_18 not converged, abs_change=0.000143 > 0.000100=threshold
+iter=1000 lambda=96 beta_22 not converged, abs_change=0.000254 > 0.000100=threshold
+iter=1000 lambda=97 beta_0 not converged, abs_change=0.000117 > 0.000100=threshold
+iter=1000 lambda=97 beta_1 not converged, abs_change=0.000512 > 0.000100=threshold
+iter=1000 lambda=97 beta_3 not converged, abs_change=0.000115 > 0.000100=threshold
+iter=1000 lambda=97 beta_4 not converged, abs_change=0.001091 > 0.000100=threshold
+iter=1000 lambda=97 beta_5 not converged, abs_change=0.000210 > 0.000100=threshold
+iter=1000 lambda=97 beta_8 not converged, abs_change=0.000363 > 0.000100=threshold
+iter=1000 lambda=97 beta_9 not converged, abs_change=0.000151 > 0.000100=threshold
+iter=1000 lambda=97 beta_10 not converged, abs_change=0.001366 > 0.000100=threshold
+iter=1000 lambda=97 beta_11 not converged, abs_change=0.000152 > 0.000100=threshold
+iter=1000 lambda=97 beta_14 not converged, abs_change=0.000215 > 0.000100=threshold
+iter=1000 lambda=97 beta_15 not converged, abs_change=0.000115 > 0.000100=threshold
+iter=1000 lambda=97 beta_20 not converged, abs_change=0.000261 > 0.000100=threshold
+iter=1000 lambda=97 beta_22 not converged, abs_change=0.000187 > 0.000100=threshold
+iter=1000 lambda=98 beta_3 not converged, abs_change=0.000278 > 0.000100=threshold
+iter=1000 lambda=98 beta_4 not converged, abs_change=0.002066 > 0.000100=threshold
+iter=1000 lambda=98 beta_5 not converged, abs_change=0.000441 > 0.000100=threshold
+iter=1000 lambda=98 beta_8 not converged, abs_change=0.000251 > 0.000100=threshold
+iter=1000 lambda=98 beta_10 not converged, abs_change=0.002604 > 0.000100=threshold
+iter=1000 lambda=98 beta_12 not converged, abs_change=0.000131 > 0.000100=threshold
+iter=1000 lambda=98 beta_13 not converged, abs_change=0.000174 > 0.000100=threshold
+iter=1000 lambda=98 beta_14 not converged, abs_change=0.000344 > 0.000100=threshold
+iter=1000 lambda=98 beta_15 not converged, abs_change=0.000139 > 0.000100=threshold
+iter=1000 lambda=98 beta_20 not converged, abs_change=0.000442 > 0.000100=threshold
+iter=1000 lambda=99 beta_0 not converged, abs_change=0.000120 > 0.000100=threshold
+iter=1000 lambda=99 beta_1 not converged, abs_change=0.000259 > 0.000100=threshold
+iter=1000 lambda=99 beta_3 not converged, abs_change=0.000232 > 0.000100=threshold
+iter=1000 lambda=99 beta_4 not converged, abs_change=0.002429 > 0.000100=threshold
+iter=1000 lambda=99 beta_5 not converged, abs_change=0.000467 > 0.000100=threshold
+iter=1000 lambda=99 beta_8 not converged, abs_change=0.000385 > 0.000100=threshold
+iter=1000 lambda=99 beta_10 not converged, abs_change=0.003051 > 0.000100=threshold
+iter=1000 lambda=99 beta_13 not converged, abs_change=0.000111 > 0.000100=threshold
+iter=1000 lambda=99 beta_14 not converged, abs_change=0.000417 > 0.000100=threshold
+iter=1000 lambda=99 beta_15 not converged, abs_change=0.000175 > 0.000100=threshold
+iter=1000 lambda=99 beta_20 not converged, abs_change=0.000531 > 0.000100=threshold
+iter=1000 lambda=100 beta_0 not converged, abs_change=0.000189 > 0.000100=threshold
+iter=1000 lambda=100 beta_1 not converged, abs_change=0.009196 > 0.000100=threshold
+iter=1000 lambda=100 beta_2 not converged, abs_change=0.014089 > 0.000100=threshold
+iter=1000 lambda=100 beta_3 not converged, abs_change=0.013880 > 0.000100=threshold
+iter=1000 lambda=100 beta_4 not converged, abs_change=0.021450 > 0.000100=threshold
+iter=1000 lambda=100 beta_5 not converged, abs_change=0.001476 > 0.000100=threshold
+iter=1000 lambda=100 beta_6 not converged, abs_change=0.015418 > 0.000100=threshold
+iter=1000 lambda=100 beta_7 not converged, abs_change=0.004489 > 0.000100=threshold
+iter=1000 lambda=100 beta_8 not converged, abs_change=0.006411 > 0.000100=threshold
+iter=1000 lambda=100 beta_9 not converged, abs_change=0.001652 > 0.000100=threshold
+iter=1000 lambda=100 beta_10 not converged, abs_change=0.020020 > 0.000100=threshold
+iter=1000 lambda=100 beta_11 not converged, abs_change=0.004888 > 0.000100=threshold
+iter=1000 lambda=100 beta_12 not converged, abs_change=0.001375 > 0.000100=threshold
+iter=1000 lambda=100 beta_13 not converged, abs_change=0.000826 > 0.000100=threshold
+iter=1000 lambda=100 beta_14 not converged, abs_change=0.004221 > 0.000100=threshold
+iter=1000 lambda=100 beta_15 not converged, abs_change=0.001205 > 0.000100=threshold
+iter=1000 lambda=100 beta_16 not converged, abs_change=0.011938 > 0.000100=threshold
+iter=1000 lambda=100 beta_17 not converged, abs_change=0.001000 > 0.000100=threshold
+iter=1000 lambda=100 beta_18 not converged, abs_change=0.000239 > 0.000100=threshold
+iter=1000 lambda=100 beta_19 not converged, abs_change=0.001655 > 0.000100=threshold
+iter=1000 lambda=100 beta_20 not converged, abs_change=0.003510 > 0.000100=threshold
+iter=1000 lambda=100 beta_21 not converged, abs_change=0.001055 > 0.000100=threshold
+iter=1000 lambda=100 beta_22 not converged, abs_change=0.000498 > 0.000100=threshold
+"
+  library(namedCapture)
+  pattern <- paste0(
+    "lambda=",
+    "(?<lambda>[0-9]+)",
+    " ",
+    "(?<variable>[^ ]+)",
+    " not converged, abs_change=",
+    "(?<abs_change>[^ ]+)")
+  conv.df <- str_match_all_named(conv.txt, pattern, list(lambda=as.integer, abs_change=as.numeric))[[1]]
+  library(Matrix)
+  Matrix(with(conv.df, table(variable, lambda)))
+}
 
 test_that("predict function same as matrix multiplication when standardize=TRUE", {
   expect_equal(cbind(1, X.train) %*% fit$beta, predict(fit, X.train))
@@ -124,7 +306,10 @@ dimnames(X.scaled) <- dimnames(X.unscaled)
 ufit <- iregnet(
   X.scaled, y.train,
   ## scale_init=1, estimate_scale=FALSE,
-  standardize=FALSE)
+  unreg_sol=FALSE,
+  standardize=FALSE,
+  debug=1,
+  maxiter=1e5)
 pred.mat <- predict(ufit, X.scaled)
 test_that("predict function same as matrix multiplication when standardize=FALSE", {
   expect_equal(cbind(1, X.scaled) %*% ufit$beta, pred.mat)
