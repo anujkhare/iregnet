@@ -2,7 +2,7 @@ Package: iregnet
 Type: Package
 Title: Regularized interval regression
 Version: 2016.09.26
-Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <tdhock5@gmail.com>,
+Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
     Jelle Goeman
 Maintainer: Anuj Khare <khareanuj18@gmail.com>
 Description: Interval regression with four types of censoring and elastic net regularization.
