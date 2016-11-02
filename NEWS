@@ -2,9 +2,13 @@ TODOs
 
 vignette with speed/accuracy comparisons (fista, glmnet).
 
-2016.11.xx
+sub-differential or duality gap stopping criteria (instead of absolute
+change in variables)
 
-Convergence on penalty.learning data set?
+2016.11.02
+
+Convergence on penalty.learning data set OK with unreg_sol=FALSE and
+increased iterations.
 
 Bugfix for standardization (was not centering before scaling) and
 lambda grid computation (sometimes was not strictly decreasing).
