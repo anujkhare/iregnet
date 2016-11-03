@@ -144,12 +144,12 @@ y <- Surv(ovarian$futime, ovarian$fustat)
 fit2 <- iregnet(X, y)
 
 # Log-Gaussian is same as Gaussian with log-transformed data
-set.seed(10)
-X <- matrix(rnorm(50), 10, 5)
-y <- matrix(abs(rnorm(20)), 10, 2)
-y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
-fit3 <- iregnet(X, log(y), "gaussian")
-fit4 <- iregnet(X, y, "loggaussian")
+data("ovarian")
+X <- cbind(ovarian$ecog.ps, ovarian$rx)
+y <- Surv(ovarian$futime, ovarian$fustat)
+y_log <- Surv(log(ovarian$futime), ovarian$fustat)
+fit3 <- iregnet(X, y_log, "gaussian", threshold=1e-2)
+fit4 <- iregnet(X, y, "loggaussian", threshold=1e-2)
 
 # Scale parameter can be fixed by setting the estimate_scale flag.
 set.seed(10)

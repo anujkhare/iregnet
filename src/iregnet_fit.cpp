@@ -1,3 +1,5 @@
+/* for easy compilation in emacs -*- compile-command: "R CMD INSTALL .." -*- */
+
 /*
  * iregnet_fit.cpp
  * Author: Anuj Khare <khareanuj18@gmail.com>
@@ -121,8 +123,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (lambda_path.size() > 0) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
-      if (lambda_path[i] < 0) {
-        Rcpp::stop("lambdas must be positive.");
+      if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
+        Rcpp::stop("lambdas must be positive and decreasing.");
       }
 
       out_lambda[i] = lambda_path[i];
@@ -220,8 +222,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
         lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
-        lambda_max_unscaled = lambda_seq[m] * scale * scale;
-        // lambda_max_unscaled = lambda_seq[m] = lambda_seq[m] * scale * scale;
 
       /* Last solution should be unregularized if the flag is set */
       } else if (m == num_lambda && unreg_sol == true)
@@ -229,8 +229,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       /* All other lambda calculated */
       else if (m > 1) {
-        // lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-        lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;
+        lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
       }
     }
 
@@ -246,6 +245,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
+
+      n_iters[m]++;
 
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
@@ -277,7 +278,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
-        if (fabs(beta_new - beta[k]) > threshold) {
+	double abs_change = fabs(beta_new - beta[k]);
+        if (abs_change > threshold) {
+	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
           beta[k] = beta_new;
         }
@@ -296,18 +299,14 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        // scale the lambda value according to current scale unless you are at unregularized sol
-        // done to match values with Glment for Gaussian, no censoring
-        if ((m != num_lambda || unreg_sol == false) && lambda_path.size() == 0 && m > 1)
-          lambda_seq[m] = lambda_max_unscaled * pow(eps_ratio, m-1) / scale / scale;    // FIXME: Scale! :O
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
-        if (fabs(scale - old_scale) > 1e-4) {    // TODO: Maybe should be different for sigma?
+	double abs_change = fabs(scale - old_scale);
+        if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
+	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
           flag_beta_converged = 0;
         }
       }
-
-      n_iters[m]++;
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     out_loglik[m] = loglik;
@@ -330,9 +329,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
     if (flag_standardize_x) {
+      double intercept_diff = 0;
       for (ull i = int(intercept); i < n_vars; ++i) {  // no standardization for intercept
         out_beta(i, m) = out_beta(i, m) / std_x[i];
+        intercept_diff += out_beta(i, m) * mean_x[i];
       }
+      out_beta(0, m) -= intercept_diff;
     }
   }
 
@@ -452,8 +454,6 @@ standardize_x (Rcpp::NumericMatrix &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
-  double temp;
-
   for (ull i = int(intercept); i < X.ncol(); ++i) {  // don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
     for (ull j = 0; j < X.nrow(); ++j) {
@@ -462,8 +462,8 @@ standardize_x (Rcpp::NumericMatrix &X,
     mean_x[i] /= X.nrow();
 
     for (ull j = 0; j < X.nrow(); ++j) {
-      temp = X(j, i) - mean_x[i];
-      std_x[i] += temp * temp;
+      X(j, i) = X(j, i) - mean_x[i];  // center X
+      std_x[i] += X(j, i) * X(j, i);
     }
 
     // not using (N-1) in denominator to agree with glmnet
