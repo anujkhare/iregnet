@@ -4,6 +4,17 @@ context("\npenalty learning data set")
 
 data(penalty.learning)
 
+full.fit <- with(penalty.learning, iregnet(
+  X.mat, y.mat,
+  unreg_sol=FALSE,
+  standardize=TRUE,
+  maxiter=1e5))
+
+test_that("no lambda=0 when unreg_sol=FALSE", {
+  n.lambda.zero <- sum(full.fit$lambda==0)
+  expect_equal(n.lambda.zero, 0)
+})
+
 chrom.vec <- sub(":.*", "", rownames(penalty.learning$X.mat))
 table(chrom.vec)
 train.chroms <- c("chr1", "chr9")
@@ -14,10 +25,20 @@ X.train <- penalty.learning$X.mat[sets$train,]
 y.train <- penalty.learning$y.mat[sets$train,]
 fit <- iregnet(
   X.train, y.train,
+  lambda=full.fit$lambda,
   unreg_sol=FALSE,
   standardize=TRUE,
   debug=1,
   maxiter=1e5)
+
+test_that("lambda same in fits to full and train data", {
+  expect_equal(full.fit$lambda, fit$lambda)
+})
+
+test_that("no lambda=0 in fit to train data", {
+  n.lambda.zero <- sum(fit$lambda==0)
+  expect_equal(n.lambda.zero, 0)
+})
 
 if(FALSE){
   conv.txt <- "
