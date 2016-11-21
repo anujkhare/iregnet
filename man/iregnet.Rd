@@ -70,6 +70,7 @@ loop continues until the absolute update in each parameter is greater than
 
 \item{unreg_sol}{\code{TRUE} if the final solution computed must be
 unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
+Only used if \code{lambda_path} is not specified.
 \cr \emph{Default: \code{TRUE}}}
 
 \item{eps_lambda}{The ratio of the minimum value of \code{lambda} to the

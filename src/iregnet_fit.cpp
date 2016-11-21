@@ -100,6 +100,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
                                // NOTE: This transformation is done before coming to this routine
   double scale;
+  bool flag_lambda_given = (lambda_path.size() > 0);
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
@@ -110,7 +111,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
 
   /* Create output variables */
-  if (lambda_path.size() > 0) {
+  if (flag_lambda_given) {
     num_lambda = lambda_path.size();
   }
   Rcpp::NumericMatrix out_beta(n_vars, num_lambda + 1);       // will contain the entire series of solutions
@@ -120,7 +121,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericVector out_loglik(num_lambda + 1);
 
   /* use given values for the lambda path */
-  if (lambda_path.size() > 0) {
+  if (flag_lambda_given) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
       if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
@@ -209,10 +210,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  // There is an extra lambda for initial_fit if we calculate them.
+  int end_ind = num_lambda + !flag_lambda_given - 1;
 
-  for (int m = 0; m < num_lambda + 1; ++m) {
+  for (int m = 0; m <= end_ind; ++m) {
     /* Compute the lambda path */
-    if (lambda_path.size() == 0) {
+    if (!flag_lambda_given) {
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
       if (m == 0) {
@@ -224,7 +227,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
 
       /* Last solution should be unregularized if the flag is set */
-      } else if (m == num_lambda && unreg_sol == true)
+      } else if (m == end_ind && unreg_sol == true)
         lambda_seq[m] = 0;
 
       /* All other lambda calculated */
@@ -324,7 +327,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
-  for (ull m = 0; m < num_lambda + 1; ++m) {
+  for (ull m = 0; m <= end_ind; ++m) {
     //if (transformed_dist == IREG_DIST_LOGISTIC)
       out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
@@ -347,12 +350,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
-  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(1,num_lambda)),
-                            Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(1,num_lambda)],
+  int start_ind = !flag_lambda_given;
+  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(start_ind ,end_ind)),
+                            Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(start_ind ,end_ind)],
                             Rcpp::Named("num_lambda")   = num_lambda,
-                            Rcpp::Named("n_iters")      = out_n_iters[Rcpp::Range(1,num_lambda)],
-                            Rcpp::Named("loglik")       = out_loglik[Rcpp::Range(1,num_lambda)],
-                            Rcpp::Named("scale")        = out_scale[Rcpp::Range(1,num_lambda)],
+                            Rcpp::Named("n_iters")      = out_n_iters[Rcpp::Range(start_ind ,end_ind)],
+                            Rcpp::Named("loglik")       = out_loglik[Rcpp::Range(start_ind ,end_ind)],
+                            Rcpp::Named("scale")        = out_scale[Rcpp::Range(start_ind ,end_ind)],
                             Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("scale_init")   = scale_init,
                             Rcpp::Named("error_status") = error_status

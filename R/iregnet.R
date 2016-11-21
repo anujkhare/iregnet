@@ -71,6 +71,7 @@
 #'
 #' @param unreg_sol \code{TRUE} if the final solution computed must be
 #' unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
+#' Only used if \code{lambda_path} is not specified.
 #' \cr \emph{Default: \code{TRUE}}
 #'
 #' @param debug \code{TRUE} if code debugging messages must be printed.
