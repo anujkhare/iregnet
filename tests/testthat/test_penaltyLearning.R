@@ -327,6 +327,7 @@ dimnames(X.scaled) <- dimnames(X.unscaled)
 ufit <- iregnet(
   X.scaled, y.train,
   ## scale_init=1, estimate_scale=FALSE,
+  lambda=full.fit$lambda,
   unreg_sol=FALSE,
   standardize=FALSE,
   debug=1,
