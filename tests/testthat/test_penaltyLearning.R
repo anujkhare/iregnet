@@ -10,6 +10,12 @@ full.fit <- with(penalty.learning, iregnet(
   standardize=TRUE,
   maxiter=1e5))
 
+l1.norm.vec <- colSums(abs(full.fit$beta[-1,]))
+test_that("only one model should have L1 arclength 0", {
+  n.zero <- sum(l1.norm.vec == 0)
+  expect_equal(n.zero, 1)
+})
+
 test_that("no lambda=0 when unreg_sol=FALSE", {
   n.lambda.zero <- sum(full.fit$lambda==0)
   expect_equal(n.lambda.zero, 0)
@@ -223,12 +229,6 @@ iter=1000 lambda=100 beta_22 not converged, abs_change=0.000498 > 0.000100=thres
 
 test_that("predict function same as matrix multiplication when standardize=TRUE", {
   expect_equal(cbind(1, X.train) %*% fit$beta, predict(fit, X.train))
-})
-
-l1.norm.vec <- colSums(abs(fit$beta[-1,]))
-test_that("only one model should have L1 arclength 0", {
-  n.zero <- sum(l1.norm.vec == 0)
-  expect_equal(n.zero, 1)
 })
 
 pred.loglik <- function(pred.mean, pred.scale, target.mat){
