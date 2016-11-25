@@ -1,8 +1,8 @@
 #' @title Print the iregnet fit
-#'
+#' @export
 #' @description
 #' Prints a summary of the results of the 
-#'
+#' @import utils
 #' @param x The result of an iregnet fit.
 #'
 #' @param ... Optional parameters for print. If \code{n} is supplied, only the

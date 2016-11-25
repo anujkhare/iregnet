@@ -5,6 +5,14 @@ vignette with speed/accuracy comparisons (fista, glmnet).
 sub-differential or duality gap stopping criteria (instead of absolute
 change in variables)
 
+2016.12.xx
+
+Allow Ctrl-C to interrupt coordinate descent.
+
+roxygen2 used to generate NAMESPACE.
+
+cv.iregnet with methods: plot
+
 2016.11.02
 
 Convergence on penalty.learning data set OK with unreg_sol=FALSE and

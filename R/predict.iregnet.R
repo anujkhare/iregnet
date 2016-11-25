@@ -1,5 +1,5 @@
 #' @title Predict response using new covariates
-#'
+#' @export
 #' @description
 #' Prediction is just X'beta for non-transformed distributions, and
 #' itrans(X'beta) for transformed distributions.
@@ -22,7 +22,8 @@
 #' These should be a subset of the values on which the model was fit. To obtain
 #' predictions at other lambda values, re-fit the model.
 #' \cr \emph{Default: \code{NULL} (\code{object$lambda} is used)}
-#'
+#' @import methods
+#' @import stats
 #' @param ... Optional arguments. Currently unused.
 predict.iregnet <- function(object, newx, lambda=NULL, type=c("link", "response"), ...) {
   stopifnot_error("Invalid / no fit object provided", !missing(object),

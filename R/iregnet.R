@@ -1,5 +1,5 @@
 #' @title Fit interval censored AFT models with elastic net regularization
-#'
+#' @export
 #' @description
 #' Fit accelerated failure time models using interval censored data via
 #' elastic net penalized maximum likeihood. Solutions are computed using
@@ -117,10 +117,10 @@
 #' Paths for Cox's Proportional Hazards Model via Coordinate Descent, Journal
 #' of Statistical Software, Vol. 39(5) 1-13
 #' \url{http://www.jstatsoft.org/v39/i05/}
-#'
+#' @useDynLib iregnet
 #' @seealso
 #' \code{\link{predict.iregnet}}, \code{cv.iregnet}, \code{\link{plot.iregnet}}
-#'
+#' @import survival
 #' @examples
 #' # y can be a 2 column matrix.
 #' set.seed(10)
@@ -130,13 +130,13 @@
 #' fit1 <- iregnet(X, y)
 #'
 #' # Surv objects from survival are also supported.
-#' data("ovarian")
+#' data("ovarian", package="survival")
+#' library(survival)
 #' X <- cbind(ovarian$ecog.ps, ovarian$rx)
 #' y <- Surv(ovarian$futime, ovarian$fustat)
 #' fit2 <- iregnet(X, y)
 #'
 #' # Log-Gaussian is same as Gaussian with log-transformed data
-#' data("ovarian")
 #' X <- cbind(ovarian$ecog.ps, ovarian$rx)
 #' y <- Surv(ovarian$futime, ovarian$fustat)
 #' y_log <- Surv(log(ovarian$futime), ovarian$fustat)
@@ -149,7 +149,7 @@
 #' y <- matrix(rnorm(20), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
 #' fit5 <- iregnet(X, y, scale_init=1, estimate_scale=FALSE)
-#'
+#' 
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
