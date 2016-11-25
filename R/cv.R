@@ -161,7 +161,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     nonzero=colSums(not.intercept != 0))
   weight.and.intercept <- tidydf(big.fit)
   is.intercept <- weight.and.intercept$variable == "(Intercept)"
-  weight.df <- weight.and.intercept[is.intercept, ]
+  weight.df <- weight.and.intercept[!is.intercept, ]
   big.fit$plot.data <- list(
     weights=weight.df,
     stats=stats.df,
