@@ -6,6 +6,7 @@
  * We use 2 spaces per tab, and expand the tabs
  */
 #include "iregnet.h"
+#include <R_ext/Utils.h>
 
 #define BIG 1e35
 
@@ -248,7 +249,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
-
+      R_CheckUserInterrupt(); // Ctrl-C to interrupt.
+      
       n_iters[m]++;
 
       flag_beta_converged = 1;            // = 1 if beta converges
