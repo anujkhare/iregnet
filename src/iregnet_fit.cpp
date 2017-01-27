@@ -262,12 +262,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
-    if (m != 0) {                         // Initialise solutions using previous value
+    /*if (m != 0) {                         // Initialise solutions using previous value
       for (ull i = 0; i < n_vars; ++i) {
         beta[i + n_vars] = beta[i];
       }
       beta = beta + n_vars;   // go to the next column
-    }
+    }*/
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
@@ -338,12 +338,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
-        for (ull i = 0; i < n_obs; ++i) {
+        /*for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug==1 && m==0) {
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
-        }
+        }*/
 
       }   // end for: beta_k solution
 
