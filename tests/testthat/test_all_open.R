@@ -40,43 +40,48 @@ test_that("iregnet works for all open toy intervals", {
   expect_true(inherits(fit, "iregnet"))
 })
 
-data(neuroblastomaProcessed, package="penaltyLearning")
+print(.libPaths())
 
-if(interactive()){
-  train.dt <- with(neuroblastomaProcessed, data.table(
-    log2.n=feature.mat[, "log2.n"],
-    log.hall=feature.mat[, "log.hall"],
-    target.mat))
-  fit <- survreg(
-    Surv(min.L, max.L, type="interval2") ~ log2.n + log.hall,
-    train.dt, dist="gaussian")
-  ## survival returns a valid model for these data.
+if(require(penaltyLearning)){
+
+  data(neuroblastomaProcessed, package="penaltyLearning")
+
+  if(interactive()){
+    train.dt <- with(neuroblastomaProcessed, data.table(
+      log2.n=feature.mat[, "log2.n"],
+      log.hall=feature.mat[, "log.hall"],
+      target.mat))
+    fit <- survreg(
+      Surv(min.L, max.L, type="interval2") ~ log2.n + log.hall,
+      train.dt, dist="gaussian")
+    ## survival returns a valid model for these data.
+  }
+
+  test_that("valid model for two features in neuroblastoma data", {
+    fit <- with(neuroblastomaProcessed, iregnet(
+      feature.mat[, c("log2.n", "log.hall")],
+      target.mat, family="gaussian"))
+    expect_is(fit, "iregnet")
+    df <- tidydf(fit)
+    ggplot()+
+      geom_point(aes(-log(lambda), weight, color=variable), data=df)
+  })
+
+  test_that("valid model for all features in neuroblastoma data", {
+    fit <- with(neuroblastomaProcessed, {
+      iregnet(feature.mat, target.mat, family="gaussian")
+    })
+    expect_is(fit, "iregnet")
+  })
+
+  sd.vec <- apply(neuroblastomaProcessed$feature.mat, 2, sd)
+  is.constant <- sd.vec == 0
+
+  test_that("valid model for non-constant features in neuroblastoma data", {
+    fit <- with(neuroblastomaProcessed, {
+      iregnet(feature.mat[, !is.constant], target.mat, family="gaussian")
+    })
+    expect_is(fit, "iregnet")
+  })
+
 }
-
-test_that("valid model for two features in neuroblastoma data", {
-  fit <- with(neuroblastomaProcessed, iregnet(
-    feature.mat[, c("log2.n", "log.hall")],
-    target.mat, family="gaussian"))
-  expect_is(fit, "iregnet")
-  df <- tidydf(fit)
-  ggplot()+
-    geom_point(aes(-log(lambda), weight, color=variable), data=df)
-})
-
-test_that("valid model for all features in neuroblastoma data", {
-  fit <- with(neuroblastomaProcessed, {
-    iregnet(feature.mat, target.mat, family="gaussian")
-  })
-  expect_is(fit, "iregnet")
-})
-
-sd.vec <- apply(neuroblastomaProcessed$feature.mat, 2, sd)
-is.constant <- sd.vec == 0
-
-test_that("valid model for non-constant features in neuroblastoma data", {
-  fit <- with(neuroblastomaProcessed, {
-    iregnet(feature.mat[, !is.constant], target.mat, family="gaussian")
-  })
-  expect_is(fit, "iregnet")
-})
-
