@@ -208,15 +208,20 @@ iregnet <- function(x, y,
     family <- trans$dist
   }
 
+  sd.vec <- apply(x, 2, sd)
+  is.constant <- sd.vec==0
+  x.filtered <- x[, !is.constant, drop=FALSE]
+  stopifnot_error("no non-constant features", ncol(x.filtered))
+
   # Get column names
-  varnames <- colnames(x)
+  varnames <- colnames(x.filtered)
   if (is.null(varnames)) {
     varnames <- paste('x', 1: n_vars, sep='')
   }
 
   # Append col of 1's for the intercept
   if (intercept) {
-    x <- cbind(rep(1, n_obs), x)
+    x.train <- cbind(rep(1, n_obs), x.filtered)
     varnames = c("(Intercept)", varnames)
   }
 
@@ -225,10 +230,20 @@ iregnet <- function(x, y,
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
 
   # Call the actual fit method
-  fit <- fit_cpp(x, y, family, alpha, lambda_path=lambda, num_lambda=num_lambda, intercept=intercept,
-                 out_status=status, scale_init=scale_init, max_iter=maxiter, threshold=threshold,
-                 flag_standardize_x=standardize, estimate_scale=estimate_scale, unreg_sol=unreg_sol,
-                 eps_lambda=eps_lambda, debug=debug);
+  fit <- fit_cpp(
+    x.train, y, family, alpha,
+    lambda_path=lambda,
+    num_lambda=num_lambda,
+    intercept=intercept,
+    out_status=status,
+    scale_init=scale_init,
+    max_iter=maxiter,
+    threshold=threshold,
+    flag_standardize_x=standardize,
+    estimate_scale=estimate_scale,
+    unreg_sol=unreg_sol,
+    eps_lambda=eps_lambda,
+    debug=debug);
 
   fit$call <- match.call()
   fit$intercept <- intercept
