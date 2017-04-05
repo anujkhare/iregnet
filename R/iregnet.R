@@ -222,13 +222,14 @@ iregnet <- function(x, y,
   # Append col of 1's for the intercept
   if (intercept) {
     x.train <- cbind(rep(1, n_obs), x.filtered)
-    varnames = c("(Intercept)", varnames)
+    varnames <- c("(Intercept)", varnames)
+  }else{
+    x.train <- x.filtered
   }
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
-
   # Call the actual fit method
   fit <- fit_cpp(
     x.train, y, family, alpha,
