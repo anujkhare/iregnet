@@ -211,7 +211,7 @@ iregnet <- function(x, y,
   sd.vec <- apply(x, 2, sd)
   is.constant <- sd.vec==0
   x.filtered <- x[, !is.constant, drop=FALSE]
-  stopifnot_error("no non-constant features", ncol(x.filtered))
+  stopifnot_error("no non-constant features", 0<ncol(x.filtered))
 
   # Get column names
   varnames <- colnames(x.filtered)
