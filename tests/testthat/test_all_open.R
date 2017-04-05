@@ -28,19 +28,20 @@ if(interactive()){
   test_that("survival-2.41.0 predicts correctly for toy data", {
     expect_equal(n.errors, 0)
   })
+
+  test_that("iregnet works with at least one closed interval", {
+    fit <- iregnet(toy.features, toy.targets)
+    expect_true(inherits(fit, "iregnet"))
+  })
+
+  test_that("iregnet works for all open toy intervals", {
+    fit <- iregnet(toy.features[-1,], toy.targets[-1,])
+    expect_true(inherits(fit, "iregnet"))
+  })
+
+  print(.libPaths())
+
 }
-
-test_that("iregnet works with at least one closed interval", {
-  fit <- iregnet(toy.features, toy.targets)
-  expect_true(inherits(fit, "iregnet"))
-})
-
-test_that("iregnet works for all open toy intervals", {
-  fit <- iregnet(toy.features[-1,], toy.targets[-1,])
-  expect_true(inherits(fit, "iregnet"))
-})
-
-print(.libPaths())
 
 if(require(penaltyLearning)){
 
