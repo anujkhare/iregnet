@@ -9,8 +9,6 @@
 #' first \code{n} models will be printed.
 #' @method print iregnet
 print.iregnet <- function(x, ...) {
-  stopifnot_error("Invalid / no x object provided", !missing(x),
-                  class(x) == "iregnet")
   cat('\nCall:', deparse(x$call), '\n\n')
   varargs <- list(...)
   n <- varargs$n

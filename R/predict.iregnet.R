@@ -26,30 +26,35 @@
 #' @import stats
 #' @param ... Optional arguments. Currently unused.
 predict.iregnet <- function(object, newx, lambda=NULL, type=c("link", "response"), ...) {
-  stopifnot_error("Invalid / no fit object provided", !missing(object),
-    class(object) == "iregnet")
   stopifnot_error("No 'newx' matrix provided", !missing(newx))
-  stopifnot_error("newx should be a matrix with same number of columns as used in fit",
-    is.matrix(newx), ncol(newx) + object$intercept == nrow(object$beta))
-
   # ensure that all the lambda values are in the fit
   if (is.null(lambda))
     lambda = object$lambda
   inds <- match(lambda, object$lambda)
   stopifnot_error("Lambda values must be those used in fit", all(!is.na(inds)))
-
-  # append intercept column
-  if (object$intercept)
-    newx <- cbind2(1, newx)
-
-  beta <- object$beta[, inds]
-  link <- newx %*% beta  # link == eta
-  response <- link
-
-  if (object$family %in% names(transformed_distributions)) {
-    response <- transformed_distributions[[object$family]]$trans(link)
+  # check non-zero 
+  beta <- object$beta[, inds, drop=FALSE]
+  is.used <- apply(beta!=0, 1, any)
+  not.intercept <- rownames(beta) != "(Intercept)"
+  feature.name.vec <- rownames(beta)[is.used & not.intercept]
+  stopifnot_error("newx should be a numeric matrix",
+                  is.matrix(newx), is.numeric(newx))
+  has.feature <- feature.name.vec %in% colnames(newx)
+  feature.not.present <- feature.name.vec[!has.feature]
+  if(length(feature.not.present)){
+    stop("features missing but needed for prediction: ",
+         paste(feature.not.present, collapse=", "))
   }
-
+  one <- if(object$intercept)1
+  needed.features <- cbind(one, newx[, feature.name.vec, drop=FALSE])
+  coef.name.vec <- c(if(object$intercept)"(Intercept)", feature.name.vec)
+  needed.beta <- beta[coef.name.vec, , drop=FALSE]
+  link <- needed.features %*% needed.beta  # link == eta
+  response <- if (object$family %in% names(transformed_distributions)) {
+    transformed_distributions[[object$family]]$trans(link)
+  }else{
+    link
+  }
   type <- match.arg(type)
   switch(type,
          link = link,
