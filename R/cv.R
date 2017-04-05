@@ -1,6 +1,13 @@
 distribution.fun.suffixes <- c(
   gaussian="norm",
-  logistic="logis")
+  logistic="logis",
+  exponential="exponential")
+dexponential <- function(x, m, s, log){
+  dexp(x, m, log)
+}
+pexponential <- function(x, m, s){
+  pexp(x, m)
+}
 paste0get <- function(suffix, prefix){
   get(paste0(prefix, suffix))
 }
@@ -36,6 +43,9 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
     is.matrix(pred.scale),
     is.numeric(pred.scale),
     nrow(pred.scale)==n.obs)
+  stopifnot_error(
+    paste("family must be one of", paste(names(pfun.list), collapse=", ")),
+    family %in% names(pfun.list))
   pfun <- pfun.list[[family]]
   dfun <- dfun.list[[family]]
   use.density <- y.mat[,1]==y.mat[,2]
@@ -230,4 +240,11 @@ plot.cv.iregnet <- function(x, ...){
       ylab("")+
       xlab("model complexity -log10(lambda)")
   })
+}
+
+predict.cv.iregnet <- function(object, newx, type="min", ...){
+  i <- object$selected[[type]]
+  not.cv <- object
+  class(not.cv) <- "iregnet"
+  predict(not.cv, newx, lambda=object$lambda[[i]], ...)
 }
