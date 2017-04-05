@@ -1,7 +1,7 @@
 Package: iregnet
 Type: Package
 Title: Regularized interval regression
-Version: 2016.11.02
+Version: 2017.04.05
 Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
     Jelle Goeman
 Maintainer: Anuj Khare <khareanuj18@gmail.com>
@@ -23,3 +23,4 @@ Imports:
     survival,
     foreach
 RoxygenNote: 5.0.1
+Remotes: tdhock/penaltyLearning
