@@ -3,6 +3,7 @@
 S3method(coef,iregnet)
 S3method(plot,cv.iregnet)
 S3method(plot,iregnet)
+S3method(predict,cv.iregnet)
 S3method(predict,iregnet)
 S3method(print,iregnet)
 export(compute.loglik)
