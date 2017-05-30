@@ -131,7 +131,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
   }
 
-  double *beta;                           // Initially points to the first solution
+  double *beta = new double [n_vars];                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
@@ -151,6 +151,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *mean_x = new double [n_vars];
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
+  double temp_sols[n_obs];
+  double temp_value;
 
 
   /* get censoring types of the observations */
@@ -190,7 +192,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
    */
 
   // set beta = 0 and eta = 0
-  beta = REAL(out_beta);
+  //beta = REAL(out_beta);
   for (ull i = 0; i < n_vars; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
@@ -233,14 +235,15 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }
     }
 
+    //This step is commented because the store way of beta is updated
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
-    if (m != 0) {                         // Initialise solutions using previous value
+    /*if (m != 0) {                         // Initialise solutions using previous value
       for (ull i = 0; i < n_vars; ++i) {
         beta[i + n_vars] = beta[i];
       }
       beta = beta + n_vars;   // go to the next column
-    }
+    }*/
 
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
@@ -254,13 +257,20 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
+
+      //Calculate before iterate over beta elementwise loop
+      for (ull i = 0; i < n_obs; ++i) {
+        temp_sols[i] = w[i] / n_obs;
+      }
+
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
         for (ull i = 0; i < n_obs; ++i) {
-          eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-          sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
-          sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
+          temp_value = temp_sols[i] * X(i, k);
+          //eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
+          sol_num += temp_value * (z[i] - eta[i] + X(i, k) * beta[k]);
+          sol_denom += temp_value * X(i, k);
         }
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
@@ -282,19 +292,24 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         if (abs_change > threshold) {
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
+          for (ull i = 0; i < n_obs; ++i) {
+            eta[i] = eta[i] + X(i, k) * (beta_new - beta[k]);  // this will contain the new beta_k
+          }
           beta[k] = beta_new;
         }
 
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
-        for (ull i = 0; i < n_obs; ++i) {
+        //eta[] is already updated in the below step
+        /*for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug==1 && m==0) {
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
-        }
-
+        }*/
+        //Store new beta[]
+        std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
       }   // end for: beta_k solution
 
       if (estimate_scale) {
@@ -339,6 +354,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
   /* Free the temporary variables */
+  delete [] beta;
   delete [] eta;
   delete [] mu;
   delete [] w;
