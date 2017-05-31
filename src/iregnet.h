@@ -1,7 +1,7 @@
 #ifndef IREGNET_H
 #define IREGNET_H
 
-#include <Rcpp.h>
+#include <RcppArmadillo.h>
 #include <cmath>
 
 // used for all counts
