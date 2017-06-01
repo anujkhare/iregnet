@@ -20,13 +20,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // iregnet_compute_gradients
-Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
+Rcpp::List iregnet_compute_gradients(arma::mat X, arma::mat y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
 RcppExport SEXP iregnet_iregnet_compute_gradients(SEXP XSEXP, SEXP ySEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type y(ySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type eta(etaSEXP);
     Rcpp::traits::input_parameter< double >::type scale(scaleSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
@@ -35,13 +35,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // fit_cpp
-Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, Rcpp::NumericVector lambda_path, int debug, Rcpp::IntegerVector out_status, bool intercept, double alpha, double scale_init, bool estimate_scale, bool unreg_sol, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda);
+Rcpp::List fit_cpp(arma::mat& X, arma::mat& y, Rcpp::String family, Rcpp::NumericVector lambda_path, int debug, Rcpp::IntegerVector out_status, bool intercept, double alpha, double scale_init, bool estimate_scale, bool unreg_sol, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda);
 RcppExport SEXP iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP lambda_pathSEXP, SEXP debugSEXP, SEXP out_statusSEXP, SEXP interceptSEXP, SEXP alphaSEXP, SEXP scale_initSEXP, SEXP estimate_scaleSEXP, SEXP unreg_solSEXP, SEXP flag_standardize_xSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type y(ySEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type lambda_path(lambda_pathSEXP);
     Rcpp::traits::input_parameter< int >::type debug(debugSEXP);
