@@ -10,15 +10,15 @@
 #define BIG 1e35
 
 static inline double
-get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
+get_y_means (arma::mat &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
-static void standardize_x (Rcpp::NumericMatrix &X,
+static void standardize_x (arma::mat &X,
                            double *mean_x, double *std_x,
                            bool intercept);
 static void
-standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y);
-static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
+standardize_y (arma::mat &y, double *ym, double &mean_y);
+static inline double compute_lambda_max(arma::mat X, double *w, double *z,
                                         double *eta, bool intercept, double &alpha,
                                         ull n_vars, ull n_obs, bool debug);
 
@@ -84,7 +84,7 @@ max(double a, double b)
 //'
 // [[Rcpp::export]]
 Rcpp::List
-fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
+fit_cpp(arma::mat& X, arma::mat& y,
         Rcpp::String family,   Rcpp::NumericVector lambda_path,
         int debug,             Rcpp::IntegerVector out_status,
         bool intercept,        double alpha,
@@ -102,8 +102,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double scale;
   int error_status = 0;
 
-  const ull n_obs  = X.nrow();
-  const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
+  const ull n_obs  = X.n_rows;
+  const ull n_vars = X.n_cols;  // n_vars is the number of variables corresponding to the coeffs of X
   transformed_dist = get_ireg_dist(family);
 
   /* Loggaussain = Gaussian with log(y), etc. */
@@ -211,6 +211,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  //Separate Matrix y
+  arma::rowvec aram_y_l(n_obs);
+  arma::rowvec aram_y_r(n_obs);
+  aram_y_l = (y.col(0)).t();
+  aram_y_r = (y.col(1)).t();
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
@@ -255,7 +260,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+      loglik = compute_grad_response(w, z, &scale_update, &aram_y_l, &aram_y_r, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
 
       //Calculate before iterate over beta elementwise loop
@@ -376,13 +381,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 }
 
 static inline double
-get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
+get_y_means (arma::mat &y, IREG_CENSORING *status, double *ym)
 {
   if (!ym || !status)
     return 0;
 
   double mean_y = 0;
-  for (ull i = 0; i < y.nrow(); ++i) {
+  for (ull i = 0; i < y.n_rows; ++i) {
       switch (status[i]) {
         case IREG_CENSOR_LEFT:
         case IREG_CENSOR_RIGHT:
@@ -399,15 +404,15 @@ get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
       }
       mean_y += ym[i];
   } // end for
-  mean_y /= y.nrow();
+  mean_y /= y.n_rows;
   return mean_y;
 }
 
 void
-get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
+get_censoring_types (arma::mat &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
-  for (ull i = 0; i < y.nrow(); ++i) {
+  for (ull i = 0; i < y.n_rows; ++i) {
     if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
     if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
     y_l = y(i, 0); y_r = y(i ,1);
@@ -466,38 +471,38 @@ soft_threshold (double x, double lambda)
 }
 
 static void
-standardize_x (Rcpp::NumericMatrix &X,
+standardize_x (arma::mat &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
-  for (ull i = int(intercept); i < X.ncol(); ++i) {  // don't standardize intercept col.
+  for (ull i = int(intercept); i < X.n_cols; ++i) {  // don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       mean_x[i] += X(j, i);
     }
-    mean_x[i] /= X.nrow();
+    mean_x[i] /= X.n_rows;
 
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       X(j, i) = X(j, i) - mean_x[i];  // center X
       std_x[i] += X(j, i) * X(j, i);
     }
 
     // not using (N-1) in denominator to agree with glmnet
-    std_x[i] = sqrt(std_x[i] / X.nrow());
+    std_x[i] = sqrt(std_x[i] / X.n_rows);
 
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       X(j, i) = X(j, i) / std_x[i];
     }
   }
 }
 
 static void
-standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y)
+standardize_y (arma::mat &y, double *ym, double &mean_y)
 {
-  for (ull i = 0; i < y.nrow() * y.ncol(); ++i) {
+  for (ull i = 0; i < y.n_rows * y.n_cols; ++i) {
     y[i] -= mean_y;
   }
-  for (ull i = 0; i < y.nrow(); ++i)
+  for (ull i = 0; i < y.n_rows; ++i)
     ym[i] -= mean_y;
 }
 
@@ -531,7 +536,7 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
+compute_lambda_max(arma::mat X, double *w, double *z, double *eta,
                    bool intercept, double &alpha, ull n_vars, ull n_obs,
                    bool debug=0)
 {
