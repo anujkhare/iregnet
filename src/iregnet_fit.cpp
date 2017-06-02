@@ -18,8 +18,8 @@ static void standardize_x (mat &X,
                            bool intercept);
 static void
 standardize_y (mat &y, double *ym, double &mean_y);
-static inline double compute_lambda_max(mat X, double *w, double *z,
-                                        double *eta, bool intercept, double &alpha,
+static inline double compute_lambda_max(mat X, rowvec *w, rowvec *z,
+                                        rowvec *eta, bool intercept, double &alpha,
                                         ull n_vars, ull n_obs, bool debug);
 
 double
@@ -138,13 +138,13 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double loglik = 0, scale_update = 0, log_scale;
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
-  double *eta = new double [n_obs];   // vector of linear predictors = X' beta
+  rowvec eta_vec(n_obs, fill::zeros); // vector of linear predictors = X' beta
                                       // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
                                       // eta is updated along with beta in place
 
-  double *w  = new double [n_obs];    // diagonal of the hessian of LL wrt eta
+  rowvec w_vec(n_obs, fill::zeros);   // diagonal of the hessian of LL wrt eta
                                       // these are the weights of the IRLS linear reg
-  double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
+  rowvec z_vec(n_obs, fill::zeros);   // z_i = eta_i - mu_i / w_i
   double *mu = new double [n_obs + 1];
   double *ym = new double [n_obs];    // the observation wise mean values for y's
   double mean_y;
@@ -199,10 +199,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   n_iters[0] = 0; out_scale[0] = scale;
 
-  for (ull i = 0; i < n_obs; ++i) {
-    eta[i] = w[i] = z[i] = 0;
-  }
-
   /******************************************************************************************/
   /* Iterate over grid of lambda values */
   bool flag_beta_converged = 0;
@@ -228,7 +224,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
-        lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
+        lambda_seq[m] = compute_lambda_max(X, &w_vec, &z_vec, &eta_vec, intercept, alpha, n_vars, n_obs, debug);
 
       /* Last solution should be unregularized if the flag is set */
       } else if (m == num_lambda && unreg_sol == true)
@@ -260,12 +256,12 @@ fit_cpp(arma::mat& X, arma::mat& y,
       old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      loglik = compute_grad_response(w, z, &scale_update, &aram_y_l, &aram_y_r, eta, scale,     // TODO:store a ptr to y?
+      loglik = compute_grad_response(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, &eta_vec, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
 
       //Calculate before iterate over beta elementwise loop
       for (ull i = 0; i < n_obs; ++i) {
-        temp_sols[i] = w[i] / n_obs;
+        temp_sols[i] = w_vec(i) / n_obs;
       }
 
       /* iterate over beta elementwise and update using soft thresholding solution */
@@ -274,7 +270,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
         for (ull i = 0; i < n_obs; ++i) {
           temp_value = temp_sols[i] * X(i, k);
           //eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-          sol_num += temp_value * (z[i] - eta[i] + X(i, k) * beta[k]);
+          sol_num += temp_value * (z_vec(i) - eta_vec(i) + X(i, k) * beta[k]);
           sol_denom += temp_value * X(i, k);
         }
 
@@ -298,7 +294,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
           for (ull i = 0; i < n_obs; ++i) {
-            eta[i] = eta[i] + X(i, k) * (beta_new - beta[k]);  // this will contain the new beta_k
+            eta_vec(i) = eta_vec(i) + X(i, k) * (beta_new - beta[k]);  // this will contain the new beta_k
           }
           beta[k] = beta_new;
         }
@@ -360,10 +356,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
   /* Free the temporary variables */
   delete [] beta;
-  delete [] eta;
   delete [] mu;
-  delete [] w;
-  delete [] z;
   delete [] ym;
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
@@ -536,7 +529,7 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(mat X, double *w, double *z, double *eta,
+compute_lambda_max(mat X, rowvec *w, rowvec *z, rowvec *eta,
                    bool intercept, double &alpha, ull n_vars, ull n_obs,
                    bool debug=0)
 {
@@ -547,7 +540,7 @@ compute_lambda_max(mat X, double *w, double *z, double *eta,
     for (ull i = 0; i < n_obs; ++i) {
       // NOTE: `eta` contains only the contribution of the intercept, since all
       // other `beta` values are 0.
-      temp += (w[i] * X(i, j) * (z[i] - eta[i]));
+      temp += ((*w)(i) * X(i, j) * ((*z)(i) - (*eta)(i)));
     }
     temp = fabs(temp);
     // if (debug) {
