@@ -53,7 +53,7 @@ void (*sreg_gg)(double, double [4], int);
  *      scale_update: the Newton update term for scale parameter
  */
 double
-compute_grad_response(double *w, double *z, double *scale_update, const arma::rowvec *y_l, const arma::rowvec *y_r,
+compute_grad_response(double *w, double *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                       const double *eta, const double scale, const IREG_CENSORING *censoring_type,
                       const ull n_obs, const IREG_DIST dist, double *mu, bool debug=false)
 {
@@ -404,7 +404,7 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 //' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
 //' (least) \code{extreme value} distributions are supported.
 // [[Rcpp::export]]
-Rcpp::List iregnet_compute_gradients(arma::mat X, arma::mat y,
+Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y,
                                      Rcpp::NumericVector eta, double scale,
                                      Rcpp::String family)
 {
@@ -413,8 +413,8 @@ Rcpp::List iregnet_compute_gradients(arma::mat X, arma::mat y,
   double *gradients = REAL(out_gradients);
 
   //Separate Matrix y
-  arma::rowvec aram_y_l(n_obs);
-  arma::rowvec aram_y_r(n_obs);
+  rowvec aram_y_l(n_obs);
+  rowvec aram_y_r(n_obs);
 
   aram_y_l = (y.col(0)).t();
   aram_y_r = (y.col(1)).t();

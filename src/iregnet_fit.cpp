@@ -10,15 +10,15 @@
 #define BIG 1e35
 
 static inline double
-get_y_means (arma::mat &y, IREG_CENSORING *status, double *ym);
+get_y_means (mat &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
-static void standardize_x (arma::mat &X,
+static void standardize_x (mat &X,
                            double *mean_x, double *std_x,
                            bool intercept);
 static void
-standardize_y (arma::mat &y, double *ym, double &mean_y);
-static inline double compute_lambda_max(arma::mat X, double *w, double *z,
+standardize_y (mat &y, double *ym, double &mean_y);
+static inline double compute_lambda_max(mat X, double *w, double *z,
                                         double *eta, bool intercept, double &alpha,
                                         ull n_vars, ull n_obs, bool debug);
 
@@ -212,8 +212,8 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
   //Separate Matrix y
-  arma::rowvec aram_y_l(n_obs);
-  arma::rowvec aram_y_r(n_obs);
+  rowvec aram_y_l(n_obs);
+  rowvec aram_y_r(n_obs);
   aram_y_l = (y.col(0)).t();
   aram_y_r = (y.col(1)).t();
 
@@ -381,7 +381,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
 }
 
 static inline double
-get_y_means (arma::mat &y, IREG_CENSORING *status, double *ym)
+get_y_means (mat &y, IREG_CENSORING *status, double *ym)
 {
   if (!ym || !status)
     return 0;
@@ -409,7 +409,7 @@ get_y_means (arma::mat &y, IREG_CENSORING *status, double *ym)
 }
 
 void
-get_censoring_types (arma::mat &y, IREG_CENSORING *status)
+get_censoring_types (mat &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
   for (ull i = 0; i < y.n_rows; ++i) {
@@ -471,7 +471,7 @@ soft_threshold (double x, double lambda)
 }
 
 static void
-standardize_x (arma::mat &X,
+standardize_x (mat &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
@@ -497,7 +497,7 @@ standardize_x (arma::mat &X,
 }
 
 static void
-standardize_y (arma::mat &y, double *ym, double &mean_y)
+standardize_y (mat &y, double *ym, double &mean_y)
 {
   for (ull i = 0; i < y.n_rows * y.n_cols; ++i) {
     y[i] -= mean_y;
@@ -536,7 +536,7 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(arma::mat X, double *w, double *z, double *eta,
+compute_lambda_max(mat X, double *w, double *z, double *eta,
                    bool intercept, double &alpha, ull n_vars, ull n_obs,
                    bool debug=0)
 {

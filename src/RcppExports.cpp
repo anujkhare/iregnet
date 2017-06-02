@@ -20,13 +20,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // iregnet_compute_gradients
-Rcpp::List iregnet_compute_gradients(arma::mat X, arma::mat y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
+Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
 RcppExport SEXP iregnet_iregnet_compute_gradients(SEXP XSEXP, SEXP ySEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type y(ySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type eta(etaSEXP);
     Rcpp::traits::input_parameter< double >::type scale(scaleSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type family(familySEXP);
