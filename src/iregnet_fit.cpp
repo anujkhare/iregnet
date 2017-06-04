@@ -151,9 +151,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double *mean_x = new double [n_vars];
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
-  double temp_sols[n_obs];
-  double temp_value;
-
 
   /* get censoring types of the observations */
   if (out_status.size() == 0) {
@@ -172,6 +169,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
+
+  //Create Square X
+  mat X_square = square(X);
 
   /* SCALE RULES:
    * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
@@ -202,7 +202,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   /******************************************************************************************/
   /* Iterate over grid of lambda values */
   bool flag_beta_converged = 0;
-  double sol_num, sol_denom;
+  rowvec sol_num_vec(n_vars, fill::zeros), sol_denom_vec(n_vars, fill::zeros);
   double beta_new;
   double old_scale;
   double lambda_max_unscaled;
@@ -211,7 +211,14 @@ fit_cpp(arma::mat& X, arma::mat& y,
   rowvec aram_y_l(n_obs);
   rowvec aram_y_r(n_obs);
   aram_y_l = (y.col(0)).t();
-  aram_y_r = (y.col(1)).t();
+  if(y.n_cols==2){
+    aram_y_r = (y.col(1)).t();
+  }else{
+    aram_y_r.resize(0);
+  }
+  //Optimize Temp Var
+  rowvec w_division_nobs;
+
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
@@ -260,32 +267,25 @@ fit_cpp(arma::mat& X, arma::mat& y,
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
 
       //Calculate before iterate over beta elementwise loop
-      for (ull i = 0; i < n_obs; ++i) {
-        temp_sols[i] = w_vec(i) / n_obs;
-      }
+      w_division_nobs = w_vec / n_obs;
+      sol_denom_vec = w_division_nobs * X_square;
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
-        sol_num = sol_denom = 0;
-        for (ull i = 0; i < n_obs; ++i) {
-          temp_value = temp_sols[i] * X(i, k);
-          //eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-          sol_num += temp_value * (z_vec(i) - eta_vec(i) + X(i, k) * beta[k]);
-          sol_denom += temp_value * X(i, k);
-        }
+        sol_num_vec(k) = as_scalar((w_division_nobs % (z_vec - eta_vec + (beta[k] * X.col(k)).t())) * X.col(k));
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
-        sol_num *= -1; sol_denom *= -1;
+        sol_num_vec(k) *= -1; sol_denom_vec(k) *= -1;
 
         // if (debug == 1 && m == 0)
         //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
-          beta_new = sol_num / sol_denom;
+          beta_new = sol_num_vec(k) / sol_denom_vec(k);
 
         } else {
-          beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
-                     (sol_denom + lambda_seq[m] * (1 - alpha));
+          beta_new = soft_threshold(sol_num_vec(k), lambda_seq[m] * alpha) /
+                     (sol_denom_vec(k) + lambda_seq[m] * (1 - alpha));
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
@@ -293,9 +293,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
         if (abs_change > threshold) {
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
-          for (ull i = 0; i < n_obs; ++i) {
-            eta_vec(i) = eta_vec(i) + X(i, k) * (beta_new - beta[k]);  // this will contain the new beta_k
-          }
+          eta_vec += ((beta_new - beta[k]) * X.col(k)).t();// this will contain the new beta_k
           beta[k] = beta_new;
         }
 
