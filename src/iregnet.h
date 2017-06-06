@@ -1,8 +1,10 @@
 #ifndef IREGNET_H
 #define IREGNET_H
 
-#include <Rcpp.h>
+#include <RcppArmadillo.h>
 #include <cmath>
+
+using namespace arma;
 
 // used for all counts
 #define ull unsigned long long
@@ -34,12 +36,12 @@ IREG_DIST
 get_ireg_dist (Rcpp::String dist_str);
 
 void
-get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status);
+get_censoring_types (mat &y, IREG_CENSORING *status);
 
 /* Functions from distributions.cpp */
 double
-compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
-                      const double *eta, const double scale, const IREG_CENSORING *censoring_type,
+compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                      const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
                       const ull n_obs, IREG_DIST dist, double *mu, bool debug);
 
 #endif  // IREGNET_H
