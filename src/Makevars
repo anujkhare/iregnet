@@ -1,0 +1,7 @@
+OPENBLAS_LIB_PATH = /usr/local/opt/openblas/lib
+
+BLAS_LIBS := -L$(OPENBLAS_LIB_PATH) -lopenblas
+
+PKG_LIBS := $(BLAS_LIBS)
+
+PKG_CXXFLAGS = -O3 -mavx -std=c++11
