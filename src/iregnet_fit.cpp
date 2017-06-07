@@ -218,6 +218,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   //Optimize Temp Var
   rowvec w_division_nobs;
+  vec flag_beta_converged_vec(n_vars, fill::zeros);//store converged result of beta[]
 
 
   for (int m = 0; m < num_lambda + 1; ++m) {
@@ -252,7 +253,8 @@ fit_cpp(arma::mat& X, arma::mat& y,
       }
       beta = beta + n_vars;   // go to the next column
     }*/
-
+    /*Before CYCLIC COORDINATE DESCENT, set the whole vector to zero*/
+    flag_beta_converged_vec.zeros();
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
@@ -272,6 +274,11 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
+
+        /*If current beta_k is already converged, continue to next beta iterated*/
+        if(flag_beta_converged_vec(k) == 1)
+          continue;
+
         sol_num_vec(k) = as_scalar((w_division_nobs % (z_vec - eta_vec + (beta[k] * X.col(k)).t())) * X.col(k));
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
@@ -295,6 +302,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
           flag_beta_converged = 0;
           eta_vec += ((beta_new - beta[k]) * X.col(k)).t();// this will contain the new beta_k
           beta[k] = beta_new;
+        } else {
+          /*The current beta_k has converged during this CYCLIC COORDINATE DESCENT*/
+          flag_beta_converged_vec(k) = 1;
         }
 
         // if (debug==1 && m == 1)
