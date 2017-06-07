@@ -60,3 +60,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+
+static const R_CallMethodDef CallEntries[] = {
+    {"iregnet_compute_densities", (DL_FUNC) &iregnet_compute_densities, 3},
+    {"iregnet_iregnet_compute_gradients", (DL_FUNC) &iregnet_iregnet_compute_gradients, 5},
+    {"iregnet_fit_cpp", (DL_FUNC) &iregnet_fit_cpp, 16},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_iregnet(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
+}
