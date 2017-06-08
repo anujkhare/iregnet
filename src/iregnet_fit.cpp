@@ -340,8 +340,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
         }*/
-        //Store new beta[]
-        std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
       }   // end for: beta_k solution
       eta_vec += temp_eta_vec;// Add the total change to eta for next computation
 
@@ -369,6 +367,8 @@ fit_cpp(arma::mat& X, arma::mat& y,
       error_status = 1;
       Rcpp::stop("NANs produced");
     }
+    //Store new beta[]
+    std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
