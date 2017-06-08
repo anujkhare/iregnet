@@ -170,7 +170,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
 
-  //Create Square X
+  // Create Square X
   mat X_square = square(X);
 
   /* SCALE RULES:
@@ -207,7 +207,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
-  //Separate Matrix y
+  // Separate Matrix y
   rowvec aram_y_l(n_obs);
   rowvec aram_y_r(n_obs);
   aram_y_l = (y.col(0)).t();
@@ -216,11 +216,14 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }else{
     aram_y_r.resize(0);
   }
-  //Optimize Temp Var
+  // Optimize Temp Var
   rowvec w_division_nobs;
-  vec flag_beta_converged_vec(n_vars, fill::zeros);//store converged result of beta[]
-
-
+  vec flag_beta_converged_vec(n_vars, fill::zeros);// store converged result of beta[]
+  int eta_update_flag = 0;// store the result whether eta is updated during COEFF LOOP
+  rowvec temp_eta_vec(n_obs, fill::zeros);// store the temp result of (beta_new - beta_k) * X.col(k)
+                                          // during COEFF LOOP
+  rowvec base_eta_vec;// store the result of (w/n_obs) * (z- eta) without (beta_new - beta_k) * X.col(k)
+                      // during COEFF LOOP
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
     if (lambda_path.size() == 0) {
@@ -253,7 +256,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
       }
       beta = beta + n_vars;   // go to the next column
     }*/
-    /*Before CYCLIC COORDINATE DESCENT, set the whole vector to zero*/
+    /* Before CYCLIC COORDINATE DESCENT, set the whole vector to zero*/
     flag_beta_converged_vec.zeros();
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
@@ -263,23 +266,41 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
+      eta_update_flag = 0;
+      temp_eta_vec.zeros();
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
       loglik = compute_grad_response(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, &eta_vec, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
 
-      //Calculate before iterate over beta elementwise loop
+      // Calculate before iterate over beta elementwise loop
       w_division_nobs = w_vec / n_obs;
       sol_denom_vec = w_division_nobs * X_square;
+      base_eta_vec = w_division_nobs % (z_vec - eta_vec);
 
-      /* iterate over beta elementwise and update using soft thresholding solution */
+
+      /* COEFF LOOP: iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
 
         /*If current beta_k is already converged, continue to next beta iterated*/
         if(flag_beta_converged_vec(k) == 1)
           continue;
 
-        sol_num_vec(k) = as_scalar((w_division_nobs % (z_vec - eta_vec + (beta[k] * X.col(k)).t())) * X.col(k));
+        /* if eta_update_flag == 0, the eta is not changed, use the base_eta directly
+         * if eta_update_flag == 1, the eta is changed, add the change part before calculate sol_num_vec(k)
+         */
+        if(eta_update_flag){
+          sol_num_vec(k) = as_scalar(
+                  (base_eta_vec + (w_division_nobs % (((beta[k] * X.col(k)).t()) - temp_eta_vec)))
+                  * X.col(k)
+          );
+        }
+        else {
+          sol_num_vec(k) = as_scalar(
+                  (base_eta_vec + (w_division_nobs % ((beta[k] * X.col(k)).t())))
+                  * X.col(k)
+          );
+        }
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num_vec(k) *= -1; sol_denom_vec(k) *= -1;
@@ -300,11 +321,13 @@ fit_cpp(arma::mat& X, arma::mat& y,
         if (abs_change > threshold) {
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
-          eta_vec += ((beta_new - beta[k]) * X.col(k)).t();// this will contain the new beta_k
+          temp_eta_vec += ((beta_new - beta[k]) * X.col(k)).t();// this will contain the new beta_k
+          eta_update_flag = 1;//the eta was updated
           beta[k] = beta_new;
         } else {
           /*The current beta_k has converged during this CYCLIC COORDINATE DESCENT*/
           flag_beta_converged_vec(k) = 1;
+          eta_update_flag = 0;
         }
 
         // if (debug==1 && m == 1)
@@ -320,6 +343,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
         //Store new beta[]
         std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
       }   // end for: beta_k solution
+      eta_vec += temp_eta_vec;// Add the total change to eta for next computation
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
