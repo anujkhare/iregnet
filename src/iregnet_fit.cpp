@@ -222,6 +222,8 @@ fit_cpp(arma::mat& X, arma::mat& y,
   int eta_update_flag = 0;// store the result whether eta is updated during COEFF LOOP
   rowvec temp_eta_vec(n_obs, fill::zeros);// store the temp result of (beta_new - beta_k) * X.col(k)
                                           // during COEFF LOOP
+  mat eta_mat(n_obs, n_vars, fill::zeros);// save the result of every beta_k * X.col(k) in each column;
+  vec temp_eta_vec_update(n_obs, fill::zeros);
   rowvec base_eta_vec;// store the result of (w/n_obs) * (z- eta) without (beta_new - beta_k) * X.col(k)
                       // during COEFF LOOP
   for (int m = 0; m < num_lambda + 1; ++m) {
@@ -291,13 +293,13 @@ fit_cpp(arma::mat& X, arma::mat& y,
          */
         if(eta_update_flag){
           sol_num_vec(k) = as_scalar(
-                  (base_eta_vec + (w_division_nobs % (((beta[k] * X.col(k)).t()) - temp_eta_vec)))
+                  (base_eta_vec + (w_division_nobs % ((eta_mat.col(k)).t() - temp_eta_vec)))
                   * X.col(k)
           );
         }
         else {
           sol_num_vec(k) = as_scalar(
-                  (base_eta_vec + (w_division_nobs % ((beta[k] * X.col(k)).t())))
+                  (base_eta_vec + (w_division_nobs % (eta_mat.col(k)).t()))
                   * X.col(k)
           );
         }
@@ -321,7 +323,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
         if (abs_change > threshold) {
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
-          temp_eta_vec += ((beta_new - beta[k]) * X.col(k)).t();// this will contain the new beta_k
+          temp_eta_vec_update = (beta_new - beta[k]) * X.col(k);
+          temp_eta_vec += temp_eta_vec_update.t();// this will contain the new beta_k
+          eta_mat.col(k) += temp_eta_vec_update;// save the result of beta_k * X.col(k)
           eta_update_flag = 1;//the eta was updated
           beta[k] = beta_new;
         } else {
