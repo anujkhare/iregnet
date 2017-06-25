@@ -8,3 +8,5 @@ addons:
   apt:
     packages:
       - libopenblas-dev
+before_install:
+  - export LD_LIBRARY_PATH="/usr/lib/openblas-base"
