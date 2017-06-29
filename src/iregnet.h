@@ -42,6 +42,14 @@ get_censoring_types (mat &y, IREG_CENSORING *status);
 double
 compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                       const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
-                      const ull n_obs, IREG_DIST dist, double *mu, bool debug);
+                      const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale, rowvec *y_eta,
+                      rowvec *y_eta_square);
+
+/* Functions from distributions_gaussian.cpp */
+double
+compute_grad_response_gaussian_none(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                                    const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
+                                    const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
+                                    rowvec *y_eta, rowvec *y_eta_square);
 
 #endif  // IREGNET_H
