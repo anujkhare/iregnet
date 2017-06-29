@@ -55,7 +55,8 @@ void (*sreg_gg)(double, double [4], int);
 double
 compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                       const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
-                      const ull n_obs, const IREG_DIST dist, double *mu, bool debug=false)
+                      const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
+                      rowvec *y_eta, rowvec *y_eta_square)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -428,7 +429,7 @@ Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y,
   // Note that compute_grad_response returns the derivatives wrt eta (X^T beta),
   // so we need to adjust
   compute_grad_response(NULL, NULL, NULL, &aram_y_l, &aram_y_r, &eta, scale,
-                        status, n_obs, dist, REAL(mu));
+                        status, n_obs, dist, REAL(mu), false, false, NULL, NULL);
 
   for (ull j = 0; j < n_vars; ++j) {
     gradients[j] = 0;
