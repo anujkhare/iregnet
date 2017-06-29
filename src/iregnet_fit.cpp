@@ -36,6 +36,11 @@ max(double a, double b)
   return b;
 }
 
+double (*target_compute_grad_response)(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                                       const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
+                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale, rowvec *y_eta,
+                                       rowvec *y_eta_square);
+
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  * Outputs:
  *      beta:     the final coef vector
@@ -151,6 +156,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double *mean_x = new double [n_vars];
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
+  int function_type = 1; // store the type of the function
 
   /* get censoring types of the observations */
   if (out_status.size() == 0) {
@@ -159,6 +165,25 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   else {
     status = (IREG_CENSORING *) &out_status[0];
+  }
+
+  /* check out the whole obs by status[n_obs]
+   * store the function type by censoring_types
+   */
+  for (int i = 0; i < n_obs; ++i) {
+    if(status[i] == 3){
+      function_type = 3;
+      break;
+    } else if(status[i] == 0 && function_type == 1) {
+      function_type = 0;
+    } else if(status[i] == 2 && function_type == 1){
+      function_type = 2;
+    }
+  }
+
+  switch(function_type) {
+    case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
+    default:  target_compute_grad_response = compute_grad_response; break;
   }
 
   /* X is columnwise variance normalized, mean is NOT set to 0
@@ -225,6 +250,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   vec temp_eta_vec_update(n_obs, fill::zeros);
   rowvec base_eta_vec;// store the result of (w/n_obs) * (z- eta) without (beta_new - beta_k) * X.col(k)
                       // during COEFF LOOP
+  rowvec y_eta; // store the result of (y - eta)
+  rowvec y_eta_square; // store the result of square(y - eta)
+
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
     if (lambda_path.size() == 0) {
@@ -269,9 +297,11 @@ fit_cpp(arma::mat& X, arma::mat& y,
       old_scale = scale;
       temp_eta_vec.zeros();
 
+      y_eta = (aram_y_l - eta_vec) / scale;
+      y_eta_square = square(y_eta);
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      loglik = compute_grad_response(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, &eta_vec, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
+      loglik = (*target_compute_grad_response)(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, &eta_vec, scale,     // TODO:store a ptr to y?
+                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0, estimate_scale, &y_eta, &y_eta_square);
 
       // Calculate before iterate over beta elementwise loop
       w_division_nobs = w_vec / n_obs;
