@@ -182,7 +182,10 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
 
   switch(function_type) {
+    //case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break; todo
     case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
+    //case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break; todo
+    //case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break; todo
     default:  target_compute_grad_response = compute_grad_response; break;
   }
 
