@@ -182,7 +182,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
 
   switch(function_type) {
-    //case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break; todo
+    case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
     case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
     //case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break; todo
     //case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break; todo
@@ -244,6 +244,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }else{
     aram_y_r.resize(0);
   }
+
   // Optimize Temp Var
   rowvec w_division_nobs;
   vec flag_beta_converged_vec(n_vars, fill::zeros);// store converged result of beta[]
