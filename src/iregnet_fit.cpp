@@ -181,6 +181,10 @@ fit_cpp(arma::mat& X, arma::mat& y,
     }
   }
 
+  // Not support other distributions now
+  if(transformed_dist != IREG_DIST_GAUSSIAN)
+    function_type = -1;
+
   switch(function_type) {
     case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
     case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
