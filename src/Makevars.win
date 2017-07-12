@@ -1,0 +1,3 @@
+PKG_LIBS = -LC:\WINDOWS\system32 -lopenblas
+
+CXX_STD = CXX11
