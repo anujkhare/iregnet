@@ -22,6 +22,9 @@ static inline double compute_lambda_max(mat X, rowvec *w, rowvec *z,
                                         rowvec *eta, bool intercept, double &alpha,
                                         ull n_vars, ull n_obs, bool debug);
 
+static int *
+sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y, int function_type);
+
 double
 identity (double y)
 {
@@ -37,9 +40,9 @@ max(double a, double b)
 }
 
 double (*target_compute_grad_response)(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
-                                       const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
-                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale, rowvec *y_eta,
-                                       rowvec *y_eta_square);
+                                       const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
+                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale, rowvec &y_eta,
+                                       rowvec &y_eta_square, int *separator, rowvec *tempvar);
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  * Outputs:
@@ -181,18 +184,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
     }
   }
 
-  // Not support other distributions now
-  if(transformed_dist != IREG_DIST_GAUSSIAN)
-    function_type = -1;
-
-  switch(function_type) {
-    case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
-    case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
-    case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break;
-    //case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break; todo
-    default:  target_compute_grad_response = compute_grad_response; break;
-  }
-
   /* X is columnwise variance normalized, mean is NOT set to 0
    * y is mean normalized.
    */
@@ -201,9 +192,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
-
-  // Create Square X
-  mat X_square = square(X);
 
   /* SCALE RULES:
    * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
@@ -218,6 +206,36 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   scale = scale_init; log_scale = log(scale);
 
+  /* Sort the whole matrix by censoring type, get the sorted X and y
+   */
+
+  // Not support other distributions now
+  if(transformed_dist != IREG_DIST_GAUSSIAN) {
+    function_type = -1;
+  }
+
+  int *separator; // Store the index of separator in matrix X&y by censoring type.
+
+
+  if(function_type != 1 && function_type != -1 && function_type != 2){
+
+    mat sorted_X;
+    mat sorted_y;
+
+    separator = sort_X_and_y(sorted_X, sorted_y, status, X, y, function_type);
+
+    X = sorted_X;
+    y = sorted_y;
+  }
+
+  switch(function_type) {
+    case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
+    case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
+    case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break;
+      //case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break; todo
+    default:  target_compute_grad_response = compute_grad_response; break;
+  }
+
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
    * If some value of lambda is supplied, we will stop iterations at that value.
@@ -231,6 +249,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   }
   n_iters[0] = 0; out_scale[0] = scale;
 
+  // Create Square X
+  mat X_square = square(X);
+
   /******************************************************************************************/
   /* Iterate over grid of lambda values */
   bool flag_beta_converged = 0;
@@ -242,7 +263,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   // Separate Matrix y
   rowvec aram_y_l(n_obs);
   rowvec aram_y_r(n_obs);
+
   aram_y_l = (y.col(0)).t();
+
   if(y.n_cols==2){
     aram_y_r = (y.col(1)).t();
   }else{
@@ -260,6 +283,30 @@ fit_cpp(arma::mat& X, arma::mat& y,
                       // during COEFF LOOP
   rowvec y_eta; // store the result of (y - eta)
   rowvec y_eta_square; // store the result of square(y - eta)
+
+  /* below temp vars is used for distribution function
+   * only support gaussian distribution & right censoring now
+   */
+  rowvec *compute_grad_response_temp_var = new rowvec [18];
+
+  if(function_type != 1 && function_type != -1 && function_type != 2) {
+
+    ull none_censoring_type_number = separator[0];
+    ull right_censoring_type_number = n_obs - separator[0];
+
+    compute_grad_response_temp_var[6] = rowvec(none_censoring_type_number); // res_z_one
+    compute_grad_response_temp_var[7] = rowvec(right_censoring_type_number); // res_z_two
+    compute_grad_response_temp_var[8] = rowvec(none_censoring_type_number); // res_w_one
+    compute_grad_response_temp_var[9] = rowvec(right_censoring_type_number); // res_w_two
+    compute_grad_response_temp_var[10] = rowvec(none_censoring_type_number); // dsig_vec_one
+    compute_grad_response_temp_var[11] = rowvec(right_censoring_type_number); // dsig_vec_two
+    compute_grad_response_temp_var[12] = rowvec(none_censoring_type_number); // ddsig_vec_one
+    compute_grad_response_temp_var[13] = rowvec(right_censoring_type_number); // ddsig_vec_two
+    compute_grad_response_temp_var[14] = rowvec(right_censoring_type_number); // temp_densities
+    compute_grad_response_temp_var[15] = rowvec(right_censoring_type_number); // dg_vec
+    compute_grad_response_temp_var[16] = rowvec(right_censoring_type_number); // ddg_vec
+    compute_grad_response_temp_var[17] = rowvec(right_censoring_type_number); // f_vec
+  }
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
@@ -308,8 +355,8 @@ fit_cpp(arma::mat& X, arma::mat& y,
       y_eta = (aram_y_l - eta_vec) / scale;
       y_eta_square = square(y_eta);
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      loglik = (*target_compute_grad_response)(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, &eta_vec, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0, estimate_scale, &y_eta, &y_eta_square);
+      loglik = (*target_compute_grad_response)(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, eta_vec, scale,     // TODO:store a ptr to y?
+                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0, estimate_scale, y_eta, y_eta_square, separator, compute_grad_response_temp_var);
 
       // Calculate before iterate over beta elementwise loop
       w_division_nobs = w_vec / n_obs;
@@ -420,6 +467,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   delete [] beta;
   delete [] mu;
   delete [] ym;
+  delete [] compute_grad_response_temp_var;
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
@@ -613,4 +661,71 @@ compute_lambda_max(mat X, rowvec *w, rowvec *z, rowvec *eta,
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
 
   return lambda_max;
+}
+
+static int *
+sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y, int function_type)
+{
+  int *separator = new int [0]; // Store the index of separator in matrix X&y by censoring type.
+
+  if(function_type != 3){
+
+    /*
+     * Temp var for sort the matrix X&y
+     */
+    mat none_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat left_or_right_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat none_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat left_or_right_censoring_y_mat = mat(y.n_rows, y.n_cols);
+
+    ull none_censoring_number = 0;
+    ull left_or_right_censoring_number = 0;
+
+    /*
+     * Sort by censoring type,
+     */
+    for (ull i = 0; i < X.n_rows; ++i) {
+
+      if(status[i] == 1){
+
+//        none_censoring_X_mat.insert_rows(none_censoring_number, X.row(i));
+//        none_censoring_y_mat.insert_rows(none_censoring_number, y.row(i));
+        none_censoring_X_mat.row(none_censoring_number) = X.row(i);
+        none_censoring_y_mat.row(none_censoring_number) = y.row(i);
+
+        none_censoring_number++;
+      } else {
+
+//        left_or_right_censoring_X_mat.insert_rows(left_or_right_censoring_number, X.row(i));
+//        left_or_right_censoring_y_mat.insert_rows(left_or_right_censoring_number, y.row(i));
+
+        left_or_right_censoring_X_mat.row(left_or_right_censoring_number) = X.row(i);
+        left_or_right_censoring_y_mat.row(left_or_right_censoring_number) = y.row(i);
+
+        left_or_right_censoring_number++;
+      }
+    }
+
+    none_censoring_X_mat.resize(none_censoring_number, X.n_cols);
+    none_censoring_y_mat.resize(none_censoring_number, y.n_cols);
+
+    left_or_right_censoring_X_mat.resize(left_or_right_censoring_number, X.n_cols);
+    left_or_right_censoring_y_mat.resize(left_or_right_censoring_number, y.n_cols);
+
+    none_censoring_X_mat.insert_rows(none_censoring_number, left_or_right_censoring_X_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number, left_or_right_censoring_y_mat);
+
+    sorted_X = none_censoring_X_mat;
+    sorted_y = none_censoring_y_mat;
+
+    separator[0] = none_censoring_number;
+
+  } else {
+
+    // Todo: Sorted by interval censoring type
+    sorted_X = X;
+    sorted_y = y;
+  }
+
+  return separator;
 }
