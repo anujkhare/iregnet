@@ -54,9 +54,9 @@ void (*sreg_gg)(double, double [4], int);
  */
 double
 compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
-                      const rowvec *eta, const double scale, const IREG_CENSORING *censoring_type,
+                      const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
-                      rowvec *y_eta, rowvec *y_eta_square)
+                      rowvec &y_eta, rowvec &y_eta_square, int *separator, rowvec *tempvar)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -80,7 +80,7 @@ compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *
 
     switch(censoring_type[i]) {
       case IREG_CENSOR_NONE:
-        normalized_y[0] = ((*y_l)(i) - (*eta)(i)) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
         sz = scale * normalized_y[0];
         (*sreg_gg)(normalized_y[0], densities_l, 1);    // gives 0, f, f'/f, f''/f
 
@@ -116,7 +116,7 @@ compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *
         break;
 
       case IREG_CENSOR_RIGHT:
-        normalized_y[0] = ((*y_l)(i) - (*eta)(i)) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
         sz = scale * normalized_y[0];
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
@@ -146,7 +146,7 @@ compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *
         break;
 
       case IREG_CENSOR_LEFT:
-        normalized_y[1] = ((*y_l)(i) - (*eta)(i)) / scale;    // Note: because we store all vals in left column survival style
+        normalized_y[1] = ((*y_l)(i) - eta(i)) / scale;    // Note: because we store all vals in left column survival style
         sz = scale * normalized_y[1];
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
@@ -176,8 +176,8 @@ compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *
         break;
 
       case IREG_CENSOR_INTERVAL:
-        normalized_y[0] = ((*y_l)(i) - (*eta)(i)) / scale;
-        normalized_y[1] = ((*y_r)(i) - (*eta)(i)) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
+        normalized_y[1] = ((*y_r)(i) - eta(i)) / scale;
 
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
@@ -218,9 +218,9 @@ compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *
         break;
     }
     if (dsig == 0 || ddg == 0)
-      response = (*eta)(i);
+      response = eta(i);
     else
-      response = (*eta)(i) - dg / ddg;
+      response = eta(i) - dg / ddg;
 
     if (mu) mu[i] = dg;
     (*w)(i) = ddg;
@@ -416,6 +416,8 @@ Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y,
   //Separate Matrix y
   rowvec aram_y_l(n_obs);
   rowvec aram_y_r(n_obs);
+  rowvec y_eta = rowvec();
+  rowvec y_eta_square = rowvec();
 
   aram_y_l = (y.col(0)).t();
   aram_y_r = (y.col(1)).t();
@@ -428,8 +430,8 @@ Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y,
 
   // Note that compute_grad_response returns the derivatives wrt eta (X^T beta),
   // so we need to adjust
-  compute_grad_response(NULL, NULL, NULL, &aram_y_l, &aram_y_r, &eta, scale,
-                        status, n_obs, dist, REAL(mu), false, false, NULL, NULL);
+  compute_grad_response(NULL, NULL, NULL, &aram_y_l, &aram_y_r, eta, scale,
+                        status, n_obs, dist, REAL(mu), false, false, y_eta, y_eta_square, NULL, NULL);
 
   for (ull j = 0; j < n_vars; ++j) {
     gradients[j] = 0;
