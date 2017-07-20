@@ -289,7 +289,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
    */
   rowvec *compute_grad_response_temp_var = new rowvec [18];
 
-  if(function_type != 1 && function_type != -1 && function_type != 2) {
+  /*if(function_type != 1 && function_type != -1 && function_type != 2) {
 
     ull none_censoring_type_number = separator[0];
     ull right_censoring_type_number = n_obs - separator[0];
@@ -306,7 +306,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
     compute_grad_response_temp_var[15] = rowvec(right_censoring_type_number); // dg_vec
     compute_grad_response_temp_var[16] = rowvec(right_censoring_type_number); // ddg_vec
     compute_grad_response_temp_var[17] = rowvec(right_censoring_type_number); // f_vec
-  }
+  }*/
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */

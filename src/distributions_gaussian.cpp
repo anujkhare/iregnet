@@ -89,6 +89,20 @@ compute_grad_response_gaussian_right(rowvec *w, rowvec *z, double *scale_update,
   tempvar[4] = y_eta.subvec(separator[0], n_obs - 1); // y_eta_two
   tempvar[5] = y_eta_square.subvec(separator[0], n_obs - 1); // y_eta_two_square
 
+  tempvar[6] = rowvec(none_censoring_type_number); // res_z_one
+  tempvar[7] = rowvec(right_censoring_type_number); // res_z_two
+  tempvar[8] = rowvec(none_censoring_type_number); // res_w_one
+  tempvar[9] = rowvec(right_censoring_type_number); // res_w_two
+  tempvar[10] = rowvec(none_censoring_type_number); // dsig_vec_one
+  tempvar[11] = rowvec(right_censoring_type_number); // dsig_vec_two
+  tempvar[12] = rowvec(none_censoring_type_number); // ddsig_vec_one
+  tempvar[13] = rowvec(right_censoring_type_number); // ddsig_vec_two
+  tempvar[14] = rowvec(right_censoring_type_number); // temp_densities
+  tempvar[15] = rowvec(right_censoring_type_number); // dg_vec
+  tempvar[16] = rowvec(right_censoring_type_number); // ddg_vec
+  tempvar[17] = rowvec(right_censoring_type_number); // f_vec
+
+
   //for none censoring type
   loglik += accu(tempvar[3] / -2) - none_censoring_type_number * log(SPI * scale);
   tempvar[6] = tempvar[0] + scale * tempvar[2];
