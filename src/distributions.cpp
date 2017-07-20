@@ -56,7 +56,7 @@ double
 compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                       const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
-                      rowvec &y_eta, rowvec &y_eta_square, int *separator, rowvec *tempvar)
+                      const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l

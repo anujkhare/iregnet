@@ -41,8 +41,8 @@ max(double a, double b)
 
 double (*target_compute_grad_response)(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                                        const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
-                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale, rowvec &y_eta,
-                                       rowvec &y_eta_square, int *separator, rowvec *tempvar);
+                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,const rowvec &y_eta,
+                                       const rowvec &y_eta_square,const int *separator, rowvec *tempvar);
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  * Outputs:

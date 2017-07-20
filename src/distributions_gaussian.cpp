@@ -28,7 +28,7 @@ double
 compute_grad_response_gaussian_none(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                                     const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                                     const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
-                                    rowvec &y_eta, rowvec &y_eta_square, int *separator, rowvec *tempvar) {
+                                    const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar) {
   double scale_2 = scale * scale;
   double loglik;
   double dsig_sum, ddsig_sum;
@@ -66,7 +66,7 @@ double
 compute_grad_response_gaussian_right(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                                      const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                                      const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
-                                     rowvec &y_eta, rowvec &y_eta_square, int *separator, rowvec *tempvar)
+                                     const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar)
 {
   double dsig_sum = 0, ddsig_sum = 0;
   double loglik, scale_2 = scale * scale;
@@ -178,7 +178,7 @@ double
 compute_grad_response_gaussian_left(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
                                     const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                                     const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
-                                    rowvec &y_eta, rowvec &y_eta_square, int *separator, rowvec *tempvar)
+                                    const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar)
 {
 
   double dsig_sum = 0, ddsig_sum = 0;
