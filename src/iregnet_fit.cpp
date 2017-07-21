@@ -217,7 +217,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   int *separator; // Store the index of separator in matrix X&y by censoring type.
 
 
-  if(function_type != 1 && function_type != -1 && function_type != 2){
+  if(function_type != 1 && function_type != -1){
 
     mat sorted_X;
     mat sorted_y;
@@ -288,25 +288,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
    * only support gaussian distribution & right censoring now
    */
   rowvec *compute_grad_response_temp_var = new rowvec [18];
-
-  /*if(function_type != 1 && function_type != -1 && function_type != 2) {
-
-    ull none_censoring_type_number = separator[0];
-    ull right_censoring_type_number = n_obs - separator[0];
-
-    compute_grad_response_temp_var[6] = rowvec(none_censoring_type_number); // res_z_one
-    compute_grad_response_temp_var[7] = rowvec(right_censoring_type_number); // res_z_two
-    compute_grad_response_temp_var[8] = rowvec(none_censoring_type_number); // res_w_one
-    compute_grad_response_temp_var[9] = rowvec(right_censoring_type_number); // res_w_two
-    compute_grad_response_temp_var[10] = rowvec(none_censoring_type_number); // dsig_vec_one
-    compute_grad_response_temp_var[11] = rowvec(right_censoring_type_number); // dsig_vec_two
-    compute_grad_response_temp_var[12] = rowvec(none_censoring_type_number); // ddsig_vec_one
-    compute_grad_response_temp_var[13] = rowvec(right_censoring_type_number); // ddsig_vec_two
-    compute_grad_response_temp_var[14] = rowvec(right_censoring_type_number); // temp_densities
-    compute_grad_response_temp_var[15] = rowvec(right_censoring_type_number); // dg_vec
-    compute_grad_response_temp_var[16] = rowvec(right_censoring_type_number); // ddg_vec
-    compute_grad_response_temp_var[17] = rowvec(right_censoring_type_number); // f_vec
-  }*/
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
