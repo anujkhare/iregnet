@@ -187,9 +187,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   /* X is columnwise variance normalized, mean is NOT set to 0
    * y is mean normalized.
    */
-  if (flag_standardize_x) {
+  /*if (flag_standardize_x) {
     standardize_x(X, mean_x, std_x, intercept);
-  }
+  }*/
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
 
@@ -216,7 +216,6 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
   int *separator; // Store the index of separator in matrix X&y by censoring type.
 
-
   if(function_type != 1 && function_type != -1){
 
     mat sorted_X;
@@ -228,11 +227,15 @@ fit_cpp(arma::mat& X, arma::mat& y,
     y = sorted_y;
   }
 
+  if (flag_standardize_x) {
+    standardize_x(X, mean_x, std_x, intercept);
+  }
+
   switch(function_type) {
     case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
     case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
     case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break;
-      //case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break; todo
+    case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break;
     default:  target_compute_grad_response = compute_grad_response; break;
   }
 
@@ -287,7 +290,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   /* below temp vars is used for distribution function
    * only support gaussian distribution & right censoring now
    */
-  rowvec *compute_grad_response_temp_var = new rowvec [18];
+  rowvec *compute_grad_response_temp_var = new rowvec [10];
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
@@ -647,7 +650,7 @@ compute_lambda_max(mat X, rowvec *w, rowvec *z, rowvec *eta,
 static int *
 sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y, int function_type)
 {
-  int *separator = new int [0]; // Store the index of separator in matrix X&y by censoring type.
+  int *separator = new int [4]; // Store the index of separator in matrix X&y by censoring type.
 
   if(function_type != 3){
 
@@ -703,9 +706,85 @@ sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y,
 
   } else {
 
-    // Todo: Sorted by interval censoring type
-    sorted_X = X;
-    sorted_y = y;
+    /*
+     * Temp var for sort the matrix X&y
+     */
+    mat none_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat left_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat right_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat interval_censoring_X_mat = mat(X.n_rows, X.n_cols);
+
+    mat none_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat left_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat right_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat interval_censoring_y_mat = mat(y.n_rows, y.n_cols);
+
+    ull none_censoring_number = 0;
+    ull left_censoring_number = 0;
+    ull right_censoring_number = 0;
+    ull interval_censoring_number = 0;
+
+    /*
+     * Sort by censoring type,
+     */
+    for (ull i = 0; i < X.n_rows; ++i) {
+
+      if(status[i] == 1){
+
+        none_censoring_X_mat.row(none_censoring_number) = X.row(i);
+        none_censoring_y_mat.row(none_censoring_number) = y.row(i);
+
+        none_censoring_number++;
+      } else if(status[i] == 0){
+
+        right_censoring_X_mat.row(right_censoring_number) = X.row(i);
+        right_censoring_y_mat.row(right_censoring_number) = y.row(i);
+
+        right_censoring_number++;
+      } else if(status[i] == 2){
+
+        left_censoring_X_mat.row(left_censoring_number) = X.row(i);
+        left_censoring_y_mat.row(left_censoring_number) = y.row(i);
+
+        left_censoring_number++;
+      } else {
+
+        interval_censoring_X_mat.row(interval_censoring_number) = X.row(i);
+        interval_censoring_y_mat.row(interval_censoring_number) = y.row(i);
+
+        interval_censoring_number++;
+      }
+    }
+
+    none_censoring_X_mat.resize(none_censoring_number, X.n_cols);
+    none_censoring_y_mat.resize(none_censoring_number, y.n_cols);
+
+    left_censoring_X_mat.resize(left_censoring_number, X.n_cols);
+    left_censoring_y_mat.resize(left_censoring_number, y.n_cols);
+
+    right_censoring_X_mat.resize(right_censoring_number, X.n_cols);
+    right_censoring_y_mat.resize(right_censoring_number, y.n_cols);
+
+    interval_censoring_X_mat.resize(interval_censoring_number, X.n_cols);
+    interval_censoring_y_mat.resize(interval_censoring_number, y.n_cols);
+
+    none_censoring_X_mat.insert_rows(none_censoring_number, left_censoring_X_mat);
+    none_censoring_X_mat.insert_rows(none_censoring_number + left_censoring_number, right_censoring_X_mat);
+    none_censoring_X_mat.insert_rows(none_censoring_number + left_censoring_number + right_censoring_number,
+                                     interval_censoring_X_mat);
+
+    none_censoring_y_mat.insert_rows(none_censoring_number, left_censoring_y_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number + left_censoring_number, right_censoring_y_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number + left_censoring_number + right_censoring_number,
+                                     interval_censoring_y_mat);
+
+    sorted_X = none_censoring_X_mat;
+    sorted_y = none_censoring_y_mat;
+
+    separator[0] = none_censoring_number;
+    separator[1] = left_censoring_number;
+    separator[2] = right_censoring_number;
+    separator[3] = interval_censoring_number;
   }
 
   return separator;
