@@ -209,14 +209,14 @@ fit_cpp(arma::mat& X, arma::mat& y,
   /* Sort the whole matrix by censoring type, get the sorted X and y
    */
 
-  // Not support other distributions now
+  /*// Not support other distributions now
   if(transformed_dist != IREG_DIST_GAUSSIAN) {
     function_type = -1;
-  }
+  }*/
 
   int *separator; // Store the index of separator in matrix X&y by censoring type.
 
-  if(function_type != 1 && function_type != -1){
+  if(function_type != 1 && transformed_dist == IREG_DIST_GAUSSIAN){
 
     mat sorted_X;
     mat sorted_y;
@@ -237,6 +237,18 @@ fit_cpp(arma::mat& X, arma::mat& y,
     case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break;
     case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break;
     default:  target_compute_grad_response = compute_grad_response; break;
+  }
+
+  //temp select distribution
+  if(transformed_dist == IREG_DIST_LOGISTIC) {
+    if(function_type == 1)
+      target_compute_grad_response = compute_grad_response_logistic_none;
+    else
+      target_compute_grad_response = compute_grad_response;
+  }
+
+  if(transformed_dist == IREG_DIST_EXTREME_VALUE) {
+    target_compute_grad_response = compute_grad_response;
   }
 
   /* Initalize the pathwise solution
