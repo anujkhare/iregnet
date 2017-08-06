@@ -171,7 +171,6 @@ compute_grad_response_gaussian_interval(rowvec *w, rowvec *z, double *scale_upda
                                         const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
                                         const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar)
 {
-  static int hope = 1;
   double loglik = 0;
   double dsig_sum, ddsig_sum;
   dsig_sum = ddsig_sum = 0;
