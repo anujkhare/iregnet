@@ -82,5 +82,11 @@ compute_grad_response_logistic_right(rowvec *w, rowvec *z, double *scale_update,
                                      const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
                                      const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
                                      const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar);
+double
+compute_grad_response_logistic_left(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                                    const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
+                                    const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
+                                    const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar);
+
 
 #endif  // IREGNET_H
