@@ -216,7 +216,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
 
   int *separator; // Store the index of separator in matrix X&y by censoring type.
 
-  if(function_type != 1 && transformed_dist == IREG_DIST_GAUSSIAN){
+  if((function_type != 1 && transformed_dist == IREG_DIST_GAUSSIAN) or (function_type == 0 && transformed_dist == IREG_DIST_LOGISTIC)){
 
     mat sorted_X;
     mat sorted_y;
@@ -243,6 +243,9 @@ fit_cpp(arma::mat& X, arma::mat& y,
   if(transformed_dist == IREG_DIST_LOGISTIC) {
     if(function_type == 1)
       target_compute_grad_response = compute_grad_response_logistic_none;
+    else if(function_type == 0){
+      target_compute_grad_response = compute_grad_response_logistic_right;
+    }
     else
       target_compute_grad_response = compute_grad_response;
   }
