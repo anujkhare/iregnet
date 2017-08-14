@@ -160,6 +160,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
   int function_type = 1; // store the type of the function
+  int *separator; // Store the index of separator in matrix X&y by censoring type.
 
   /* get censoring types of the observations */
   if (out_status.size() == 0) {
@@ -207,52 +208,46 @@ fit_cpp(arma::mat& X, arma::mat& y,
   scale = scale_init; log_scale = log(scale);
 
   /* Sort the whole matrix by censoring type, get the sorted X and y
+   * & Switch the right method for target_compute_grad_response
    */
+  if(transformed_dist != IREG_DIST_EXTREME_VALUE){
 
-  /*// Not support other distributions now
-  if(transformed_dist != IREG_DIST_GAUSSIAN) {
-    function_type = -1;
-  }*/
+    bool sort = true;
 
-  int *separator; // Store the index of separator in matrix X&y by censoring type.
+    if(transformed_dist == IREG_DIST_GAUSSIAN){
+      switch(function_type) {
+        case 0:   target_compute_grad_response = compute_grad_response_gaussian_right; break;
+        case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; sort = false; break;
+        case 2:   target_compute_grad_response = compute_grad_response_gaussian_left; break;
+        case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval; break;
+      }
+    }
 
-  if((function_type != 1 && transformed_dist == IREG_DIST_GAUSSIAN) or (function_type != 1 && function_type != 3 && transformed_dist == IREG_DIST_LOGISTIC)){
+    if(transformed_dist == IREG_DIST_LOGISTIC){
+      switch(function_type) {
+        case 0:   target_compute_grad_response = compute_grad_response_logistic_right; break;
+        case 1:   target_compute_grad_response = compute_grad_response_logistic_none; sort = false; break;
+        case 2:   target_compute_grad_response = compute_grad_response_logistic_left; break;
+        case 3:   target_compute_grad_response = compute_grad_response; sort = false; break;
+      }
+    }
 
-    mat sorted_X;
-    mat sorted_y;
+    if(sort){
+      mat sorted_X;
+      mat sorted_y;
 
-    separator = sort_X_and_y(sorted_X, sorted_y, status, X, y, function_type);
+      separator = sort_X_and_y(sorted_X, sorted_y, status, X, y, function_type);
 
-    X = sorted_X;
-    y = sorted_y;
+      X = sorted_X;
+      y = sorted_y;
+    }
   }
 
   if (flag_standardize_x) {
     standardize_x(X, mean_x, std_x, intercept);
   }
 
-  switch(function_type) {
-    case 0:   target_compute_grad_response = compute_grad_response_gaussian_right;  break;
-    case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; break;
-    case 2:   target_compute_grad_response = compute_grad_response_gaussian_left;   break;
-    case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval;   break;
-    default:  target_compute_grad_response = compute_grad_response; break;
-  }
-
-  //temp select distribution
-  if(transformed_dist == IREG_DIST_LOGISTIC) {
-    if(function_type == 1)
-      target_compute_grad_response = compute_grad_response_logistic_none;
-    else if(function_type == 0){
-      target_compute_grad_response = compute_grad_response_logistic_right;
-    }
-    else if(function_type == 2){
-      target_compute_grad_response = compute_grad_response_logistic_left;
-    }
-    else
-      target_compute_grad_response = compute_grad_response;
-  }
-
+  // Not support other IREG_DIST_EXTREME_VALUE now
   if(transformed_dist == IREG_DIST_EXTREME_VALUE) {
     target_compute_grad_response = compute_grad_response;
   }
@@ -263,7 +258,7 @@ fit_cpp(arma::mat& X, arma::mat& y,
    */
 
   // set beta = 0 and eta = 0
-  //beta = REAL(out_beta);
+  // beta = REAL(out_beta);
   for (ull i = 0; i < n_vars; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
