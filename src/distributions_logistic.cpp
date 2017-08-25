@@ -498,9 +498,9 @@ compute_only_interval_censoring_type_logistic(rowvec *w, rowvec *z, double *scal
     else{
       for (int i = 0; i < n_obs; ++i) {
         if(ddg_vec(i) == 0)
-          (*z) = eta(i);
+          (*z)(i) = eta(i);
         else
-          (*z) = eta(i) - dg_vec(i) / ddg_vec(i);
+          (*z)(i) = eta(i) - dg_vec(i) / ddg_vec(i);
       }
     }
 

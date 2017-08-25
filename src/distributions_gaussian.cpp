@@ -444,9 +444,9 @@ compute_only_interval_censoring_type(rowvec *w, rowvec *z, double *scale_update,
     else{
       for (int i = 0; i < n_obs; ++i) {
         if(ddg_vec(i) == 0)
-          (*z) = eta(i);
+          (*z)(i) = eta(i);
         else
-          (*z) = eta(i) - dg_vec(i) / ddg_vec(i);
+          (*z)(i) = eta(i) - dg_vec(i) / ddg_vec(i);
       }
     }
 
