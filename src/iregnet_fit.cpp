@@ -685,16 +685,11 @@ sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y,
 
       if(status[i] == 1){
 
-//        none_censoring_X_mat.insert_rows(none_censoring_number, X.row(i));
-//        none_censoring_y_mat.insert_rows(none_censoring_number, y.row(i));
         none_censoring_X_mat.row(none_censoring_number) = X.row(i);
         none_censoring_y_mat.row(none_censoring_number) = y.row(i);
 
         none_censoring_number++;
       } else {
-
-//        left_or_right_censoring_X_mat.insert_rows(left_or_right_censoring_number, X.row(i));
-//        left_or_right_censoring_y_mat.insert_rows(left_or_right_censoring_number, y.row(i));
 
         left_or_right_censoring_X_mat.row(left_or_right_censoring_number) = X.row(i);
         left_or_right_censoring_y_mat.row(left_or_right_censoring_number) = y.row(i);
