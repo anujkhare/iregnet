@@ -1,0 +1,3 @@
+PKG_LIBS = -L/usr/lib/openblas-base -lopenblas
+
+CXX_STD = CXX11

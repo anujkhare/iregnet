@@ -4,3 +4,21 @@ language: R
 sudo: false
 warnings_are_errors: true
 cache: packages
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - libopenblas-dev
+      - g++-4.8
+      - gcc-4.8
+      - r-base-dev
+
+before_install:
+  - export LD_LIBRARY_PATH="/usr/lib/openblas-base"
+  - export CXX="g++-4.8" CC="gcc-4.8"
+  - ln -s /usr/lib/gcc/x86_64-linux-gnu/4.6/libgfortran.so /home/travis/R-bin/lib/libgfortran.so
+  - mkdir -p ~/.R
+  - echo "CC=gcc-4.8 -std=gnu99"    >> ~/.R/Makevars
+  - echo "CXX=g++-4.8 -std=gnu++0x"   >> ~/.R/Makevars
+  - echo "CXX1X=g++-4.8 -std=gnu++0x" >> ~/.R/Makevars

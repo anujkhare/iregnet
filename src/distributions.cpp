@@ -53,9 +53,10 @@ void (*sreg_gg)(double, double [4], int);
  *      scale_update: the Newton update term for scale parameter
  */
 double
-compute_grad_response(double *w, double *z, double *scale_update, const double *y_l, const double *y_r,
-                      const double *eta, const double scale, const IREG_CENSORING *censoring_type,
-                      const ull n_obs, const IREG_DIST dist, double *mu, bool debug=false)
+compute_grad_response(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                      const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
+                      const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,
+                      const rowvec &y_eta, const rowvec &y_eta_square,const int *separator, rowvec *tempvar)
 {
   double normalized_y[2];     // z^l and z^u, where z^u_i = (y_i - eta_i) / scale
   double densities_l[4];      // F, 1-F, f, f', for the left observation y_l
@@ -79,7 +80,7 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
 
     switch(censoring_type[i]) {
       case IREG_CENSOR_NONE:
-        normalized_y[0] = (y_l[i] - eta[i]) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
         sz = scale * normalized_y[0];
         (*sreg_gg)(normalized_y[0], densities_l, 1);    // gives 0, f, f'/f, f''/f
 
@@ -115,7 +116,7 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
         break;
 
       case IREG_CENSOR_RIGHT:
-        normalized_y[0] = (y_l[i] - eta[i]) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
         sz = scale * normalized_y[0];
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
 
@@ -145,7 +146,7 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
         break;
 
       case IREG_CENSOR_LEFT:
-        normalized_y[1] = (y_l[i] - eta[i]) / scale;    // Note: because we store all vals in left column survival style
+        normalized_y[1] = ((*y_l)(i) - eta(i)) / scale;    // Note: because we store all vals in left column survival style
         sz = scale * normalized_y[1];
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
 
@@ -175,8 +176,8 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
         break;
 
       case IREG_CENSOR_INTERVAL:
-        normalized_y[0] = (y_l[i] - eta[i]) / scale;
-        normalized_y[1] = (y_r[i] - eta[i]) / scale;
+        normalized_y[0] = ((*y_l)(i) - eta(i)) / scale;
+        normalized_y[1] = ((*y_r)(i) - eta(i)) / scale;
 
         (*sreg_gg)(normalized_y[0], densities_l, 2);    // gives F, 1-F, f, f'
         (*sreg_gg)(normalized_y[1], densities_r, 2);    // gives F, 1-F, f, f'
@@ -217,13 +218,13 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
         break;
     }
     if (dsig == 0 || ddg == 0)
-      response = eta[i];
+      response = eta(i);
     else
-      response = eta[i] - dg / ddg;
+      response = eta(i) - dg / ddg;
 
     if (mu) mu[i] = dg;
-    if (w) w[i] = ddg;
-    if (z) z[i] = response;
+    (*w)(i) = ddg;
+    (*z)(i) = response;
     if (scale_update) {
       dsig_sum += dsig;
       ddsig_sum += ddsig;
@@ -404,31 +405,40 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
 //' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
 //' (least) \code{extreme value} distributions are supported.
 // [[Rcpp::export]]
-Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
-                                     Rcpp::NumericVector eta, double scale,
+Rcpp::List iregnet_compute_gradients(arma::mat& X, arma::mat& y,
+                                     arma::rowvec& eta, double scale,
                                      Rcpp::String family)
 {
-  int n_obs = y.nrow(), n_vars = X.ncol();
+  int n_obs = y.n_rows, n_vars = X.n_cols;
   Rcpp::NumericVector mu(n_obs+1), out_gradients(n_vars + 1);     // weights and 1 for scale
   double *gradients = REAL(out_gradients);
+
+  //Separate Matrix y
+  rowvec aram_y_l(n_obs);
+  rowvec aram_y_r(n_obs);
+  rowvec y_eta = rowvec();
+  rowvec y_eta_square = rowvec();
+
+  aram_y_l = (y.col(0)).t();
+  aram_y_r = (y.col(1)).t();
 
   /* Loggaussain = Gaussian with log(y), etc. */
   IREG_DIST dist = get_ireg_dist(family);
 
-  IREG_CENSORING status[y.nrow()];
+  IREG_CENSORING status[y.n_rows];
   get_censoring_types(y, status); // It will modify y as well!
 
   // Note that compute_grad_response returns the derivatives wrt eta (X^T beta),
   // so we need to adjust
-  compute_grad_response(NULL, NULL, NULL, REAL(y), REAL(y) + n_obs, REAL(eta), scale,
-                        status, n_obs, dist, REAL(mu));
+  compute_grad_response(NULL, NULL, NULL, &aram_y_l, &aram_y_r, eta, scale,
+                        status, n_obs, dist, REAL(mu), false, false, y_eta, y_eta_square, NULL, NULL);
 
   for (ull j = 0; j < n_vars; ++j) {
     gradients[j] = 0;
     for (ull i = 0; i < n_obs; ++i) {
       gradients[j] += X(i, j) * mu[i];
      }
-     gradients[j] = gradients[j] / X.nrow();
+     gradients[j] = gradients[j] / X.n_rows;
   }
 
   gradients[n_vars] = mu[n_obs];    // wrt scale

@@ -10,17 +10,20 @@
 #define BIG 1e35
 
 static inline double
-get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym);
+get_y_means (mat &y, IREG_CENSORING *status, double *ym);
 static inline double soft_threshold (double x, double lambda);
 static double get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist);
-static void standardize_x (Rcpp::NumericMatrix &X,
+static void standardize_x (mat &X,
                            double *mean_x, double *std_x,
                            bool intercept);
 static void
-standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y);
-static inline double compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z,
-                                        double *eta, bool intercept, double &alpha,
+standardize_y (mat &y, double *ym, double &mean_y);
+static inline double compute_lambda_max(mat X, rowvec *w, rowvec *z,
+                                        rowvec *eta, bool intercept, double &alpha,
                                         ull n_vars, ull n_obs, bool debug);
+
+static int *
+sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y, int function_type);
 
 double
 identity (double y)
@@ -35,6 +38,11 @@ max(double a, double b)
     return a;
   return b;
 }
+
+double (*target_compute_grad_response)(rowvec *w, rowvec *z, double *scale_update, const rowvec *y_l, const rowvec *y_r,
+                                       const rowvec &eta, const double scale, const IREG_CENSORING *censoring_type,
+                                       const ull n_obs, IREG_DIST dist, double *mu, bool debug, const bool estimate_scale,const rowvec &y_eta,
+                                       const rowvec &y_eta_square,const int *separator, rowvec *tempvar);
 
 /* fit_cpp: Fit a censored data distribution with elastic net reg.
  * Outputs:
@@ -84,7 +92,7 @@ max(double a, double b)
 //'
 // [[Rcpp::export]]
 Rcpp::List
-fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
+fit_cpp(arma::mat& X, arma::mat& y,
         Rcpp::String family,   Rcpp::NumericVector lambda_path,
         int debug,             Rcpp::IntegerVector out_status,
         bool intercept,        double alpha,
@@ -102,8 +110,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double scale;
   int error_status = 0;
 
-  const ull n_obs  = X.nrow();
-  const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
+  const ull n_obs  = X.n_rows;
+  const ull n_vars = X.n_cols;  // n_vars is the number of variables corresponding to the coeffs of X
   transformed_dist = get_ireg_dist(family);
 
   /* Loggaussain = Gaussian with log(y), etc. */
@@ -131,27 +139,28 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     }
   }
 
-  double *beta;                           // Initially points to the first solution
+  double *beta = new double [n_vars];                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
   double *lambda_seq = REAL(out_lambda);
 
   double loglik = 0, scale_update = 0, log_scale;
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
-  double *eta = new double [n_obs];   // vector of linear predictors = X' beta
+  rowvec eta_vec(n_obs, fill::zeros); // vector of linear predictors = X' beta
                                       // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
                                       // eta is updated along with beta in place
 
-  double *w  = new double [n_obs];    // diagonal of the hessian of LL wrt eta
+  rowvec w_vec(n_obs, fill::zeros);   // diagonal of the hessian of LL wrt eta
                                       // these are the weights of the IRLS linear reg
-  double *z = new double [n_obs];     // z_i = eta_i - mu_i / w_i
+  rowvec z_vec(n_obs, fill::zeros);   // z_i = eta_i - mu_i / w_i
   double *mu = new double [n_obs + 1];
   double *ym = new double [n_obs];    // the observation wise mean values for y's
   double mean_y;
   double *mean_x = new double [n_vars];
   double *std_x = new double [n_vars];
   IREG_CENSORING *status;
-
+  int function_type = 1; // store the type of the function
+  int *separator; // Store the index of separator in matrix X&y by censoring type.
 
   /* get censoring types of the observations */
   if (out_status.size() == 0) {
@@ -162,12 +171,26 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     status = (IREG_CENSORING *) &out_status[0];
   }
 
+  /* check out the whole obs by status[n_obs]
+   * store the function type by censoring_types
+   */
+  for (int i = 0; i < n_obs; ++i) {
+    if(status[i] == 3){
+      function_type = 3;
+      break;
+    } else if(status[i] == 0 && function_type == 1) {
+      function_type = 0;
+    } else if(status[i] == 2 && function_type == 1){
+      function_type = 2;
+    }
+  }
+
   /* X is columnwise variance normalized, mean is NOT set to 0
    * y is mean normalized.
    */
-  if (flag_standardize_x) {
+  /*if (flag_standardize_x) {
     standardize_x(X, mean_x, std_x, intercept);
-  }
+  }*/
   mean_y = get_y_means(y, status, ym);
   standardize_y(y, ym, mean_y);
 
@@ -184,31 +207,103 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
   scale = scale_init; log_scale = log(scale);
 
+  /* Sort the whole matrix by censoring type, get the sorted X and y
+   * & Switch the right method for target_compute_grad_response
+   */
+  if(transformed_dist != IREG_DIST_EXTREME_VALUE){
+
+    bool sort = true;
+
+    if(transformed_dist == IREG_DIST_GAUSSIAN){
+      switch(function_type) {
+        case 0:   target_compute_grad_response = compute_grad_response_gaussian_right; break;
+        case 1:   target_compute_grad_response = compute_grad_response_gaussian_none; sort = false; break;
+        case 2:   target_compute_grad_response = compute_grad_response_gaussian_left; break;
+        case 3:   target_compute_grad_response = compute_grad_response_gaussian_interval; break;
+      }
+    }
+
+    if(transformed_dist == IREG_DIST_LOGISTIC){
+      switch(function_type) {
+        case 0:   target_compute_grad_response = compute_grad_response_logistic_right; break;
+        case 1:   target_compute_grad_response = compute_grad_response_logistic_none; sort = false; break;
+        case 2:   target_compute_grad_response = compute_grad_response_logistic_left; break;
+        case 3:   target_compute_grad_response = compute_grad_response; sort = false; break;
+      }
+    }
+
+    if(sort){
+      mat sorted_X;
+      mat sorted_y;
+
+      separator = sort_X_and_y(sorted_X, sorted_y, status, X, y, function_type);
+
+      X = sorted_X;
+      y = sorted_y;
+    }
+  }
+
+  if (flag_standardize_x) {
+    standardize_x(X, mean_x, std_x, intercept);
+  }
+
+  // Not support other IREG_DIST_EXTREME_VALUE now
+  if(transformed_dist == IREG_DIST_EXTREME_VALUE) {
+    target_compute_grad_response = compute_grad_response;
+  }
+
   /* Initalize the pathwise solution
    * We will always start with lambda_max, at which beta = 0, eta = 0.
    * If some value of lambda is supplied, we will stop iterations at that value.
    */
 
   // set beta = 0 and eta = 0
-  beta = REAL(out_beta);
+  // beta = REAL(out_beta);
   for (ull i = 0; i < n_vars; ++i) {
     // sets only the first solution (first col of out_beta) to 0
     beta[i] = 0;
   }
   n_iters[0] = 0; out_scale[0] = scale;
 
-  for (ull i = 0; i < n_obs; ++i) {
-    eta[i] = w[i] = z[i] = 0;
-  }
+  // Create Square X
+  mat X_square = square(X);
 
   /******************************************************************************************/
   /* Iterate over grid of lambda values */
   bool flag_beta_converged = 0;
-  double sol_num, sol_denom;
+  rowvec sol_num_vec(n_vars, fill::zeros), sol_denom_vec(n_vars, fill::zeros);
   double beta_new;
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  // Separate Matrix y
+  rowvec aram_y_l(n_obs);
+  rowvec aram_y_r(n_obs);
+
+  aram_y_l = (y.col(0)).t();
+
+  if(y.n_cols==2){
+    aram_y_r = (y.col(1)).t();
+  }else{
+    aram_y_r.resize(0);
+  }
+
+  // Optimize Temp Var
+  rowvec w_division_nobs;
+  vec flag_beta_converged_vec(n_vars, fill::zeros);// store converged result of beta[]
+  rowvec temp_eta_vec(n_obs, fill::zeros);// store the temp result of (beta_new - beta_k) * X.col(k)
+                                          // during COEFF LOOP
+  mat eta_mat(n_obs, n_vars, fill::zeros);// save the result of every beta_k * X.col(k) in each column;
+  vec temp_eta_vec_update(n_obs, fill::zeros);
+  rowvec base_eta_vec;// store the result of (w/n_obs) * (z- eta) without (beta_new - beta_k) * X.col(k)
+                      // during COEFF LOOP
+  rowvec y_eta; // store the result of (y - eta)
+  rowvec y_eta_square; // store the result of square(y - eta)
+
+  /* below temp vars is used for distribution function
+   * only support gaussian distribution & right censoring now
+   */
+  rowvec *compute_grad_response_temp_var = new rowvec [10];
 
   for (int m = 0; m < num_lambda + 1; ++m) {
     /* Compute the lambda path */
@@ -221,7 +316,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       /* Calculate lambda_max using intial scale fit */
       if (m == 1) {
-        lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
+        lambda_seq[m] = compute_lambda_max(X, &w_vec, &z_vec, &eta_vec, intercept, alpha, n_vars, n_obs, debug);
 
       /* Last solution should be unregularized if the flag is set */
       } else if (m == num_lambda && unreg_sol == true)
@@ -233,15 +328,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       }
     }
 
+    //This step is commented because the store way of beta is updated
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
-    if (m != 0) {                         // Initialise solutions using previous value
+    /*if (m != 0) {                         // Initialise solutions using previous value
       for (ull i = 0; i < n_vars; ++i) {
         beta[i + n_vars] = beta[i];
       }
       beta = beta + n_vars;   // go to the next column
-    }
-
+    }*/
+    /* Before CYCLIC COORDINATE DESCENT, set the whole vector to zero*/
+    flag_beta_converged_vec.zeros();
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
@@ -250,31 +347,47 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
+      temp_eta_vec.zeros();
 
+      y_eta = (aram_y_l - eta_vec) / scale;
+      y_eta_square = square(y_eta);
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
-                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
-      /* iterate over beta elementwise and update using soft thresholding solution */
+      loglik = (*target_compute_grad_response)(&w_vec, &z_vec, &scale_update, &aram_y_l, &aram_y_r, eta_vec, scale,     // TODO:store a ptr to y?
+                            status, n_obs, transformed_dist, NULL, debug==1 && m == 0, estimate_scale, y_eta, y_eta_square, separator, compute_grad_response_temp_var);
+
+      // Calculate before iterate over beta elementwise loop
+      w_division_nobs = w_vec / n_obs;
+      sol_denom_vec = w_division_nobs * X_square;
+      base_eta_vec = w_division_nobs % (z_vec - eta_vec);
+
+
+      /* COEFF LOOP: iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
-        sol_num = sol_denom = 0;
-        for (ull i = 0; i < n_obs; ++i) {
-          eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
-          sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
-          sol_denom += (w[i] * X(i, k) * X(i, k)) / n_obs;
-        }
+
+        /*If current beta_k is already converged, continue to next beta iterated*/
+        /*if(flag_beta_converged_vec(k) == 1)
+          continue;
+        */
+        /* if eta_update_flag == 0, the eta is not changed, use the base_eta directly
+         * if eta_update_flag == 1, the eta is changed, add the change part before calculate sol_num_vec(k)
+         */
+          sol_num_vec(k) = as_scalar(
+                  (base_eta_vec + (w_division_nobs % ((eta_mat.col(k)).t() - temp_eta_vec)))
+                  * X.col(k)
+          );
 
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
-        sol_num *= -1; sol_denom *= -1;
+        sol_num_vec(k) *= -1; sol_denom_vec(k) *= -1;
 
         // if (debug == 1 && m == 0)
         //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
-          beta_new = sol_num / sol_denom;
+          beta_new = sol_num_vec(k) / sol_denom_vec(k);
 
         } else {
-          beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
-                     (sol_denom + lambda_seq[m] * (1 - alpha));
+          beta_new = soft_threshold(sol_num_vec(k), lambda_seq[m] * alpha) /
+                     (sol_denom_vec(k) + lambda_seq[m] * (1 - alpha));
         }
 
         // if any beta_k has not converged, we will come back for another cycle.
@@ -282,20 +395,27 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         if (abs_change > threshold) {
 	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
+          temp_eta_vec_update = (beta_new - beta[k]) * X.col(k);
+          temp_eta_vec += temp_eta_vec_update.t();// this will contain the new beta_k
+          eta_mat.col(k) += temp_eta_vec_update;// save the result of beta_k * X.col(k)
           beta[k] = beta_new;
+        } else {
+          /*The current beta_k has converged during this CYCLIC COORDINATE DESCENT*/
+          flag_beta_converged_vec(k) = 1;
         }
 
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
 
-        for (ull i = 0; i < n_obs; ++i) {
+        //eta[] is already updated in the below step
+        /*for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug==1 && m==0) {
           //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
           // }
-        }
-
+        }*/
       }   // end for: beta_k solution
+      eta_vec += temp_eta_vec;// Add the total change to eta for next computation
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
@@ -321,6 +441,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       error_status = 1;
       Rcpp::stop("NANs produced");
     }
+    //Store new beta[]
+    std::copy(beta, beta + n_vars, REAL(out_beta) + (m) * n_vars);
   } // end for: lambda
 
   /* Scale the coefs back to the original scale */
@@ -339,11 +461,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   }
 
   /* Free the temporary variables */
-  delete [] eta;
+  delete [] beta;
   delete [] mu;
-  delete [] w;
-  delete [] z;
   delete [] ym;
+  delete [] compute_grad_response_temp_var;
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
@@ -360,13 +481,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 }
 
 static inline double
-get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
+get_y_means (mat &y, IREG_CENSORING *status, double *ym)
 {
   if (!ym || !status)
     return 0;
 
   double mean_y = 0;
-  for (ull i = 0; i < y.nrow(); ++i) {
+  for (ull i = 0; i < y.n_rows; ++i) {
       switch (status[i]) {
         case IREG_CENSOR_LEFT:
         case IREG_CENSOR_RIGHT:
@@ -383,15 +504,15 @@ get_y_means (Rcpp::NumericMatrix &y, IREG_CENSORING *status, double *ym)
       }
       mean_y += ym[i];
   } // end for
-  mean_y /= y.nrow();
+  mean_y /= y.n_rows;
   return mean_y;
 }
 
 void
-get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
+get_censoring_types (mat &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
-  for (ull i = 0; i < y.nrow(); ++i) {
+  for (ull i = 0; i < y.n_rows; ++i) {
     if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
     if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
     y_l = y(i, 0); y_r = y(i ,1);
@@ -450,38 +571,38 @@ soft_threshold (double x, double lambda)
 }
 
 static void
-standardize_x (Rcpp::NumericMatrix &X,
+standardize_x (mat &X,
                double *mean_x, double *std_x,
                bool intercept)
 {
-  for (ull i = int(intercept); i < X.ncol(); ++i) {  // don't standardize intercept col.
+  for (ull i = int(intercept); i < X.n_cols; ++i) {  // don't standardize intercept col.
     mean_x[i] = std_x[i] = 0;
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       mean_x[i] += X(j, i);
     }
-    mean_x[i] /= X.nrow();
+    mean_x[i] /= X.n_rows;
 
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       X(j, i) = X(j, i) - mean_x[i];  // center X
       std_x[i] += X(j, i) * X(j, i);
     }
 
     // not using (N-1) in denominator to agree with glmnet
-    std_x[i] = sqrt(std_x[i] / X.nrow());
+    std_x[i] = sqrt(std_x[i] / X.n_rows);
 
-    for (ull j = 0; j < X.nrow(); ++j) {
+    for (ull j = 0; j < X.n_rows; ++j) {
       X(j, i) = X(j, i) / std_x[i];
     }
   }
 }
 
 static void
-standardize_y (Rcpp::NumericMatrix &y, double *ym, double &mean_y)
+standardize_y (mat &y, double *ym, double &mean_y)
 {
-  for (ull i = 0; i < y.nrow() * y.ncol(); ++i) {
+  for (ull i = 0; i < y.n_rows * y.n_cols; ++i) {
     y[i] -= mean_y;
   }
-  for (ull i = 0; i < y.nrow(); ++i)
+  for (ull i = 0; i < y.n_rows; ++i)
     ym[i] -= mean_y;
 }
 
@@ -515,7 +636,7 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
 }
 
 static inline double
-compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
+compute_lambda_max(mat X, rowvec *w, rowvec *z, rowvec *eta,
                    bool intercept, double &alpha, ull n_vars, ull n_obs,
                    bool debug=0)
 {
@@ -526,7 +647,7 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
     for (ull i = 0; i < n_obs; ++i) {
       // NOTE: `eta` contains only the contribution of the intercept, since all
       // other `beta` values are 0.
-      temp += (w[i] * X(i, j) * (z[i] - eta[i]));
+      temp += ((*w)(i) * X(i, j) * ((*z)(i) - (*eta)(i)));
     }
     temp = fabs(temp);
     // if (debug) {
@@ -537,4 +658,142 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
 
   return lambda_max;
+}
+
+static int *
+sort_X_and_y(mat &sorted_X, mat &sorted_y, IREG_CENSORING *status, mat X, mat y, int function_type)
+{
+  int *separator = new int [4]; // Store the index of separator in matrix X&y by censoring type.
+
+  if(function_type != 3){
+
+    /*
+     * Temp var for sort the matrix X&y
+     */
+    mat none_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat left_or_right_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat none_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat left_or_right_censoring_y_mat = mat(y.n_rows, y.n_cols);
+
+    ull none_censoring_number = 0;
+    ull left_or_right_censoring_number = 0;
+
+    /*
+     * Sort by censoring type,
+     */
+    for (ull i = 0; i < X.n_rows; ++i) {
+
+      if(status[i] == 1){
+
+        none_censoring_X_mat.row(none_censoring_number) = X.row(i);
+        none_censoring_y_mat.row(none_censoring_number) = y.row(i);
+
+        none_censoring_number++;
+      } else {
+
+        left_or_right_censoring_X_mat.row(left_or_right_censoring_number) = X.row(i);
+        left_or_right_censoring_y_mat.row(left_or_right_censoring_number) = y.row(i);
+
+        left_or_right_censoring_number++;
+      }
+    }
+
+    none_censoring_X_mat.resize(none_censoring_number, X.n_cols);
+    none_censoring_y_mat.resize(none_censoring_number, y.n_cols);
+
+    left_or_right_censoring_X_mat.resize(left_or_right_censoring_number, X.n_cols);
+    left_or_right_censoring_y_mat.resize(left_or_right_censoring_number, y.n_cols);
+
+    none_censoring_X_mat.insert_rows(none_censoring_number, left_or_right_censoring_X_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number, left_or_right_censoring_y_mat);
+
+    sorted_X = none_censoring_X_mat;
+    sorted_y = none_censoring_y_mat;
+
+    separator[0] = none_censoring_number;
+
+  } else {
+
+    /*
+     * Temp var for sort the matrix X&y
+     */
+    mat none_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat left_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat right_censoring_X_mat = mat(X.n_rows, X.n_cols);
+    mat interval_censoring_X_mat = mat(X.n_rows, X.n_cols);
+
+    mat none_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat left_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat right_censoring_y_mat = mat(y.n_rows, y.n_cols);
+    mat interval_censoring_y_mat = mat(y.n_rows, y.n_cols);
+
+    ull none_censoring_number = 0;
+    ull left_censoring_number = 0;
+    ull right_censoring_number = 0;
+    ull interval_censoring_number = 0;
+
+    /*
+     * Sort by censoring type,
+     */
+    for (ull i = 0; i < X.n_rows; ++i) {
+
+      if(status[i] == 1){
+
+        none_censoring_X_mat.row(none_censoring_number) = X.row(i);
+        none_censoring_y_mat.row(none_censoring_number) = y.row(i);
+
+        none_censoring_number++;
+      } else if(status[i] == 0){
+
+        right_censoring_X_mat.row(right_censoring_number) = X.row(i);
+        right_censoring_y_mat.row(right_censoring_number) = y.row(i);
+
+        right_censoring_number++;
+      } else if(status[i] == 2){
+
+        left_censoring_X_mat.row(left_censoring_number) = X.row(i);
+        left_censoring_y_mat.row(left_censoring_number) = y.row(i);
+
+        left_censoring_number++;
+      } else {
+
+        interval_censoring_X_mat.row(interval_censoring_number) = X.row(i);
+        interval_censoring_y_mat.row(interval_censoring_number) = y.row(i);
+
+        interval_censoring_number++;
+      }
+    }
+
+    none_censoring_X_mat.resize(none_censoring_number, X.n_cols);
+    none_censoring_y_mat.resize(none_censoring_number, y.n_cols);
+
+    left_censoring_X_mat.resize(left_censoring_number, X.n_cols);
+    left_censoring_y_mat.resize(left_censoring_number, y.n_cols);
+
+    right_censoring_X_mat.resize(right_censoring_number, X.n_cols);
+    right_censoring_y_mat.resize(right_censoring_number, y.n_cols);
+
+    interval_censoring_X_mat.resize(interval_censoring_number, X.n_cols);
+    interval_censoring_y_mat.resize(interval_censoring_number, y.n_cols);
+
+    none_censoring_X_mat.insert_rows(none_censoring_number, left_censoring_X_mat);
+    none_censoring_X_mat.insert_rows(none_censoring_number + left_censoring_number, right_censoring_X_mat);
+    none_censoring_X_mat.insert_rows(none_censoring_number + left_censoring_number + right_censoring_number,
+                                     interval_censoring_X_mat);
+
+    none_censoring_y_mat.insert_rows(none_censoring_number, left_censoring_y_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number + left_censoring_number, right_censoring_y_mat);
+    none_censoring_y_mat.insert_rows(none_censoring_number + left_censoring_number + right_censoring_number,
+                                     interval_censoring_y_mat);
+
+    sorted_X = none_censoring_X_mat;
+    sorted_y = none_censoring_y_mat;
+
+    separator[0] = none_censoring_number;
+    separator[1] = left_censoring_number;
+    separator[2] = right_censoring_number;
+    separator[3] = interval_censoring_number;
+  }
+
+  return separator;
 }
