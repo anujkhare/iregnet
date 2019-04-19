@@ -21,6 +21,7 @@ Imports:
     methods,
     stats,
     survival,
-    foreach
+    foreach,
+    data.table
 RoxygenNote: 5.0.1
 Remotes: tdhock/penaltyLearning

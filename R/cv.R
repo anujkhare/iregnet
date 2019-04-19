@@ -134,7 +134,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   sd.mat <- apply(fold.array, c(1,2), sd)
   stats.df.list <- list()
   for(set.name in c("train", "validation")){
-    stats.df.list[[set.name]] <- data.frame(
+    stats.df.list[[set.name]] <- data.table(
       set.name,
       lambda=big.fit$lambda,
       mean=mean.mat[, set.name],
@@ -146,7 +146,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     validation.fold <- validation.fold.vec[[fold.i]]
     one.fold.mat <- fold.mat.list[[fold.i]]
     for(set.name in c("train", "validation")){
-      lik.df.list[[paste(fold.i, set.name)]] <- data.frame(
+      lik.df.list[[paste(fold.i, set.name)]] <- data.table(
         validation.fold,
         set.name,
         lambda=big.fit$lambda,
@@ -159,13 +159,13 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   is.within <- mean.mat[, "validation"] < min.upper
   i.1sd <- which(is.within)[1]
   big.fit$selected <- c(min=as.integer(i.min), "1sd"=as.integer(i.1sd))
-  selected.df <- data.frame(
+  selected.df <- data.table(
     set.name="validation",
     type=names(big.fit$selected),
     lambda=big.fit$lambda[big.fit$selected],
     neg.loglik=mean.mat[big.fit$selected, "validation"])
   not.intercept <- big.fit$beta[-1,]
-  nonzero.df <- data.frame(
+  nonzero.df <- data.table(
     arclength=colSums(abs(not.intercept)),
     lambda=big.fit$lambda,
     nonzero=colSums(not.intercept != 0))
@@ -196,35 +196,35 @@ plot.cv.iregnet <- function(x, ...){
   validation.stats <- x$plot.data$stats[is.validation, ]
   i.min <- x$selected[["min"]]
   min.stats <- validation.stats[i.min, ]
-  min.upper <- with(min.stats, data.frame(
+  min.upper <- with(min.stats, data.table(
     min.upper=mean+sd, facet="neg.loglik"))
   with(x$plot.data, {
     ggplot()+
       theme_bw()+
-      theme(panel.margin=grid::unit(0, "lines"))+
+      theme(panel.spacing=grid::unit(0, "lines"))+
       facet_grid(facet ~ ., scales="free")+
       geom_line(aes(
         -log10(lambda),
         weight,
         group=variable),
-        data=data.frame(weights, facet="weight"))+
+        data=data.table(weights, facet="weight"))+
       geom_segment(aes(
         -log10(lambda),
         xend=-log10(lambda),
         y=mean-sd,
         yend=mean+sd,
         color=set.name),
-        data=data.frame(stats, facet="neg.loglik"))+
+        data=data.table(stats, facet="neg.loglik"))+
       geom_line(aes(
         -log10(lambda), neg.loglik,
         group=paste(set.name, validation.fold),
         color=set.name),
-        data=data.frame(likelihood, facet="neg.loglik"))+
+        data=data.table(likelihood, facet="neg.loglik"))+
       geom_point(aes(
         -log10(lambda),
         mean,
         color=set.name),
-        data=data.frame(validation.stats, facet="neg.loglik"))+
+        data=data.table(validation.stats, facet="neg.loglik"))+
       ylab("-log10(likelihood)")+
       geom_point(aes(
         -log10(lambda),
@@ -232,7 +232,7 @@ plot.cv.iregnet <- function(x, ...){
         color=set.name,
         fill=type),
         shape=21,
-        data=data.frame(selected, facet="neg.loglik"))+
+        data=data.table(selected, facet="neg.loglik"))+
       scale_fill_manual(values=c(min="black", "1sd"="white"))+
       geom_hline(aes(
         yintercept=min.upper),
