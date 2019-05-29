@@ -22,6 +22,7 @@ Imports:
     stats,
     survival,
     foreach,
+    doParallel,
     data.table
 RoxygenNote: 5.0.1
 Remotes: tdhock/penaltyLearning

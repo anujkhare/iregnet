@@ -1,6 +1,7 @@
 library(testthat)
 context("NAN")
 library(iregnet)
+data("neuroblastomaProcessed")
 data(realNAN)
 set.seed(1)
 

@@ -257,11 +257,14 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
+      // ***Vectorize
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
+        // ***Equation 18
+        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
@@ -277,7 +280,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
 
-        } else {
+        } else { // ***Eqn 19
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
         }
@@ -292,7 +295,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
-
+        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug==1 && m==0) {
@@ -306,12 +309,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         log_scale += scale_update; scale = exp(log_scale);
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
-	double abs_change = fabs(scale - old_scale);
-        if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
-	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
-          flag_beta_converged = 0;
+	        double abs_change = fabs(scale - old_scale);
+          if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
+	          if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
+              flag_beta_converged = 0;
         }
       }
+      // flag_beta_converged = 1 then converged
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     out_loglik[m] = loglik;
@@ -397,31 +401,38 @@ void
 get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
+  // ***Make it better
+  long count_r = 0, count_l = 0;
+  // Inf to NAN
   for (ull i = 0; i < y.nrow(); ++i) {
     if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
     if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
     y_l = y(i, 0); y_r = y(i ,1);
-
     if (y_l == Rcpp::NA) {
       if (y_r == Rcpp::NA)
         Rcpp::stop("Invalid interval: both limits NA");
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
         y(i, 0) = y_r; // NOTE: We are putting the value in the left col, survival style!
+        count_l++;
       }
       continue;
     }
-
-    if (y_r == Rcpp::NA)                // right censoring
+    if (y_r == Rcpp::NA){                // right censoring
       status[i] = IREG_CENSOR_RIGHT;
+      count_r++;
+    }
     else if (y_l == y_r)
       status[i] = IREG_CENSOR_NONE;         // no censoring
     else if (y_l > y_r)
       Rcpp::stop("Invalid interval: start > stop");
     else
       status[i] = IREG_CENSOR_INTERVAL;     // interval censoring
-
   } // end for
+  if(count_r == y.nrow())
+    Rcpp::stop("Dataset completely left truncated: consider adding more data");
+  else if(count_l == y.nrow())
+    Rcpp::stop("Dataset completely right censored: consider adding more data");
 }
 
 
