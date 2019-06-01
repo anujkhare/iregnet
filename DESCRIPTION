@@ -1,7 +1,7 @@
 Package: iregnet
 Type: Package
 Title: Regularized interval regression
-Version: 2016.11.02
+Version: 2017.04.05
 Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
     Jelle Goeman
 Maintainer: Anuj Khare <khareanuj18@gmail.com>
@@ -14,10 +14,15 @@ Suggests:
     testthat
 LinkingTo: Rcpp
 Depends:
-    R (>= 2.10),
-    survival
+    R (>= 2.10)
 Imports:
     ggplot2,
+    utils,
     methods,
-    Rcpp
+    stats,
+    survival,
+    foreach,
+    doParallel,
+    data.table
 RoxygenNote: 5.0.1
+Remotes: tdhock/penaltyLearning

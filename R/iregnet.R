@@ -1,5 +1,5 @@
 #' @title Fit interval censored AFT models with elastic net regularization
-#'
+#' @export
 #' @description
 #' Fit accelerated failure time models using interval censored data via
 #' elastic net penalized maximum likeihood. Solutions are computed using
@@ -71,6 +71,7 @@
 #'
 #' @param unreg_sol \code{TRUE} if the final solution computed must be
 #' unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
+#' Only used if \code{lambda_path} is not specified.
 #' \cr \emph{Default: \code{TRUE}}
 #'
 #' @param debug \code{TRUE} if code debugging messages must be printed.
@@ -116,10 +117,10 @@
 #' Paths for Cox's Proportional Hazards Model via Coordinate Descent, Journal
 #' of Statistical Software, Vol. 39(5) 1-13
 #' \url{http://www.jstatsoft.org/v39/i05/}
-#'
+#' @useDynLib iregnet
 #' @seealso
 #' \code{\link{predict.iregnet}}, \code{cv.iregnet}, \code{\link{plot.iregnet}}
-#'
+#' @import survival
 #' @examples
 #' # y can be a 2 column matrix.
 #' set.seed(10)
@@ -129,13 +130,13 @@
 #' fit1 <- iregnet(X, y)
 #'
 #' # Surv objects from survival are also supported.
-#' data("ovarian")
+#' data("ovarian", package="survival")
+#' library(survival)
 #' X <- cbind(ovarian$ecog.ps, ovarian$rx)
 #' y <- Surv(ovarian$futime, ovarian$fustat)
 #' fit2 <- iregnet(X, y)
 #'
 #' # Log-Gaussian is same as Gaussian with log-transformed data
-#' data("ovarian")
 #' X <- cbind(ovarian$ecog.ps, ovarian$rx)
 #' y <- Surv(ovarian$futime, ovarian$fustat)
 #' y_log <- Surv(log(ovarian$futime), ovarian$fustat)
@@ -148,7 +149,7 @@
 #' y <- matrix(rnorm(20), 10, 2)
 #' y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
 #' fit5 <- iregnet(X, y, scale_init=1, estimate_scale=FALSE)
-#'
+#' 
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
@@ -207,27 +208,43 @@ iregnet <- function(x, y,
     family <- trans$dist
   }
 
+  sd.vec <- apply(x, 2, sd)
+  is.constant <- sd.vec==0
+  x.filtered <- x[, !is.constant, drop=FALSE]
+  stopifnot_error("no non-constant features", 0<ncol(x.filtered))
+
   # Get column names
-  varnames <- colnames(x)
+  varnames <- colnames(x.filtered)
   if (is.null(varnames)) {
     varnames <- paste('x', 1: n_vars, sep='')
   }
 
   # Append col of 1's for the intercept
   if (intercept) {
-    x <- cbind(rep(1, n_obs), x)
-    varnames = c("(Intercept)", varnames)
+    x.train <- cbind(rep(1, n_obs), x.filtered)
+    varnames <- c("(Intercept)", varnames)
+  }else{
+    x.train <- x.filtered
   }
 
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
-
   # Call the actual fit method
-  fit <- fit_cpp(x, y, family, alpha, lambda_path=lambda, num_lambda=num_lambda, intercept=intercept,
-                 out_status=status, scale_init=scale_init, max_iter=maxiter, threshold=threshold,
-                 flag_standardize_x=standardize, estimate_scale=estimate_scale, unreg_sol=unreg_sol,
-                 eps_lambda=eps_lambda, debug=debug);
+  fit <- fit_cpp(
+    x.train, y, family, alpha,
+    lambda_path=lambda,
+    num_lambda=num_lambda,
+    intercept=intercept,
+    out_status=status,
+    scale_init=scale_init,
+    max_iter=maxiter,
+    threshold=threshold,
+    flag_standardize_x=standardize,
+    estimate_scale=estimate_scale,
+    unreg_sol=unreg_sol,
+    eps_lambda=eps_lambda,
+    debug=debug);
 
   fit$call <- match.call()
   fit$intercept <- intercept

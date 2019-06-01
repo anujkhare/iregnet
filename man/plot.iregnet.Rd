@@ -20,6 +20,9 @@ are plotted along with the curves.}
 
 \item{...}{Other parameters. Currently unused.}
 }
+\value{
+object of class "ggplot"
+}
 \description{
 Produces a coefficient profile plot of the coefficient paths for a fitted
 "iregnet" object.

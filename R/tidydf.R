@@ -1,5 +1,5 @@
 #' @title Return a tidy data.frame from iregnet fit
-#'
+#' @export
 #' @description
 #' Returns a tidy \link{data.frame} from a fitted "iregnet" object.
 #'

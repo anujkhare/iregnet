@@ -36,7 +36,7 @@ get_status_from_surv <- function(s)
 }
 
 #' @title List of non-basic distributions in terms of basic distributions
-#'
+#' @export
 #' @description
 #' A \code{list} containing the supported distributions that are
 #' transformations of other "base" distributions. For instance,

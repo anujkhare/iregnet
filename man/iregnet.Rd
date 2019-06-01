@@ -70,6 +70,7 @@ loop continues until the absolute update in each parameter is greater than
 
 \item{unreg_sol}{\code{TRUE} if the final solution computed must be
 unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
+Only used if \code{lambda_path} is not specified.
 \cr \emph{Default: \code{TRUE}}}
 
 \item{eps_lambda}{The ratio of the minimum value of \code{lambda} to the
@@ -138,13 +139,13 @@ y <- t(apply(y, 1, sort)) # intervals must be non-decreasing
 fit1 <- iregnet(X, y)
 
 # Surv objects from survival are also supported.
-data("ovarian")
+data("ovarian", package="survival")
+library(survival)
 X <- cbind(ovarian$ecog.ps, ovarian$rx)
 y <- Surv(ovarian$futime, ovarian$fustat)
 fit2 <- iregnet(X, y)
 
 # Log-Gaussian is same as Gaussian with log-transformed data
-data("ovarian")
 X <- cbind(ovarian$ecog.ps, ovarian$rx)
 y <- Surv(ovarian$futime, ovarian$fustat)
 y_log <- Surv(log(ovarian$futime), ovarian$fustat)
