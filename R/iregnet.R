@@ -165,8 +165,9 @@ iregnet <- function(x, y,
   stopifnot_error("estimate_scale must be a boolean flag", is.logical(estimate_scale))
   stopifnot_error("threshold must be positive", threshold > 0)
 
-  # if (estimate_scale == FALSE && is.na(scale_init))
-  #   stop("Value of scale required if scale is not estimated")
+  #Scale needs to be provided if estimate_scale if false
+  if(estimate_scale == FALSE && is.na(scale_init))
+    stop("Value of scale required if scale is not estimated")
 
   # family should be one of those listed
   family <- match.arg(family)
@@ -187,13 +188,18 @@ iregnet <- function(x, y,
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
   } else {
-    stopifnot_error("y should be a 2 column matrix", ncol(y) == 2)
+    stopifnot_error("y should be a 2 column matrix", ncol(y) <= 2)
+    if(ncol(y) == 1)
+      y <- cbind(y, y)
   }
   stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == n_obs)
 
-  temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
+  #temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
   stopifnot_error("y should be positive for the given family",
                   !(family %in% names(transformed_distributions) && any(y[!is.na(y)]<0)))
+
+  # Check if completely left or right censored
+  check_censorship(y)
 
   # Fix scale for exponential: (least) extreme value distribution with scale = 1
   if (family == "exponential") {

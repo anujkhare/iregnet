@@ -1,7 +1,7 @@
-#' @title stopifnot with custom error message
+#' @title stop with custom error message
 #'
 #' @description
-#' Like \code{stopifnot}, but with a custom error message.
+#' Like \code{stop}, but with a custom error message.
 #'
 #' @param err_message The error message to print.
 #' @param ... An error is raised if any these expressions is \code{FALSE}.
@@ -52,3 +52,18 @@ transformed_distributions <- list(
   "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
   "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
 )
+
+#' @title Check if completely left or right censored
+#'
+#' @description
+#' Check if the target matrix is either completely left censored or completely 
+#' right censored and print an error message accordingly.
+#'
+#' @param y The input feature matrix.
+check_censorship <- function(y)
+{
+  if((sum(is.na(y[,1])) + sum(is.infinite(y[,1]))) == nrow(y))
+    stop("Target matrix completely left censored. Try adding more data")
+  else if((sum(is.na(y[,2])) + sum(is.infinite(y[,2]))) == nrow(y))
+    stop("Target matrix completely right censored. Try adding more data")
+}
