@@ -52,3 +52,18 @@ transformed_distributions <- list(
   "weibull" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value'),
   "exponential" = list(trans = function(y) log(y), itrans = function(y) exp(y), dist = 'extreme_value')
 )
+
+#' @title Check if completely left or right censored
+#'
+#' @description
+#' Check if the target matrix is either completely left censored or completely 
+#' right censored and print an error message accordingly.
+#'
+#' @param y The input feature matrix.
+check_censorship <- function(y)
+{
+  if(all(is.na(y[,1])) || all(is.infinite(y[,1])) && !survival::is.Surv(y))
+    stop("Target matrix completely left censored. Try adding more data")
+  else if(all(is.na(y[,2])) || all(is.infinite(y[,2])) && !survival::is.Surv(y))
+    stop("Target matrix completely right censored. Try adding more data")
+}

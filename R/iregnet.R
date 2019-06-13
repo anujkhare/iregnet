@@ -183,11 +183,17 @@ iregnet <- function(x, y,
 
   status <- integer(0) # used for censoring, if y is matrix, calculated in C++ code
 
+  
+  
   if (survival::is.Surv(y)) {
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
   } else {
     stopifnot_error("y should be a 2 column matrix", ncol(y) == 2)
+    # Check if completely left or right censored
+    check_censorship(y)
+    if(ncol(y) == 1)
+      y <- cbind(y, y)
   }
   stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == n_obs)
 

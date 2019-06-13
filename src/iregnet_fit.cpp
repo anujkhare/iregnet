@@ -325,12 +325,17 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     if (n_iters[m] == max_iter)
       error_status = -1;
     if (std::isinf(out_loglik[m]))
-      error_status = -3;
+      error_status = -2;
     if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
-      error_status = 1;
-      Rcpp::stop("NANs produced");
+      error_status = -3;
+      //Rcpp::stop("NANs produced");
     }
   } // end for: lambda
+
+  if(error_status == -1)
+    Rcpp::warning("Ran out of iterations and failed to converge.");
+  if(error_status == -3)
+   Rcpp::warning("Failed to converge. Try again after adding more data.");
 
   /* Scale the coefs back to the original scale */
   for (ull m = 0; m <= end_ind; ++m) {
@@ -401,9 +406,6 @@ void
 get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
-  // ***Make it better
-  long count_r = 0, count_l = 0;
-  // Inf to NAN
   for (ull i = 0; i < y.nrow(); ++i) {
     if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
     if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
@@ -414,25 +416,20 @@ get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
       else {
         status[i] = IREG_CENSOR_LEFT;       // left censoring
         y(i, 0) = y_r; // NOTE: We are putting the value in the left col, survival style!
-        count_l++;
       }
       continue;
     }
-    if (y_r == Rcpp::NA){                // right censoring
+
+    if (y_r == Rcpp::NA)                // right censoring
       status[i] = IREG_CENSOR_RIGHT;
-      count_r++;
-    }
     else if (y_l == y_r)
       status[i] = IREG_CENSOR_NONE;         // no censoring
     else if (y_l > y_r)
       Rcpp::stop("Invalid interval: start > stop");
     else
       status[i] = IREG_CENSOR_INTERVAL;     // interval censoring
+
   } // end for
-  if(count_r == y.nrow())
-    Rcpp::stop("Dataset completely left truncated: consider adding more data");
-  else if(count_l == y.nrow())
-    Rcpp::stop("Dataset completely right censored: consider adding more data");
 }
 
 

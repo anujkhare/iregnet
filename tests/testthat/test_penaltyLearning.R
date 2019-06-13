@@ -292,7 +292,7 @@ if(interactive()){
     ggtitle("iregnet on penalty.learning data set")+
     ylab("")+
     theme_bw()+
-    theme(panel.margin=grid::unit(0, "lines"))+
+    theme(panel.spacing=grid::unit(0, "lines"))+
     facet_grid(metric ~ ., scales="free")+
     geom_path(aes(-log(lambda), surrogate.loss, color=set.name, group=set.name),
               data=data.frame(set.error, metric="surrogate loss"))+

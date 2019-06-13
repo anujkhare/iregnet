@@ -8,3 +8,4 @@ test_that("plot(cv.iregnet result) yields ggplot", {
   result <- plot(fit)
   expect_true(is.ggplot(result))
 })
+
