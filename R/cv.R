@@ -80,6 +80,7 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
 cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
+  library(data.table)
   if(missing(foldid)){
     if(missing(nfolds)){
       nfolds <- 10L
@@ -249,7 +250,6 @@ plot.cv.iregnet <- function(x, ...){
 ##' @param object result of cv.iregnet
 ##' @param newx feature matrix
 ##' @param type min or 1sd
-##' @param ... 
 ##' @return predicted values
 ##' @export
 ##' @author Toby Dylan Hocking

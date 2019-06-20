@@ -1,6 +1,7 @@
 library(testthat)
 context("all open intervals\n")
 library(iregnet)
+library(penaltyLearning)
 
 set.seed(1)
 toy.features <- matrix(rnorm(10, 1, 0.1), 5, 2)

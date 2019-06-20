@@ -13,7 +13,6 @@
 
 \item{type}{min or 1sd}
 
-\item{...}{}
 }
 \value{
 predicted values
@@ -27,4 +26,3 @@ Get predicted values
 \author{
 Toby Dylan Hocking
 }
-

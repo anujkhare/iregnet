@@ -33,4 +33,3 @@ In the case of \code{gaussian}, \code{logistic} and
 \code{extreme_value}, types link and response both return the linear
 predictors.
 }
-

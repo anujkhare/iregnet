@@ -11,7 +11,9 @@ LazyData: TRUE
 Suggests:
     ElemStatLearn,
     glmnet,
-    testthat
+    testthat,
+    knitr,
+    rmarkdown
 LinkingTo: Rcpp
 Depends:
     R (>= 2.10)
@@ -23,6 +25,10 @@ Imports:
     survival,
     foreach,
     doParallel,
-    data.table
-RoxygenNote: 5.0.1
+    data.table,
+    Matrix,
+    namedCapture,
+    penaltyLearning
+RoxygenNote: 6.1.1
 Remotes: tdhock/penaltyLearning
+VignetteBuilder: knitr

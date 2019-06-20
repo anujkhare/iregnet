@@ -1,5 +1,6 @@
 library(testthat)
 library(iregnet)
+library(penaltyLearning)
 context("\npenalty learning data set")
 
 data(penalty.learning)

@@ -1,0 +1,540 @@
+---
+title: "Iregnet Vignette"
+output: 
+  html_document:
+    #css: vignette.css
+    number_sections: yes
+    toc: yes
+    theme: united
+  pdf_document:
+    number_sections: yes
+    toc: yes
+    theme: united 
+bibliography: iregnet.bib
+author: Anuj Khare, Toby Dylan Hocking
+vignette: >
+  %\VignetteIndexEntry{iregnet}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+  \usepackage[utf8]{inputenc}
+  \usepackage{amsfonts}
+  \usepackage{tikz}
+  \usepackage{amssymb,amsmath}
+  \DeclareMathOperator*{\argmin}{arg\,min}
+  \DeclareMathOperator*{\sign}{sign}
+  \DeclareMathOperator*{\Lik}{Lik}
+  \DeclareMathOperator*{\Peaks}{Peaks}
+  \newcommand{\Cost}{\text{Cost}}
+  \DeclareMathOperator*{\Diag}{Diag}
+  \DeclareMathOperator*{\TPR}{TPR}
+  \DeclareMathOperator*{\Segments}{Segments}
+  \DeclareMathOperator*{\FPR}{FPR}
+  \DeclareMathOperator*{\argmax}{arg\,max}
+  \DeclareMathOperator*{\maximize}{maximize} 
+  \DeclareMathOperator*{\minimize}{minimize}
+  \newcommand{\ZZ}{\mathbb Z}
+  \newcommand{\NN}{\mathbb N}
+  \newcommand{\RR}{\mathbb R}
+---
+
+
+# Introduction
+
+**Iregnet** is an R package that fits an **Accelerated Failure Time** (AFT) model with **elasticnet regularization** on a bunch of possibly censored data. The package supports the **"gaussian", "loggaussian", "logistic", "loglogistic", "weibull" and "exponential"** distributions. 
+
+A coordinate descent solver is used to estimate the interval regression models with elastic net penalties. It supports all four types of censorships i.e. **uncensored, left, right and interval censored output data.**
+
+The authors of the package are Anuj Khare and Toby Dylan Hocking. The development version of the package is maintained by Anuj Khare on [Github](https://github.com/anujkhare/iregnet)
+
+The following Vignette will describe the algorithms implemented guide you through using the package with the help of some example datasets.
+
+# Theory and Algorithms Implemented
+
+The theory behind the package has been explained in this section. To jump to the section on how to use the package, goto [Installation](#install) and then [Learning](#learning)
+
+**In Routine Survival Analysis**
+
+Survival analysis is a branch of statistics useful to estimate the lifespan of a particular object[?] in the context of a particular event. It finds various use cases in biology (determining the lifespan of organisms), engineering (reliability analysis of mechanical systems), economics (duration modelling) and sociology (event history analysis).
+
+It is also known as time to event analysis as it involves modelling of time to event data i.e. figuring out the estimated time an object[?] under study experiences an event of interest.
+
+Since many times, the objects[?] under study do not experience the event of interest (such as death of an individual due to cancer on a population group, individuals might still be alive and their lifespan is undetermined), often we end up with censored data.
+
+In survival analysis, the **survival function** is defined as the probability of surviving beyond a certain time $t$ or simply, the probability that the event of interest **has not occured at time $t$**. It is denoted as:
+$$
+S(t) = P(T>t)
+$$
+Contrarily, the **hazard function** is defined as the probabilty that the event of interest **has occured** at time $t$. It is denoted as:
+$$
+h_{T}(t) = \frac{f_{T}(t)}{S_{T}(t)}
+$$
+where $f_T(t)$ is the probability density function of survival time T and $S_T(t)$ is the survival function.
+
+Depending on the assumptions of the basline hazard distributions, the models can be categorised into 3 types:
+
+- Non parametric model : No assumptions about the baseline hazard distribtuion
+Eg:  Kaplan-Meier, Nelson-Alan etc.;
+
+- Semi-Parametric Model : Baseline hazard is not pre-determined, but required to be positive. Have an underlying assumption that the effect of covariate is to multiply hazard by some constant.
+Eg: Cox Proportional Hazard Model
+- Parametric Model : Baseline hazard assumed to vary in a specific manner with time (follow a distribution)
+Eg: Accelerated Failure Time Model
+
+**Accelerated Failure Time (AFT) Model**
+
+Since, AFT models are fully parametric, unlike the proportional hazard models, the estimates are more robust to omitted covariates.
+Let us assume two separate objects[?] namely A and B and let their survival functions be related to each other as follows
+$$
+S_B(t) = S_A(\frac{t}{\lambda})
+$$
+where, $\lambda$ is known as the accelerated failure rate and is defined as
+$$
+\lambda(x) = e^{a_0 + \sum_{i=1}^{n}b_ix_i}
+$$
+Hence we see that using the \lambda parameter, we can "stretch in" or "stretch out" the survival curves, or we "accelerate" or "decelarate" along the survival function.
+
+A standard AFT model is defined as follows:
+\begin{equation}
+	\log (Y_i) = \beta_0  + x_i^T \beta + \sigma \epsilon_i
+\end{equation}
+Where $x_i$ are the covariates, $Y_i$ is the observed time (output). $\epsilon_i ~ F$, where $F$ is the distribution function.
+
+Consider $F$ to be the logistic cdf, given as:
+\begin{equation} \label{cdf}
+F(x) = \frac{1}{1 + e^{-x}}
+\end{equation}
+
+The probability density function is given as:
+\begin{equation} \label{pdf}
+f(x) = \frac{e^{-x}}{(1 + e^{-x})^2}
+\end{equation}
+
+Survival function can be calulated from the above:
+\begin{equation} \label{survival}
+1 - F(x) = \frac{1}{1 + e^{x}}
+\end{equation}
+
+Here on, we assume that $\sigma$ is constant for each observation $i$, and is ignored, and that the covariate matrix is appended with a column of ones.
+%Define $\eta = X'\beta$ as the vector of linear predictors.
+Hence,
+
+\begin{equation}
+	\epsilon_i = \frac{\log (y_i) - (x_i^T \beta)} {\sigma}
+\end{equation}
+
+
+For interval regression with censored data, we are given time intervals $\{\underline t_i, \overline t_i\}$ and covariates $x_i$ for $i=1:n$, where $\underline t_i$ may be $-inf$
+(left censoring) and $\overline t_i$ may be $inf$ (right censoring).
+
+
+\subsection*{Likelihood}
+For calculating likelihood, in the observations with no censoring, the pdf is used, and in censored observations, the cdf is used.
+The likelihood is given as:
+
+\begin{equation}
+L(\beta) = \prod_{i=1}^n \zeta(\beta, \underline t_i, \overline t_i)
+\end{equation}
+
+where,
+\begin{equation} \label{zeta}
+\zeta_i = \zeta(\beta, \underline t_i, \overline t_i) = \begin{cases}
+													   \zeta_{i,1} = F(R_i) & \mbox{if: } -\infty \textbf{ = } \underline t_i \mbox{ , } \overline t_i<\infty \\
+													   \zeta_{i,2} = 1- F(L_i) & \mbox{if: } -\infty < \underline t_i \mbox{ , }\overline t_i\textbf{ = }\infty \\
+													   \zeta_{i,3} = F(R_i) - F(L_i) & \mbox{if: } -\infty < \underline t_i \ne \overline t_i<\infty \\
+													   \zeta_{i,4} = d(R_i) & \mbox{if: } -\infty < \underline t_i \textbf{ = } \overline t_i<\infty \\
+		\end{cases}
+\end{equation}
+
+where, $R_i = \log (\overline t_i) - \eta_i$, and $L_i = \log (\underline t_i) - \eta_i$. $\eta_i = x_i^T \beta$ is the vector of linear predictors.
+Clearly, for left censored observations, $\underline t_i = -inf$, hence we can substitute $L_i = 0$ in $\zeta_3$ to get $\zeta_2$. 
+Simlarly, for right censored observations, $\overline t_i = inf$, hence we can substitute $R_i = inf$ in $\zeta_3$ to get $\zeta_1$. \\
+
+\vspace{8mm}
+Hence the log likelihood is given as:
+
+\begin{equation} \label{lik0}
+l(\beta) = \sum_{i=1}^n \log \zeta_i = \sum_{i=1}^n \gamma_i %(\beta, \underline t_i, \overline t_i)
+\end{equation}
+
+where, $\gamma_i = \log \zeta_i$.
+
+
+\subsection*{Score}
+For now, we consider that $\underline t_i = \overline t_i$ is not possible. Hence we are left with the types of censoring. \\
+We consider the parital derivative  of $\gamma_{i,3}$ wrt to the parameters $\beta$. We can simply obtain derivatives for
+$\gamma_{i,1}$ and $\gamma_{i,2}$ by setting $L_i = 0$ and $R_i = inf$ respectively.\\
+
+We use the following:
+\begin{equation} \label{dF}
+\frac{\partial F(R_i)}{\partial \beta_j} =  -x_{ij} F(R_i)[1-F(R_i)]
+\end{equation}
+
+\begin{equation}
+\frac{\partial \gamma_{i,3}}{\partial \beta_j} = - x_{ij} \frac{ [F(R_i) (1-F(R_i)) - F(L_i)(1-F(L_i))] }{F(R_i) - F(L_i)} = x_{ij} [F(L_i) + F(R_i) - 1]
+\end{equation}
+
+Define $\mu_i = (F(L_i) + F(R_i) - 1)$, $\mu = [\mu_1, ... \mu_n]^T$. Then, partial derivative of log-likelihood is given as:
+
+\begin{equation}
+\frac{\partial l(\beta)}{\partial \beta_j} = \sum_{i=1}^n x_{ij} \mu_i
+\end{equation}
+
+Hence, the score (gradient of llikelihood) is given as:
+
+\begin{equation}
+g = \nabla_{\beta} l(\beta) = X^T \mu = \sum_{i=1}^n \mu_i \overline x_i
+\end{equation}
+
+
+\subsection*{Hessian}
+Hessian is the second derivative of loglikelihood:
+
+\begin{equation}
+H = \frac{ \partial {g(\beta)}^T}{\partial \beta} = \sum_{i=1}^n (\nabla_{\beta} \mu_i) \overline x_i^T
+\end{equation}
+
+Using \ref{dF}, we have:
+
+\begin{equation}
+\frac{ \partial \mu_i}{\partial \beta_j} = -x_{ij} [F(R_i) (1-F(R_i)) +  F(L_i) (1-F(L_i))]
+\end{equation}
+
+\begin{equation}
+\nabla_{\beta} \mu_i = -\overline x_i [F(R_i) (1-F(R_i)) + F(L_i) (1-F(L_i))]
+\end{equation}
+
+Hence, the hessian is given as:
+\begin{equation}
+H = \sum_{i=1}^n -w_i \overline x_i \overline x_i^T
+\end{equation}
+
+where, $w_i$ is given as:
+\begin{equation} \label{w_i}
+\begin{split}
+w_i & = [F(R_i) (1-F(R_i)) + F(L_i) (1-F(L_i))] \\
+	& = - \mu_i [F(R_i) - F(L_i)]
+\end{split}
+\end{equation}
+
+Define $W=diag(w_1, ... w_n)$.
+\begin{equation}
+H = - X^T W X
+\end{equation}
+
+Clearly, the hessian is negative definite. Thus, the loglikelihood is strictly convex, and a unique global
+maximum exists.
+
+
+\subsection*{IRLS}
+We use Newton's algorithm to find MLE for the AFT model, using negative loglikelihood (NLL). The Newton update is as follows:
+\begin{equation}
+\begin{split}
+\beta & = \widetilde{\beta} - H^{-1}\widetilde{g} \\ 
+ 	  & = \widetilde{\beta} - (X^T \widetilde{W} X)^{-1} X^T \widetilde{\mu} \\
+ 	  & = (X^T \widetilde{W} X)^{-1} ((X^T \widetilde{W} X) \widetilde{\beta} -  X^T \widetilde{\mu} ) \\
+ 	  & = (X^T \widetilde{W} X)^{-1} X^T (\widetilde{W} X \widetilde{\beta} -  \widetilde{\mu} ) \\
+ 	  & = (X^T \widetilde{W} X)^{-1} X^T (\widetilde{W} X \widetilde{\beta} -  \widetilde{\mu} )
+\end{split}
+\end{equation}
+
+where, define the working response $\widetilde{z} = X \widetilde{\beta} - \widetilde{W}^{-1} \widetilde{\mu}$.
+Here, the tilde denotes that the respective values are evaluated using the parameters from the previous step.
+
+Hence, at each step we are solving a weighted least squares problem, which is a minimizer of:
+
+\begin{equation}
+\sum_{i=1}^n \widetilde{w_i} (\widetilde{z_i} - \overline x_i^T \beta)^2
+\end{equation}
+
+We can rewrite $z$ as:
+\begin{equation} \label{z_i}
+\begin{split}
+\widetilde{ z_i} & = x_i^T \widetilde{ \beta} + \frac{ \widetilde{ \mu_i}} {\widetilde{ w_i}} \\
+				 & = x_i^T \widetilde{ \beta} - \frac{ 1}{F(R_i) - F(L_i)}
+\end{split}
+\end{equation}
+
+This algorithm is the iteratively reweighted least squares (IRLS), since at each iteration we solve a weighted least squares problem.
+
+
+\subsection*{Elastic net penalty and coordinate descent}
+We define the elastic net (L1 + L2) penalty as follows:
+\begin{equation} \label{objective}
+\lambda P_{\alpha}(\beta) = \lambda(\alpha \|\beta\|_1 + 1/2 (1-\alpha) \|\beta\|_2^2)
+\end{equation}
+
+Adding the elastic net (L1 + L2) penalty, we get the following penalized weighted least squares objective:
+\label{objective}
+\begin{equation} 
+M = \sum_{i=1}^n \widetilde{w_i} (\widetilde{z_i} - \overline x_i^T \beta)^2
+	 + \lambda P_{\alpha}(\beta)
+\end{equation}
+
+The subderivative of the optimization objective is given as:
+\begin{equation}
+\frac{ \partial M}{\partial \beta_k} = \sum_{i=1}^n \widetilde{w_i} x_{ik} (\widetilde{ z_i} - \overline x_i^T \beta ) + \lambda \alpha \mbox{ sgn}(\beta_k) + \lambda (1-\alpha)\beta_k
+\end{equation}
+
+where, sgn$(\beta_k)$ is 1 if $\beta_k > 1$, -1 if $\beta_k<0$ and 0 if $\beta_k = 0$.
+Using the subderivative, three cases of solutions for $\beta_k$ may be obtained. The solution is given by:
+
+\begin{equation} \label{beta}
+\hat \beta_k = \frac{S\left(-\frac{1}{n} \sum_{i=1}^n \widetilde{w_i} x_{ik} \left[\widetilde{ z_i} - \sum_{j \ne k} x_{ij} \beta_j \right], \lambda \alpha \right)}
+					{-\frac{1}{n} \sum_{i=1}^p \widetilde{w_i} x_{ik}^2 + \lambda (1- \alpha)}
+\end{equation}
+
+where, $w_i$ and $z_i$ are given in \ref{w_i} and \ref{z_i} respectively, and S is the soft thresholding operator given as:
+
+\begin{equation} \label{soft_thresh}
+S(x, \lambda) = \mbox{sgn}(x)(|x| - \lambda)_+
+\end{equation}
+
+The intercept is not regularized, and hence can be calculated as:
+\begin{equation} \label{intercept}
+\hat \beta_0 = \frac{-\frac{1}{n} \sum_{i=1}^n \widetilde{w_i} \left[\widetilde{ z_i} - \sum_{j \ne 0} x_{ij} \beta_j \right]}
+					{-\frac{1}{n} \sum_{i=1}^p \widetilde{w_i}}
+\end{equation}
+
+
+The coordinate descent algorithm works by
+cycling through each $\beta_j$ in turn, keeping the others constant, and using the above estimate to calculate the optimal value
+$\hat \beta_j$.
+
+\vspace{4mm}
+After each update cycle for $\beta$, the scale parameter $\sigma$ is updated once using a Newton step:
+\begin{equation}
+  \sigma_{new} = \sigma_{old} - \left(\frac{\partial l^2(\sigma)}{\partial \sigma ^2} \right)^{-1}
+                                \left( \frac{\partial l (\sigma)}{\partial \sigma } \right)
+\end{equation}
+
+
+This is repeated until convergence of both $\beta$ and $\sigma$. Note that we have ignored the off-diagonal entries in the Hessian for the scale parameter.
+
+
+\subsection*{Pathwise solution}
+This section is borrowed from section 2.3 of \cite{a3}.
+The iregnet function will return solutions for an entire path of vaules of $\lambda$, for a fixed $\alpha$.
+We begin with $\lambda$ sufficiently large to set the solution $\beta = 0$, and decrease $\lambda$ until we arrive
+near the unregularized solution. The solutions for each value of $\lambda$ are used as the initial
+estimates of $\beta$ for the next $\lambda$ value. This is known as warm starting, and makes the algorithm efficient and stable.
+To choose initial value of $\lambda$, we use Equation \ref{beta}, and notice that for $\frac{1}{n} \sum_{i=1}^n w_i(0) x_{ij} z(0)_i < \alpha \lambda$ for all $j$, then $\beta = 0$ minimizes the objective \ref{objective}. Thus,
+
+\begin{equation} \label{lambda}
+\lambda_{max} = max_j \frac{1}{n \alpha} \sum_{i=1}^n w_i(0) x_{ij} z(0)_i
+\end{equation}
+
+We will set $\lambda_{min} = \epsilon \lambda_{max}$ , and compute solutions over a grid of $m$ values, where $\lambda_j = \lambda_{max}(\lambda_{min} / \lambda_{max})^{j/m}$ for $j = 0, .., m$.
+
+\subsection*{Algorithm}
+The algorithm to be followed for fitting the distribution is:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+ Transform output variable $y$ using $\log$ transformation \;
+ Calculate $\lambda_{max}$ using equation \ref{lambda}, and set $\widetilde{\beta} = 0$, $\widetilde{\eta}=0$ \;
+ Calculate $\lambda_{min}$ and a grid of $m$ $\lambda$ values \;
+ \ForEach{$\lambda_j$ in $j=m, ..., 0$}{
+   \Repeat{convergence of $\hat \beta$}{
+	Compute $\widetilde{ w_i}$ and $\widetilde{ z_i}$ \;
+	Find $\hat \beta$ by solving the penalized weighted least square problem defined in equation \ref{objective} using coordinate descent \;
+	Set $\widetilde{ \beta} = \hat \beta$ \;
+   }
+   Set $\widetilde{\beta} = \hat \beta$ , $\widetilde{\eta} = X \widetilde{\beta}$ \;
+ }
+ \caption{Overall optimization algorithm}
+\end{algorithm}
+
+\subsection*{Scale parameter}
+So far, the $\sigma$ parameter has been ignored from the calculations and equations. This is only
+reasonable if we treat $\sigma$ as fixed. However, in other cases, $\sigma$ needs to estimated along with the parameters $\beta$, by using the derivatives as listed below.
+
+\subsection*{Derivatives}
+Iterations are done with respect to $\log(\sigma)$ to prevent numerical underflow.
+\begin{equation}
+\begin{split}
+\frac{\partial g_1}{\partial \eta} & = - \frac{1}{\sigma} \left [ \frac{f'(z)}{f(z)} \right ] \\
+\frac{\partial g_4}{\partial \eta} & = - \frac{1}{\sigma} \left [ \frac{f(z^u) - f(z^l)} {F(z^u) - F(z^l)} \right ] \\
+\frac{\partial^2 g_1}{\partial \eta^2} & = - \frac{1}{\sigma^2} \left [ \frac{f''(z)}{f(z)} \right ] - \left ({\partial g_1}/{\partial \eta} \right ) \\
+\frac{\partial^2 g_4}{\partial \eta^2} & = - \frac{1}{\sigma^2} \left [ \frac{f'(z^u) - f'(z^l)} {F(z^u) - F(z^l)} \right ] - \left ({\partial g_4}/{\partial \eta} \right )^2 \\
+\frac{\partial g_1}{\partial \log \sigma} & = - \left [ \frac{z f'(z)}{f(z)} \right ] \\
+\frac{\partial g_4}{\partial \log \sigma} & = - \left [ \frac{z^u f(z^u) - z^l f(z^l)} {F(z^u) - F(z^l)} \right ] \\
+\frac{\partial^2 g_1}{\partial (\log \sigma )^2} & = \left [ \frac{z^2 f''(z) + z f'(z)}{f(z)} \right ] - \left ({\partial g_1}/{\partial \log \sigma } \right )^2 \\
+\frac{\partial^2 g_4}{\partial (\log \sigma )^2} & = \left [ \frac{(z^u )^2 f'(z^u) - (z^l )^2 f'(z^l)} {F(z^u) - F(z^l)} \right ] - (\partial g_1 / \partial \log \sigma) (1 + \partial g_1 / \partial \log \sigma ) \\
+\frac{\partial^2 g_1}{\partial \eta \partial \log \sigma} & = \left [\frac{z f''(z)} {\sigma f(z)} \right ] - (\partial g_1 / \partial \eta) (1 + \partial g_1 / \partial \log \sigma ) \\
+\frac{\partial^2 g_4}{\partial \eta \partial \log \sigma} & = \left [\frac{z^u f'(z^u ) - z^l f'(z^l)} {\sigma [F(z^u) - F(z^l)]} \right ] - (\partial g_4 / \partial \eta) (1 + \partial g_4 / \partial \log \sigma ) \\
+\end{split}  		% END SPLIT
+\end{equation}
+
+Derivatives for $g_2$ can be obtained by setting $z_u$ to $\inf$ in the equations for $g_4$, and similarly for $g_3$.
+
+The distribution specific values of $f(z)$, etc. are omitted.
+
+\clearpage
+\subsection*{Subgradient of Cost}
+The cost to be minimized is the negative of the penalized, scaled log-likelihood:
+\begin{equation} \label{cost}
+  J(\beta) =  \left(-\frac{1}{n} l(\beta) + \lambda P_{\alpha}(\beta) \right)
+\end{equation}
+
+
+\begin{equation}
+  \hat \beta = argmin_{\beta} \left(-\frac{1}{n} l(\beta) + \lambda P_{\alpha}(\beta) \right)
+\end{equation}
+
+The subderivative of the cost is given as:
+\begin{equation} \label{subgrad_cost}
+\nabla_{\beta} J = -\frac{1}{n} S(\beta) + \lambda \alpha \mbox{sgn}(\beta) 
+                                       + \lambda (1-\alpha) \beta
+\end{equation}
+
+where, sgn$(\beta)$ is calculated element-wise on the vector. S is the score as given in \ref{score}.
+
+
+
+<a id="install"></a>
+
+# Installation
+
+## From Github
+The development version of **iregnet** can be obtained from github using the `devtools` package.
+
+```{r installgithub, eval=FALSE}
+devtools::install_github("anujkhare/iregnet")
+```
+
+## From CRAN
+
+The **CRAN** version can be directly downloaded using the following command.
+
+```{r installcran, eval=FALSE}
+install.packages("iregnet")
+```
+
+
+<a id="learning"></a>
+
+# Learning
+
+## Loading the library and example datasets
+
+To load the library, type the following command
+```{r loadlib}
+library(iregnet)
+```
+For the upcoming parts, we'll be using the following datasets:
+```{r loaddata, eval = FALSE}
+#For uncensored data
+data("prostate", package="ElemStatLearn")
+#For right censored data
+data("ovarian", package="survival")
+#For interval censored data
+data("penalty.learning")
+#For CV method
+data("neuroblastomaProcessed", package="penaltyLearning")
+``` 
+
+<a id="uncensored"></a>
+
+## Uncensored Data
+Iregnet can fit an AFT model on uncensored data. Following is an example of fitting the `prostate` dataset using `iregnet`
+```{r prostate}
+data("prostate", package="ElemStatLearn")
+X = as.matrix(prostate[, c(2:9)]) #Selecting columns 2 to 9 for feature matrix
+Y = prostate[,1]
+fit <- iregnet(X, Y)
+```
+The `fit` object created is of `iregnet` class wherein the $print$, $predict$, $coef$, $plot$ and $summary$ methods have been implemented. 
+
+By default the **gaussian** family is selected. Desired distribution for fitting can be selected using the `family` parameter as follows:
+```{r diffdist, eval = FALSE}
+fit <- iregnet(X, Y, family = "weibull")
+# Any one of the distributions can be selected:
+# "gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"
+```
+To analyze the coefficients, the implemented $plot$ method can be used
+```{r plotprost}
+plot(fit)
+```
+This plots the coefficients' paths against the $L1$ norm of coefficients. Each curve represented in different colours corresponds to a variable and its coefficient value as the $\lambda$ parameter (penalty coefficient for regression) is varied.
+
+Also, we see that the obtained plot corresponds to a lasso plot. By default the elastic net mixing parameter, $\alpha$ is set to 1.
+
+Elastic net regression can be performed by varying the alpha parameter as desired.
+```{r elasticplot}
+fit <- iregnet(X, Y, alpha = 0.2) #alpha = 0.2 implies kind off tending towards ridge regression
+plot(fit)
+```  
+A summary of the fit can be obtained by using the `summary` function.
+```{r "ucsummary"}
+summary(fit)
+```
+For the value of the coefficients of the variables, `coef` function can be used.
+```{r "uccoef"}
+fit_coef <- coef(fit)
+```
+The `fit_coef` object contains all the coefficient values at different $\lambda$. For trial, we can obtain the coefficient at the final $\lambda$ value (100$^{th}$ value) by selecting the 100$^{th}$ column of `fit_coef`. 
+```{r "uccoefprint"}
+fit_coef[,100]
+```
+`print` function gives [?]
+```{r "ucprint"}
+print(fit)
+```
+
+## Censored Data
+Censorship is denoted by `NA` or `Inf/-Inf` in the target matrix.
+
+`NOTE:` The input target matrix(`Y`) shouldn't be completely left censored or completely right censored as the Maximum Likelihood Estimator implemented doesn't exist in that case.
+
+Iregnet is the R first package that can handle left, right as well as interval censored data.
+Let's fit a dataset having both left and right censorships using iregnet
+```{r penaltylearn}
+data("penalty.learning")
+X = as.matrix(penalty.learning$X.mat)
+Y = as.matrix(penalty.learning$y.mat)
+head(Y)
+```
+We see that the target matrix `Y` is left and right censored
+Similar to the [uncensored data](#uncensored) example, the $print$, $predict$, $coef$, $plot$ and $summary$ methods can be used.
+```{r "plfit"}
+fit <- iregnet(X, Y)
+plot(fit)
+summary(fit)
+print(fit)
+```
+
+Iregnet also supports `Surv` objects from the `survival` package. Let's fit an interval censored target matrix as an example.
+```{r "surv", eval = FALSE}
+library(survival)
+data("ovarian")
+head("ovarian")
+X <- cbind(ovarian$ecog.ps, ovarian$rx)
+fit <- iregnet(X, Surv(ovarian$futime, ovarian$fustat))
+plot(fit)
+```
+[?]Dunno what's happening
+
+## Hyperparameter Tuning using Cross Validation
+
+Iregnet returns models evaluated with 100 \lambda values. Hence, to select which among them "best" fits our data, we need to perform cross-validation.
+A $K$-$Fold$ cross validation method has been implemented in `iregnet` to perform this very task. The following example demonstrates how to perform 5-fold CV to select the best model for the `Neuroblastoma` dataset.
+```{r "cvneuro", eval = FALSE}
+data("neuroblastomaProcessed", package = "penaltyLearning")
+X = neuroblastomaProcessed$feature.mat
+Y = neuroblastomaProcessed$target.mat
+cv_fit <- cv.iregnet(X, Y, family = "gaussian", nfolds = 5L)
+```
+`cv.iregnet` returns an object of class `cv.iregnet` which contains the result of the $K$-$Fold$ $CV$ alongwith the selected lambdas i.e. \lambda_{min} and \lambda_{1se}.
+
+
+
+## Predicting with the fit model
+
+
+# Appendix
+
+## Parameters for model building
+
+## Comparison with Other Packages
+
+# References

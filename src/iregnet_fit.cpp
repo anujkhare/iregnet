@@ -328,6 +328,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       error_status = -2;
     if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
       error_status = -3;
+      break;
       //Rcpp::stop("NANs produced");
     }
   } // end for: lambda

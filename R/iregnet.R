@@ -179,7 +179,7 @@ iregnet <- function(x, y,
 
   # y should be a matrix with 2 columns correspoding to the left and right times
   # NA or Inf/-Inf can be used for censored entries
-  stopifnot_error("y should be a 2 column matrix, or a Surv object", is.matrix(y) || survival::is.Surv(y))
+  stopifnot_error("y should be a 2 column matrix, or a Surv object", is.matrix(y) || survival::is.Surv(y) || (is.vector(y) && is.numeric(y)))
 
   status <- integer(0) # used for censoring, if y is matrix, calculated in C++ code
 
@@ -189,11 +189,11 @@ iregnet <- function(x, y,
     status <- get_status_from_surv(y)
     y <- as.matrix(y[, 1:(ncol(y)-1)])
   } else {
-    stopifnot_error("y should be a 2 column matrix", ncol(y) == 2)
-    # Check if completely left or right censored
-    check_censorship(y)
+    y <- as.matrix(y)
+    stopifnot_error("y should be a 2 column matrix", ncol(y) <= 2)
     if(ncol(y) == 1)
       y <- cbind(y, y)
+    else check_censorship(y) # Check if completely left or right censored
   }
   stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == n_obs)
 

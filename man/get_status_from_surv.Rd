@@ -13,4 +13,3 @@ get_status_from_surv(s)
 Returns the status column from a \link{Surv} object, and converts to the
 form: right censored - 0, none - 1, left - 2, interval - 3.
 }
-

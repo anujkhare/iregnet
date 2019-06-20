@@ -27,4 +27,3 @@ surrogate loss on the validation set in cross-validation
 \author{
 Toby Dylan Hocking
 }
-

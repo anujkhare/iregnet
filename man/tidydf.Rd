@@ -22,4 +22,3 @@ It can be used for producing other plots using \code{ggplot2}.
 NOTE: \code{Intercept} (if present) is \strong{not} included in the
 \code{arclength} since it is never regularized.
 }
-

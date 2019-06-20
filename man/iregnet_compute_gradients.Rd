@@ -25,4 +25,3 @@ The supported distributions are \code{gaussian},
 \code{logistic} and (least) \code{extreme value}.
 \emph{This is used for testing, and may not be useful otherwise.}
 }
-
