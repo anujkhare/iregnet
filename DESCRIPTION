@@ -1,7 +1,7 @@
 Package: iregnet
 Type: Package
 Title: Regularized interval regression
-Version: 2017.04.05
+Version: 2019.06.24
 Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
     Jelle Goeman
 Maintainer: Anuj Khare <khareanuj18@gmail.com>
@@ -14,7 +14,7 @@ Suggests:
     testthat,
     knitr,
     rmarkdown
-LinkingTo: Rcpp
+LinkingTo: Rcpp, Rcpparmadillo
 Depends:
     R (>= 2.10)
 Imports:

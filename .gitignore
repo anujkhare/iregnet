@@ -8,3 +8,5 @@ src/*.dll
 .vscode/
 iregnet.Rproj
 inst/doc
+doc
+Meta
