@@ -7,14 +7,14 @@ cache: packages
 
 r_github_packages: tdhock/penaltyLearning
 
-addons:
-  apt:
-    update: true
-    packages:
-      - libgs-dev
-      - qpdf
-      - ghostscript
+# addons:
+#   apt:
+#     update: true
+#     packages:
+#       - libgs-dev
+#       - qpdf
+#       - ghostscript
   
-script:
-  - R CMD build . --compact-vignettes=gs+qpdf
-  - R CMD check *tar.gz --as-cran
+# script:
+#   - R CMD build . --compact-vignettes=gs+qpdf
+#   - R CMD check *tar.gz --as-cran
