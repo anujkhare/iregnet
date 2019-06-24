@@ -324,12 +324,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* Check for errors */
     if (n_iters[m] == max_iter)
       error_status = -1;
-    if (std::isinf(out_loglik[m]))
-      error_status = -2;
     if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
       error_status = -3;
       break;
-      //Rcpp::stop("NANs produced");
     }
   } // end for: lambda
 
@@ -408,8 +405,6 @@ get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
   for (ull i = 0; i < y.nrow(); ++i) {
-    if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
-    if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
     y_l = y(i, 0); y_r = y(i ,1);
     if (y_l == Rcpp::NA) {
       if (y_r == Rcpp::NA)

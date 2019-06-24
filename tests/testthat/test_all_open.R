@@ -1,6 +1,7 @@
 library(testthat)
 context("all open intervals\n")
 library(iregnet)
+library(ggplot2)
 library(penaltyLearning)
 
 set.seed(1)
@@ -65,8 +66,8 @@ if(require(penaltyLearning)){
       target.mat, family="gaussian"))
     expect_is(fit, "iregnet")
     df <- tidydf(fit)
-    #ggplot()+
-     # geom_point(aes(-log(lambda), weight, color=variable), data=df)
+    ggplot()+
+      geom_point(aes(-log(lambda), weight, color=variable), data=df)
   })
 
   test_that("valid model for all features in neuroblastoma data", {

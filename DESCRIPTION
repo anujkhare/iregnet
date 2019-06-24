@@ -14,7 +14,7 @@ Suggests:
     testthat,
     knitr,
     rmarkdown
-LinkingTo: Rcpp, Rcpparmadillo
+LinkingTo: Rcpp
 Depends:
     R (>= 2.10)
 Imports:

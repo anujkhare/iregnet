@@ -59,11 +59,28 @@ transformed_distributions <- list(
 #' Check if the target matrix is either completely left censored or completely 
 #' right censored and print an error message accordingly.
 #'
-#' @param y The input feature matrix.
+#' @param y The input target matrix.
 check_censorship <- function(y)
 {
-  if(all(is.na(y[,1])) || all(is.infinite(y[,1])) && !survival::is.Surv(y))
+  if(all(is.na(y[,1])))
     stop("Target matrix completely left censored. Try adding more data")
-  else if(all(is.na(y[,2])) || all(is.infinite(y[,2])) && !survival::is.Surv(y))
+  else if(all(is.na(y[,2])))
     stop("Target matrix completely right censored. Try adding more data")
+}
+
+#' @title Check if completely left or right censored for a Surv object
+#'
+#' @description
+#' Check if the target matrix is either completely left censored or completely 
+#' right censored and print an error message accordingly for a Surv target matrix.
+#'
+#' @param y The input target Surv object.
+check_surv_censorship <- function(status)
+{
+  if(dim(table(status)) == 1){
+    if(status[1] == 0)
+      stop("Target Surv object completely right censored. Try adding more data")
+    else if(status[1] == 2)
+      stop("Target Surv object completely left censored. Try adding more data")
+  }
 }
