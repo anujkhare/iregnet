@@ -13,6 +13,7 @@
 
 \item{type}{min or 1sd}
 
+\item{...}{further parameters}
 }
 \value{
 predicted values

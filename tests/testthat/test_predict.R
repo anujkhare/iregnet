@@ -11,8 +11,9 @@ test_that("predict.iregnet returns expected results", {
   expect_error(predict(fit_i, newx, 1e11), "Lambda values must be those used in fit")
   expect_error(predict(fit_i, cbind(newx, newx)),"features missing but needed for prediction: ")
 
-  # inds <- c(2, 10, 30, 40)
-  # pred_i <- predict(fit_i, newx, fit_i$lambda[inds], type="response")
-  # newx <- cbind2(1, newx)
-  # expect_equal(pred_i, newx %*% fit_i$beta[, inds])
+  colnames(newx) <- paste('x', 1: ncol(newx), sep='')
+  inds <- c(2, 10, 30, 40)
+  pred_i <- predict(fit_i, newx, fit_i$lambda[inds], type="response")
+  newx <- cbind2(1, newx)
+  expect_equal(pred_i, newx %*% fit_i$beta[, inds])
 });

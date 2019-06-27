@@ -80,8 +80,6 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
 cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
-  library(data.table)
-  library(foreach)
   if(missing(foldid)){
     if(missing(nfolds)){
       nfolds <- 10L
@@ -136,7 +134,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   sd.mat <- apply(fold.array, c(1,2), sd)
   stats.df.list <- list()
   for(set.name in c("train", "validation")){
-    stats.df.list[[set.name]] <- data.table(
+    stats.df.list[[set.name]] <- data.table::data.table(
       set.name,
       lambda=big.fit$lambda,
       mean=mean.mat[, set.name],
@@ -148,7 +146,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     validation.fold <- validation.fold.vec[[fold.i]]
     one.fold.mat <- fold.mat.list[[fold.i]]
     for(set.name in c("train", "validation")){
-      lik.df.list[[paste(fold.i, set.name)]] <- data.table(
+      lik.df.list[[paste(fold.i, set.name)]] <- data.table::data.table(
         validation.fold,
         set.name,
         lambda=big.fit$lambda,
@@ -161,13 +159,13 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   is.within <- mean.mat[, "validation"] < min.upper
   i.1sd <- which(is.within)[1]
   big.fit$selected <- c(min=as.integer(i.min), "1sd"=as.integer(i.1sd))
-  selected.df <- data.table(
+  selected.df <- data.table::data.table(
     set.name="validation",
     type=names(big.fit$selected),
     lambda=big.fit$lambda[big.fit$selected],
     neg.loglik=mean.mat[big.fit$selected, "validation"])
   not.intercept <- big.fit$beta[-1,]
-  nonzero.df <- data.table(
+  nonzero.df <- data.table::data.table(
     arclength=colSums(abs(not.intercept)),
     lambda=big.fit$lambda,
     nonzero=colSums(not.intercept != 0))

@@ -8,7 +8,7 @@ test_that("Output y is validated properly", {
   y_r <- ovarian$futime
   y_r[ovarian$fustat == 0] <- NA
 
-  #expect_error(iregnet(x, 10), "nrow(y) = nrow(x) is not true")
+  expect_error(iregnet(x, 10), "nrow(y)*")
   
   # 2 column matrix
   expect_error(iregnet(x, cbind(y_l, y_r-1)), "Invalid interval*")
