@@ -61,4 +61,3 @@ specified.}
 on it's own!} Please use the \code{\link{iregnet}} function which includes
 data validation and pre-processing.
 }
-

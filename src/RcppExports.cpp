@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 // compute_densities
 Rcpp::NumericVector compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family);
-RcppExport SEXP iregnet_compute_densities(SEXP zSEXP, SEXP jSEXP, SEXP familySEXP) {
+RcppExport SEXP _iregnet_compute_densities(SEXP zSEXP, SEXP jSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -20,7 +20,7 @@ END_RCPP
 }
 // iregnet_compute_gradients
 Rcpp::List iregnet_compute_gradients(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::NumericVector eta, double scale, Rcpp::String family);
-RcppExport SEXP iregnet_iregnet_compute_gradients(SEXP XSEXP, SEXP ySEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP familySEXP) {
+RcppExport SEXP _iregnet_iregnet_compute_gradients(SEXP XSEXP, SEXP ySEXP, SEXP etaSEXP, SEXP scaleSEXP, SEXP familySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -35,7 +35,7 @@ END_RCPP
 }
 // fit_cpp
 Rcpp::List fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y, Rcpp::String family, Rcpp::NumericVector lambda_path, int debug, Rcpp::IntegerVector out_status, bool intercept, double alpha, double scale_init, bool estimate_scale, bool unreg_sol, bool flag_standardize_x, double max_iter, double threshold, int num_lambda, double eps_lambda);
-RcppExport SEXP iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP lambda_pathSEXP, SEXP debugSEXP, SEXP out_statusSEXP, SEXP interceptSEXP, SEXP alphaSEXP, SEXP scale_initSEXP, SEXP estimate_scaleSEXP, SEXP unreg_solSEXP, SEXP flag_standardize_xSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP) {
+RcppExport SEXP _iregnet_fit_cpp(SEXP XSEXP, SEXP ySEXP, SEXP familySEXP, SEXP lambda_pathSEXP, SEXP debugSEXP, SEXP out_statusSEXP, SEXP interceptSEXP, SEXP alphaSEXP, SEXP scale_initSEXP, SEXP estimate_scaleSEXP, SEXP unreg_solSEXP, SEXP flag_standardize_xSEXP, SEXP max_iterSEXP, SEXP thresholdSEXP, SEXP num_lambdaSEXP, SEXP eps_lambdaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -61,9 +61,9 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"iregnet_compute_densities", (DL_FUNC) &iregnet_compute_densities, 3},
-    {"iregnet_iregnet_compute_gradients", (DL_FUNC) &iregnet_iregnet_compute_gradients, 5},
-    {"iregnet_fit_cpp", (DL_FUNC) &iregnet_fit_cpp, 16},
+    {"_iregnet_compute_densities", (DL_FUNC) &_iregnet_compute_densities, 3},
+    {"_iregnet_iregnet_compute_gradients", (DL_FUNC) &_iregnet_iregnet_compute_gradients, 5},
+    {"_iregnet_fit_cpp", (DL_FUNC) &_iregnet_fit_cpp, 16},
     {NULL, NULL, 0}
 };
 

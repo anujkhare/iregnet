@@ -1,8 +1,26 @@
 library(testthat)
 library(iregnet)
+library(penaltyLearning)
 context("\npenalty learning data set")
 
 data(penalty.learning)
+
+full.fit <- with(penalty.learning, iregnet(
+  X.mat, y.mat,
+  unreg_sol=FALSE,
+  standardize=TRUE,
+  maxiter=1e5))
+
+l1.norm.vec <- colSums(abs(full.fit$beta[-1,]))
+test_that("only one model should have L1 arclength 0", {
+  n.zero <- sum(l1.norm.vec == 0)
+  expect_equal(n.zero, 1)
+})
+
+test_that("no lambda=0 when unreg_sol=FALSE", {
+  n.lambda.zero <- sum(full.fit$lambda==0)
+  expect_equal(n.lambda.zero, 0)
+})
 
 chrom.vec <- sub(":.*", "", rownames(penalty.learning$X.mat))
 table(chrom.vec)
@@ -14,10 +32,20 @@ X.train <- penalty.learning$X.mat[sets$train,]
 y.train <- penalty.learning$y.mat[sets$train,]
 fit <- iregnet(
   X.train, y.train,
+  lambda=full.fit$lambda,
   unreg_sol=FALSE,
   standardize=TRUE,
   debug=1,
   maxiter=1e5)
+
+test_that("lambda same in fits to full and train data", {
+  expect_equal(full.fit$lambda, fit$lambda)
+})
+
+test_that("no lambda=0 in fit to train data", {
+  n.lambda.zero <- sum(fit$lambda==0)
+  expect_equal(n.lambda.zero, 0)
+})
 
 if(FALSE){
   conv.txt <- "
@@ -204,12 +232,6 @@ test_that("predict function same as matrix multiplication when standardize=TRUE"
   expect_equal(cbind(1, X.train) %*% fit$beta, predict(fit, X.train))
 })
 
-l1.norm.vec <- colSums(abs(fit$beta[-1,]))
-test_that("only one model should have L1 arclength 0", {
-  n.zero <- sum(l1.norm.vec == 0)
-  expect_equal(n.zero, 1)
-})
-
 pred.loglik <- function(pred.mean, pred.scale, target.mat){
   stopifnot(identical(ncol(target.mat), 2L))
   n.obs <- nrow(target.mat)
@@ -271,7 +293,7 @@ if(interactive()){
     ggtitle("iregnet on penalty.learning data set")+
     ylab("")+
     theme_bw()+
-    theme(panel.margin=grid::unit(0, "lines"))+
+    theme(panel.spacing=grid::unit(0, "lines"))+
     facet_grid(metric ~ ., scales="free")+
     geom_path(aes(-log(lambda), surrogate.loss, color=set.name, group=set.name),
               data=data.frame(set.error, metric="surrogate loss"))+
@@ -306,6 +328,7 @@ dimnames(X.scaled) <- dimnames(X.unscaled)
 ufit <- iregnet(
   X.scaled, y.train,
   ## scale_init=1, estimate_scale=FALSE,
+  lambda=full.fit$lambda,
   unreg_sol=FALSE,
   standardize=FALSE,
   debug=1,

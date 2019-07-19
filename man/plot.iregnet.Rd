@@ -4,7 +4,8 @@
 \alias{plot.iregnet}
 \title{Plot the path of the variables of iregnet fit}
 \usage{
-\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE, ...)
+\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE,
+  ...)
 }
 \arguments{
 \item{x}{The S3 object of type \code{iregnet} returned by the \code{iregnet}
@@ -20,6 +21,9 @@ are plotted along with the curves.}
 
 \item{...}{Other parameters. Currently unused.}
 }
+\value{
+object of class "ggplot"
+}
 \description{
 Produces a coefficient profile plot of the coefficient paths for a fitted
 "iregnet" object.
@@ -31,4 +35,3 @@ It can be directly used to produce other plots.
 \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 since it is never regularized. It is also not plotted.
 }
-

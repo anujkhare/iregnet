@@ -15,4 +15,3 @@ first \code{n} models will be printed.}
 \description{
 Prints a summary of the results of the
 }
-

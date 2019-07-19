@@ -14,4 +14,3 @@ stopifnot_error(err_message, ...)
 \description{
 Like \code{stopifnot}, but with a custom error message.
 }
-

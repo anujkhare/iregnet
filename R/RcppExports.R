@@ -20,7 +20,7 @@
 #' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
 #' (least) \code{extreme value} distributions are supported.
 compute_densities <- function(z, j, family) {
-    .Call('iregnet_compute_densities', PACKAGE = 'iregnet', z, j, family)
+    .Call('_iregnet_compute_densities', PACKAGE = 'iregnet', z, j, family)
 }
 
 #' @title Compute the gradients of the log Likelihood wrt beta, and scale
@@ -39,7 +39,7 @@ compute_densities <- function(z, j, family) {
 #' @param family The distribution of the data. \code{Guassian}, \code{logistic} and
 #' (least) \code{extreme value} distributions are supported.
 iregnet_compute_gradients <- function(X, y, eta, scale, family) {
-    .Call('iregnet_iregnet_compute_gradients', PACKAGE = 'iregnet', X, y, eta, scale, family)
+    .Call('_iregnet_iregnet_compute_gradients', PACKAGE = 'iregnet', X, y, eta, scale, family)
 }
 
 #' @title C++ function to fit interval censored models with elastic net
@@ -81,6 +81,6 @@ iregnet_compute_gradients <- function(X, y, eta, scale, family) {
 #'     specified.
 #'
 fit_cpp <- function(X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda) {
-    .Call('iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda)
+    .Call('_iregnet_fit_cpp', PACKAGE = 'iregnet', X, y, family, lambda_path, debug, out_status, intercept, alpha, scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter, threshold, num_lambda, eps_lambda)
 }
 

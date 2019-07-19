@@ -14,7 +14,7 @@
 #'
 #' @param label If \code{TRUE}, coefficient names / variable sequence numbers
 #' are plotted along with the curves.
-#'
+#' @export
 #' @param ... Other parameters. Currently unused.
 #'
 #' @details
@@ -23,6 +23,8 @@
 #' It can be directly used to produce other plots.
 #' \code{Intercept} (if present) is \strong{not} included in the \code{arclength}
 #' since it is never regularized. It is also not plotted.
+#'
+#' @return object of class "ggplot"
 #'
 #' @method plot iregnet
 plot.iregnet <- function(x, xvar=c("norm", "lambda"), label=TRUE, ...) {

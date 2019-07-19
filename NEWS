@@ -1,9 +1,15 @@
 TODOs
 
-vignette with speed/accuracy comparisons (fista, glmnet).
+vignette with speed comparisons (fista, glmnet), and maybe accuracy
+(in terms of cost function values).
 
-sub-differential or duality gap stopping criteria (instead of absolute
-change in variables)
+2017.04.05
+
+Allow Ctrl-C to interrupt coordinate descent.
+
+roxygen2 used to generate NAMESPACE.
+
+cv.iregnet with methods: plot
 
 2016.11.02
 

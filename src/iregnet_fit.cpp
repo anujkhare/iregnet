@@ -6,6 +6,7 @@
  * We use 2 spaces per tab, and expand the tabs
  */
 #include "iregnet.h"
+#include <R_ext/Utils.h>
 
 #define BIG 1e35
 
@@ -100,6 +101,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
                                // NOTE: This transformation is done before coming to this routine
   double scale;
+  bool flag_lambda_given = (lambda_path.size() > 0);
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
@@ -110,7 +112,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   // get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
 
   /* Create output variables */
-  if (lambda_path.size() > 0) {
+  if (flag_lambda_given) {
     num_lambda = lambda_path.size();
   }
   Rcpp::NumericMatrix out_beta(n_vars, num_lambda + 1);       // will contain the entire series of solutions
@@ -120,7 +122,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericVector out_loglik(num_lambda + 1);
 
   /* use given values for the lambda path */
-  if (lambda_path.size() > 0) {
+  if (flag_lambda_given) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
       if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
@@ -209,10 +211,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double old_scale;
   double lambda_max_unscaled;
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
+  // There is an extra lambda for initial_fit if we calculate them.
+  int end_ind = num_lambda + !flag_lambda_given - 1;
 
-  for (int m = 0; m < num_lambda + 1; ++m) {
+  for (int m = 0; m <= end_ind; ++m) {
     /* Compute the lambda path */
-    if (lambda_path.size() == 0) {
+    if (!flag_lambda_given) {
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
       if (m == 0) {
@@ -224,7 +228,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
 
       /* Last solution should be unregularized if the flag is set */
-      } else if (m == num_lambda && unreg_sol == true)
+      } else if (m == end_ind && unreg_sol == true)
         lambda_seq[m] = 0;
 
       /* All other lambda calculated */
@@ -245,18 +249,22 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* CYCLIC COORDINATE DESCENT: Repeat until convergence of beta */
     n_iters[m] = 0;
     do {                                  // until Convergence of beta
-
+      R_CheckUserInterrupt(); // Ctrl-C to interrupt.
+      
       n_iters[m]++;
 
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
 
       // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
+      // ***Vectorize
       loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
+        // ***Equation 18
+        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
@@ -272,7 +280,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
 
-        } else {
+        } else { // ***Eqn 19
           beta_new = soft_threshold(sol_num, lambda_seq[m] * alpha) /
                      (sol_denom + lambda_seq[m] * (1 - alpha));
         }
@@ -287,7 +295,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
         // if (debug==1 && m == 1)
         //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
-
+        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
           // if (debug==1 && m==0) {
@@ -301,12 +309,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         log_scale += scale_update; scale = exp(log_scale);
 
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
-	double abs_change = fabs(scale - old_scale);
-        if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
-	  if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
-          flag_beta_converged = 0;
+	        double abs_change = fabs(scale - old_scale);
+          if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
+	          if(debug==1 && max_iter==n_iters[m])printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
+              flag_beta_converged = 0;
         }
       }
+      // flag_beta_converged = 1 then converged
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
 
     out_loglik[m] = loglik;
@@ -315,16 +324,19 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     /* Check for errors */
     if (n_iters[m] == max_iter)
       error_status = -1;
-    if (std::isinf(out_loglik[m]))
-      error_status = -3;
     if (std::isnan(out_loglik[m])) {  // Fatal error: If NaNs are produced something is wrong.
-      error_status = 1;
-      Rcpp::stop("NANs produced");
+      error_status = -3;
+      break;
     }
   } // end for: lambda
 
+  if(error_status == -1)
+    Rcpp::warning("Ran out of iterations and failed to converge.");
+  if(error_status == -3)
+   Rcpp::warning("Failed to converge. Try again after adding more data.");
+
   /* Scale the coefs back to the original scale */
-  for (ull m = 0; m < num_lambda + 1; ++m) {
+  for (ull m = 0; m <= end_ind; ++m) {
     //if (transformed_dist == IREG_DIST_LOGISTIC)
       out_beta(0, m) += mean_y;     // intercept will contain the contribution of mean_y
 
@@ -347,12 +359,13 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (out_status == Rcpp::NA) // we would've allocated a new vector in this case
     delete [] status;
 
-  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(1,num_lambda)),
-                            Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(1,num_lambda)],
+  int start_ind = !flag_lambda_given;
+  return Rcpp::List::create(Rcpp::Named("beta")         = out_beta(Rcpp::_, Rcpp::Range(start_ind ,end_ind)),
+                            Rcpp::Named("lambda")       = out_lambda[Rcpp::Range(start_ind ,end_ind)],
                             Rcpp::Named("num_lambda")   = num_lambda,
-                            Rcpp::Named("n_iters")      = out_n_iters[Rcpp::Range(1,num_lambda)],
-                            Rcpp::Named("loglik")       = out_loglik[Rcpp::Range(1,num_lambda)],
-                            Rcpp::Named("scale")        = out_scale[Rcpp::Range(1,num_lambda)],
+                            Rcpp::Named("n_iters")      = out_n_iters[Rcpp::Range(start_ind ,end_ind)],
+                            Rcpp::Named("loglik")       = out_loglik[Rcpp::Range(start_ind ,end_ind)],
+                            Rcpp::Named("scale")        = out_scale[Rcpp::Range(start_ind ,end_ind)],
                             Rcpp::Named("estimate_scale") = estimate_scale,
                             Rcpp::Named("scale_init")   = scale_init,
                             Rcpp::Named("error_status") = error_status
@@ -392,10 +405,7 @@ get_censoring_types (Rcpp::NumericMatrix &y, IREG_CENSORING *status)
 {
   double y_l, y_r;
   for (ull i = 0; i < y.nrow(); ++i) {
-    if (std::isinf(fabs(y(i, 0)))) y(i, 0) = NAN;
-    if (std::isinf(fabs(y(i, 1)))) y(i, 1) = NAN;
     y_l = y(i, 0); y_r = y(i ,1);
-
     if (y_l == Rcpp::NA) {
       if (y_r == Rcpp::NA)
         Rcpp::stop("Invalid interval: both limits NA");

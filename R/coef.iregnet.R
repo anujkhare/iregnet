@@ -1,5 +1,5 @@
 #' Extract model coefficients from iregnet object
-#'
+#' @export
 #' @description
 #' Returns the model coefficients for the fit \link{iregnet} object. One model
 #' is fit for each lambda value in \code{object$lambda}. Each of these is

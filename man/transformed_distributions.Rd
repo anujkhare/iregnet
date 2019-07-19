@@ -20,4 +20,3 @@ The list contains the transformation \code{trans}, the base distribution
 internally to fit such distributions.
 }
 \keyword{datasets}
-

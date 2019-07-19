@@ -1,5 +1,7 @@
 context("\nAll zero first model")
 library(iregnet)
+library(survival)
+library(testthat)
 
 source('get_xy.R')
 
@@ -45,3 +47,4 @@ test_that("exact: first solution is intercept only, rest are not", {
   test_zeros(xy$x, xy$surv, "loglogistic")
   test_zeros(xy$x, xy$surv, "exponential")
 })
+
