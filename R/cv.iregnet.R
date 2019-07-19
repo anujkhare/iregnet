@@ -1,6 +1,7 @@
 distribution.fun.suffixes <- c(
   gaussian="norm",
   logistic="logis",
+  weibull="weibull",
   exponential="exponential")
 dexponential <- function(x, m, s, log){
   dexp(x, m, log)
@@ -95,6 +96,11 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
       "foldid should be an integer vector of length nrow(x)",
       is.integer(foldid), length(foldid) == nrow(x))
   }
+  
+  if(length(colnames(X)) == 0){
+    colnames(X) <- paste('x', 1: ncol(X), sep='')
+  }
+  
   big.fit <- iregnet(x, y, family=family, unreg_sol=FALSE, ...)
   validation.fold.vec <- unique(foldid)
   fold.mat.list <- foreach(validation.fold=validation.fold.vec) %dopar% {
