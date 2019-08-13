@@ -153,7 +153,7 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
-                    maxiter=1e3, threshold=1e-4, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
+                    maxiter=2*1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
@@ -164,18 +164,10 @@ iregnet <- function(x, y,
   stopifnot_error("unreg_sol must be a boolean flag", is.logical(unreg_sol))
   stopifnot_error("estimate_scale must be a boolean flag", is.logical(estimate_scale))
   stopifnot_error("threshold must be positive", threshold > 0)
-
-  # if (estimate_scale == FALSE && is.na(scale_init))
-  #   stop("Value of scale required if scale is not estimated")
-
-  # family should be one of those listed
-  family <- match.arg(family)
-
-  # TODO: NAs in x? should be numeric
+  if (estimate_scale == FALSE && is.na(scale_init))
+    stop("Value of scale required if scale is not estimated")
+  family <- match.arg(family) # family should be one of those listed
   stopifnot_error("x should be a matrix with 2 or more columns", is.matrix(x), ncol(x) > 1)
-
-  n_obs  <- nrow(x)
-  n_vars <- ncol(x)
 
   # y should be a matrix with 2 columns correspoding to the left and right times
   # NA or Inf/-Inf can be used for censored entries
@@ -197,7 +189,7 @@ iregnet <- function(x, y,
       check_censorship(y) # Check if completely left or right censored
     }
   }
-  stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == n_obs)
+  stopifnot_error("nrow(y) = nrow(x) is not true", nrow(y) == nrow(x))
 
   temp <- y[0]; y[0] <- 1; y[0] <- temp # FIXME: We need deep copy of y, otherwise C++ modifies it
   stopifnot_error("y should be positive for the given family",
@@ -224,20 +216,21 @@ iregnet <- function(x, y,
   # Get column names
   varnames <- colnames(x.filtered)
   if (is.null(varnames)) {
-    varnames <- paste('x', 1: n_vars, sep='')
+    varnames <- paste('x', 1: ncol(x), sep='')
   }
 
   # Append col of 1's for the intercept
   if (intercept) {
-    x.train <- cbind(rep(1, n_obs), x.filtered)
+    x.train <- cbind(rep(1, nrow(x)), x.filtered)
     varnames <- c("(Intercept)", varnames)
   }else{
     x.train <- x.filtered
   }
 
   if (is.na(eps_lambda))
-    eps_lambda <- ifelse(n_obs < n_vars, 0.01, 0.0001)
+    eps_lambda <- ifelse(nrow(x) < ncol(x), 0.01, 0.0001)
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
+  
   # Call the actual fit method
   fit <- fit_cpp(
     x.train, y, family, alpha,

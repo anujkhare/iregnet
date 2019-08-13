@@ -8,6 +8,8 @@ dexponential <- function(x, m, s, log){
 pexponential <- function(x, m, s){
   pexp(x, m)
 }
+
+
 paste0get <- function(suffix, prefix){
   get(paste0(prefix, suffix))
 }
@@ -95,9 +97,22 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
       "foldid should be an integer vector of length nrow(x)",
       is.integer(foldid), length(foldid) == nrow(x))
   }
+
+  # If no column names are given
+  if(!length(colnames(x))){
+    colnames(x) <- paste('x', 1: ncol(x), sep='')
+  }
+
   big.fit <- iregnet(x, y, family=family, unreg_sol=FALSE, ...)
   validation.fold.vec <- unique(foldid)
-  fold.mat.list <- foreach(validation.fold=validation.fold.vec) %dopar% {
+  
+  LAPPLY <- if(requireNamespace("future.apply")){
+    future.apply::future_lapply
+  }else{
+    lapply
+  }  
+
+  fold.mat.list <- LAPPLY(validation.fold.vec, function(validation.fold){
     is.validation <- foldid == validation.fold
     is.train <- !is.validation
     x.train <- x[is.train,]
@@ -122,7 +137,9 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
       one.fold.mat[, set.name] <- -colMeans(loglik[is.set, ])
     }
     one.fold.mat
-  }
+  })
+
+  
   fold.array <- array(
     unlist(fold.mat.list),
     c(length(big.fit$lambda), 2, nfolds),

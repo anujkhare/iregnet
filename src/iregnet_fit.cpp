@@ -122,6 +122,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   Rcpp::NumericVector out_loglik(num_lambda + 1);
 
   /* use given values for the lambda path */
+
+  // Move to R : Error checking
   if (flag_lambda_given) {
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
@@ -209,7 +211,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double sol_num, sol_denom;
   double beta_new;
   double old_scale;
-  double lambda_max_unscaled;
+  double lambda_max_unscaled; // Check use
   double eps_ratio = std::pow(eps_lambda, 1.0 / (num_lambda-1));
   // There is an extra lambda for initial_fit if we calculate them.
   int end_ind = num_lambda + !flag_lambda_given - 1;
@@ -219,17 +221,20 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     if (!flag_lambda_given) {
 
       /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
-      if (m == 0) {
+      if (m == 0) 
         lambda_max_unscaled = lambda_seq[0] = BIG;
-      }
+      
 
       /* Calculate lambda_max using intial scale fit */
-      if (m == 1) {
+      else if (m == 1) 
         lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
 
       /* Last solution should be unregularized if the flag is set */
-      } else if (m == end_ind && unreg_sol == true)
+       
+      
+      else if (m == end_ind && unreg_sol == true)
         lambda_seq[m] = 0;
+
 
       /* All other lambda calculated */
       else if (m > 1) {

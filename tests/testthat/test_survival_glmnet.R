@@ -13,10 +13,12 @@ test_that("survival::ovarian data: iregnet calculates correct coefficients wrt s
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
-  fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat), family="gaussian", alpha=1, intercept = T, threshold=1e-4)
+  fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat),
+                   family="gaussian", alpha=1, intercept = T, threshold=1e-09)
 
   expect_equal(fit_s$coefficients,
-               fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+               fit_i$beta[, fit_i$num_lambda], tolerance = 1e-9)
+  expect_equal(fit_i$error_status, 0)
 })
 
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
