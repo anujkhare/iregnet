@@ -27,7 +27,8 @@ Imports:
     data.table,
     Matrix,
     namedCapture,
-    penaltyLearning
+    penaltyLearning,
+    SpatialExtremes
 RoxygenNote: 6.1.1
 Remotes: tdhock/penaltyLearning
 VignetteBuilder: knitr

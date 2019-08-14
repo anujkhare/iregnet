@@ -153,7 +153,7 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
-                    maxiter=2*1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
+                    maxiter=1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
@@ -228,9 +228,9 @@ iregnet <- function(x, y,
   }
 
   if (is.na(eps_lambda))
-    eps_lambda <- ifelse(nrow(x) < ncol(x), 0.01, 0.0001)
+    eps_lambda <- ifelse(nrow(x) < ncol(x), 0.05, 0.0001)
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
-  
+  cat(lambda)
   # Call the actual fit method
   fit <- fit_cpp(
     x.train, y, family, alpha,
