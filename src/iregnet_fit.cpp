@@ -104,8 +104,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                // Eg- orig_dist = "loglogistic", transformed_dist="logistic", with transform_y=log
                                // NOTE: This transformation is done before coming to this routine
   double scale;
-  std::cout<<"\nLambda flag:"<<lambda_path.size();
   bool flag_lambda_given = (lambda_path.size() > 0);
+  std::cout<<"\nLambda flag:"<<flag_lambda_given;
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
@@ -136,6 +136,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   /* Create output variables */
   if (flag_lambda_given) {
     num_lambda = lambda_path.size();
+    std::cout<<"\n     num_lambda = "<<num_lambda;
   }
   Rcpp::NumericMatrix out_beta(n_vars, num_lambda + 1);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda + 1);
@@ -157,10 +158,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       out_lambda[i] = lambda_path[i];
     }
   }
-  else{
-    double lambda_max = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
-    out_lambda = calc_lambda_path(out_lambda, eps_lambda, lambda_max, num_lambda, end_ind);
-  }
+  // else{
+  //   double lambda_max = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
+  //   out_lambda = calc_lambda_path(out_lambda, eps_lambda, lambda_max, num_lambda, end_ind);
+  // }
 
   double *beta;                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
@@ -230,29 +231,29 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 
   for (int m = 0; m <= end_ind; ++m) {
     /* Compute the lambda path */
-    // if (!flag_lambda_given) {
+    if (!flag_lambda_given) {
 
-    //   /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
-    //   if (m == 0) 
-    //     lambda_max_unscaled = lambda_seq[0] = BIG;
+      /* Do an initial fit with lambda set to BIG, will fit scale and intercept if applicable */
+      if (m == 0) 
+        lambda_max_unscaled = lambda_seq[0] = BIG;
       
 
-    //   /* Calculate lambda_max using intial scale fit */
-    //   else if (m == 1) 
-    //     lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
+      /* Calculate lambda_max using intial scale fit */
+      else if (m == 1) 
+        lambda_seq[m] = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
 
-    //   /* Last solution should be unregularized if the flag is set */
+      /* Last solution should be unregularized if the flag is set */
        
       
-    //   else if (m == end_ind && unreg_sol == true)
-    //     lambda_seq[m] = 0;
+      else if (m == end_ind && unreg_sol == true)
+        lambda_seq[m] = 0;
 
 
-    //   /* All other lambda calculated */
-    //   else if (m > 1) {
-    //     lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
-    //   }
-    // }
+      /* All other lambda calculated */
+      else if (m > 1) {
+        lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
+      }
+    }
 
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
