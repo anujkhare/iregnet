@@ -7,7 +7,7 @@
 check_censorship(y)
 }
 \arguments{
-\item{y}{The input feature matrix.}
+\item{y}{The input target matrix.}
 }
 \description{
 Check if the target matrix is either completely left censored or completely 

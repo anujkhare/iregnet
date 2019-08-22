@@ -2,9 +2,9 @@ library(testthat)
 context("NAN")
 library(iregnet)
 require(data.table)
-data("neuroblastomaProcessed")
+data("neuroblastomaProcessed", package = "penaltyLearning")
 data(realNAN)
-set.seed(1)
+
 
 ## No problem here:
 fit <- cv.iregnet(
@@ -19,7 +19,7 @@ fit <- cv.iregnet(
 
 #Custom data which works fine
 test_that("Produces failed to converge warning",{
-  set.seed(125)
+  set.seed(3)
   
   x <- matrix(rnorm(25), 5, 5)
   y <- rbind(

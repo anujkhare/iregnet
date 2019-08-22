@@ -9,7 +9,7 @@ source('get_xy.R')
 std <- F
 
 test_that("survival::ovarian data: iregnet calculates correct coefficients wrt survival", {
-  data("ovarian")
+  data("ovarian", package = "survival")
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")

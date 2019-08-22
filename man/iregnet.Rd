@@ -6,10 +6,10 @@
 \usage{
 iregnet(x, y, family = c("gaussian", "logistic", "loggaussian",
   "loglogistic", "extreme_value", "exponential", "weibull"), alpha = 1,
-  lambda = double(0), num_lambda = 100, intercept = TRUE,
+  lambda = NULL, num_lambda = 100, intercept = TRUE,
   standardize = TRUE, scale_init = NA, estimate_scale = TRUE,
-  maxiter = 1000, threshold = 1e-04, unreg_sol = TRUE,
-  eps_lambda = NA, debug = 0)
+  maxiter = 1000, threshold = 0.001, unreg_sol = TRUE,
+  eps_lambda = NA, debug = 1)
 }
 \arguments{
 \item{x}{Input matrix of covariates with dimension n_obs * n_vars, with

@@ -42,12 +42,14 @@ predict.iregnet <- function(object, newx, lambda=NULL, type=c("link", "response"
   has.feature <- feature.name.vec %in% colnames(newx)
   feature.not.present <- feature.name.vec[!has.feature]
 
-  if(length(feature.not.present) == nrow(newx))
+  # if(length(feature.not.present) == nrow(newx))
+  #   colnames(newx) <- paste('x', 1: ncol(newx), sep='')
+  # else if(length(feature.not.present)){
+  #   stop("features missing but needed for prediction: ",
+  #        paste(feature.not.present, collapse=", "))
+  # }
+  if(length(feature.not.present))
     colnames(newx) <- paste('x', 1: ncol(newx), sep='')
-  else if(length(feature.not.present)){
-    stop("features missing but needed for prediction: ",
-         paste(feature.not.present, collapse=", "))
-  }
 
   one <- if(object$intercept)1
   needed.features <- cbind(one, newx[, feature.name.vec, drop=FALSE])

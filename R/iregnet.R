@@ -152,12 +152,18 @@
 #' 
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
-                    alpha=1, lambda=double(0), num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
-                    maxiter=1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
+                    alpha=1, lambda=NULL, num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
+                    maxiter=1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=1) {
 
   # Parameter validation ===============================================
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
   stopifnot_error("num_lambda > 0 is required", num_lambda > 0)
+  if(is.null(lambda)){
+    lambda = double(0)
+  }
+  else{
+    num_lambda = length(lambda)
+  }
   stopifnot_error("lambdas must be numeric", is.numeric(lambda))
   stopifnot_error("intercept must be a boolean flag", is.logical(intercept))
   stopifnot_error("standardize must be a boolean flag", is.logical(standardize))
@@ -166,6 +172,7 @@ iregnet <- function(x, y,
   stopifnot_error("threshold must be positive", threshold > 0)
   if (estimate_scale == FALSE && is.na(scale_init))
     stop("Value of scale required if scale is not estimated")
+  
   family <- match.arg(family) # family should be one of those listed
   stopifnot_error("x should be a matrix with 2 or more columns", is.matrix(x), ncol(x) > 1)
 
@@ -230,7 +237,6 @@ iregnet <- function(x, y,
   if (is.na(eps_lambda))
     eps_lambda <- ifelse(nrow(x) < ncol(x), 0.05, 0.0001)
   stopifnot_error("eps_lambda should be between 0 and 1", 0 <= eps_lambda && eps_lambda < 1)
-  cat(lambda)
   # Call the actual fit method
   fit <- fit_cpp(
     x.train, y, family, alpha,
@@ -247,6 +253,11 @@ iregnet <- function(x, y,
     eps_lambda=eps_lambda,
     debug=debug);
 
+  if(fit$error_status == -1)
+    warning("Ran out of iterations and failed to converge.")
+  if(fit$error_status == -3)
+    warning("Failed to converge. Try again after adding more data.")
+  
   fit$call <- match.call()
   fit$intercept <- intercept
   fit$family <- family

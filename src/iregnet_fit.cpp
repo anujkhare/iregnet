@@ -105,7 +105,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                // NOTE: This transformation is done before coming to this routine
   double scale;
   bool flag_lambda_given = (lambda_path.size() > 0);
-  std::cout<<"\nLambda flag:"<<flag_lambda_given;
+  //std::cout<<"\nLambda flag:"<<flag_lambda_given;
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
@@ -136,7 +136,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   /* Create output variables */
   if (flag_lambda_given) {
     num_lambda = lambda_path.size();
-    std::cout<<"\n     num_lambda = "<<num_lambda;
   }
   Rcpp::NumericMatrix out_beta(n_vars, num_lambda + 1);       // will contain the entire series of solutions
   Rcpp::IntegerVector out_n_iters(num_lambda + 1);
@@ -151,10 +150,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
       if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
-        std::cout<<"\nLambda:"<<lambda_path[i];
+        //std::cout<<"\nLambda:"<<lambda_path[i];
         Rcpp::stop("lambdas must be positive and decreasing.");
       }
-
       out_lambda[i] = lambda_path[i];
     }
   }
@@ -254,7 +252,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
       }
     }
-
+    // std::cout<<"\n    i="<<m<<"  Lambda="<<lambda_seq[m];
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
     if (m != 0) {                         // Initialise solutions using previous value
@@ -348,11 +346,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       break;
     }
   } // end for: lambda
-
-  if(error_status == -1)
-    Rcpp::warning("Ran out of iterations and failed to converge.");
-  if(error_status == -3)
-   Rcpp::warning("Failed to converge. Try again after adding more data.");
 
   /* Scale the coefs back to the original scale */
   for (ull m = 0; m <= end_ind; ++m) {

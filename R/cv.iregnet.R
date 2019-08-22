@@ -112,16 +112,21 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     lapply
   }  
 
+  oldw <- getOption("warn") # Supress warnings for now
+  options(warn = -1)
+  error <- c() # Vector to record the fold errors
+
   fold.mat.list <- LAPPLY(validation.fold.vec, function(validation.fold){
     is.validation <- foldid == validation.fold
     is.train <- !is.validation
     x.train <- x[is.train,]
-    y.train <- y[is.train,]
+    y.train <- y[is.train,]    
     fit <- iregnet(
       x.train, y.train,
       family=family,
       lambda=big.fit$lambda,
       unreg_sol=FALSE)
+    error <<- append(error, fit$error_status)
     pred.center.mat <- predict(fit, x)
     pred.scale.mat <- matrix(
       fit$scale,
@@ -139,7 +144,12 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     one.fold.mat
   })
 
-  
+  options(warn = oldw) # Turn on the warnings
+  if(is.element(-1, error))
+    warning("Ran out of iterations and failed to converge on some folds. Check the error status in fit.")
+  if(is.element(-3, error))
+    warning("Failed to converge. Try again after adding more data. Check the error status in fit.")
+
   fold.array <- array(
     unlist(fold.mat.list),
     c(length(big.fit$lambda), 2, nfolds),
@@ -194,6 +204,7 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
     stats=stats.df,
     likelihood=lik.df,
     selected=selected.df)
+  big.fit$error_status <- error
   class(big.fit) <- c("cv.iregnet", "iregnet", "list")
   big.fit
 }
