@@ -562,14 +562,14 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
 }
 
 
-Rcpp::NumericVector calc_lambda_path(Rcpp::NumericVector lambda_path, double epsilon, double lambda_max, int num_lambda, int end_ind){
-  double lambda_min = epsilon * lambda_max;
-  int lambda_ratio = lambda_min / lambda_max;
-  std::cout<<"\nlambda.max="<<lambda_max<<", lambda.min="<<lambda_min;
-  lambda_path[0] = BIG;
-  for(int i = 1; i <= end_ind; i++){
-    lambda_path[i] = lambda_max * pow(lambda_ratio, i/num_lambda);
-    std::cout<<"\n    lambda_path:"<<lambda_path[i]<<" for i="<<i;
-  }
-  return lambda_path;
-}
+// Rcpp::NumericVector calc_lambda_path(Rcpp::NumericVector lambda_path, double epsilon, double lambda_max, int num_lambda, int end_ind){
+//   double lambda_min = epsilon * lambda_max;
+//   int lambda_ratio = lambda_min / lambda_max;
+//   std::cout<<"\nlambda.max="<<lambda_max<<", lambda.min="<<lambda_min;
+//   lambda_path[0] = BIG;
+//   for(int i = 1; i <= end_ind; i++){
+//     lambda_path[i] = lambda_max * pow(lambda_ratio, i/num_lambda);
+//     std::cout<<"\n    lambda_path:"<<lambda_path[i]<<" for i="<<i;
+//   }
+//   return lambda_path;
+// }

@@ -74,7 +74,7 @@ check_censorship <- function(y)
 #' Check if the target matrix is either completely left censored or completely 
 #' right censored and print an error message accordingly for a Surv target matrix.
 #'
-#' @param y The input target Surv object.
+#' @param status The input status for Surv objects.
 check_surv_censorship <- function(status)
 {
   if(dim(table(status)) == 1){

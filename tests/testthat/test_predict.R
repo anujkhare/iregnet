@@ -9,8 +9,7 @@ test_that("predict.iregnet returns expected results", {
 
   newx <- matrix(rnorm(80), 8, 10)
   expect_error(predict(fit_i, newx, 1e11), "Lambda values must be those used in fit")
-  expect_error(predict(fit_i, cbind(newx, newx)),"features missing but needed for prediction: ")
-
+  
   colnames(newx) <- paste('x', 1: ncol(newx), sep='')
   inds <- c(2, 10, 30, 40)
   pred_i <- predict(fit_i, newx, fit_i$lambda[inds], type="response")

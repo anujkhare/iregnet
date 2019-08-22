@@ -7,7 +7,7 @@
 check_surv_censorship(status)
 }
 \arguments{
-\item{y}{The input target Surv object.}
+\item{status}{The input status for Surv objects.}
 }
 \description{
 Check if the target matrix is either completely left censored or completely 

@@ -78,7 +78,7 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @param foldid integer vector of length n (fold for each observation), by default we use nfolds.
 ##' @param ... passed to iregnet for both the full and cv fits.
 ##' @export
-##' @import foreach
+##' @import future.apply
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
 cv.iregnet <- function(x, y, family, nfolds, foldid, ...){

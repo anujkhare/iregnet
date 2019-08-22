@@ -9,7 +9,7 @@ iregnet(x, y, family = c("gaussian", "logistic", "loggaussian",
   lambda = NULL, num_lambda = 100, intercept = TRUE,
   standardize = TRUE, scale_init = NA, estimate_scale = TRUE,
   maxiter = 1000, threshold = 0.001, unreg_sol = TRUE,
-  eps_lambda = NA, debug = 1)
+  eps_lambda = NA, debug = 0)
 }
 \arguments{
 \item{x}{Input matrix of covariates with dimension n_obs * n_vars, with
