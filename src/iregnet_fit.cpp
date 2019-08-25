@@ -112,7 +112,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   transformed_dist = get_ireg_dist(family);
 
 
-  // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
+  // TEMPORARY VARIABLES: not returned
   double *eta = new double [n_obs];   // vector of linear predictors = X' beta
                                       // eta = 0 for the initial lambda_max, and in each iteration of coordinate descent,
                                       // eta is updated along with beta in place
@@ -177,7 +177,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   standardize_y(y, ym, mean_y);
 
   /* SCALE RULES:
-   * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. // TODO
+   * Whether or not it is estimated depends on estimate_scale. For exponential, this is forced to False and scale fixed to 1. /
    *
    * If you provide no scale, a starting value will be calculated
    * If you provide a scale, it will be used as the initial value
@@ -185,7 +185,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   if (scale_init == Rcpp::NA) {
     scale_init = get_init_var(ym, status, n_obs, transformed_dist);
     scale_init = 2 * sqrt(scale_init);    // use 2 * sqrt(var) as in survival
-    // TODO: find corner cases where you need to take 2 * sqrt(var) as in survival
   }
   scale = scale_init; log_scale = log(scale);
 
@@ -261,15 +260,12 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
       flag_beta_converged = 1;            // = 1 if beta converges
       old_scale = scale;
 
-      // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)  TODO: make dg ddg, local so that we can save computations?
-      // ***Vectorize
-      loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,     // TODO:store a ptr to y?
+      // IRLS: Reweighting step: calculate w and z again (beta & hence eta would have changed)
+      loglik = compute_grad_response(w, z, &scale_update, REAL(y), REAL(y) + n_obs, eta, scale,
                             status, n_obs, transformed_dist, NULL, debug==1 && m == 0);
       /* iterate over beta elementwise and update using soft thresholding solution */
       for (ull k = 0; k < n_vars; ++k) {
         sol_num = sol_denom = 0;
-        // ***Equation 18
-        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] - X(i, k) * beta[k];  // calculate eta_i without the beta_k contribution
           sol_num += (w[i] * X(i, k) * (z[i] - eta[i])) / n_obs;
@@ -279,8 +275,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
-        // if (debug == 1 && m == 0)
-        //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -299,27 +293,18 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta[k] = beta_new;
         }
 
-        // if (debug==1 && m == 1)
-        //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
-        // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-          // if (debug==1 && m==0) {
-          //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
-          // }
         }
 
       }   // end for: beta_k solution
 
       if (estimate_scale) {
         log_scale += scale_update; scale = exp(log_scale);
-        // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
-	      double abs_change = fabs(scale - old_scale);
-        // if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
-	      //   if(debug==1 && max_iter==n_iters[m])
-        //     printf("2) iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
-        //   flag_beta_converged = 0;
-        // }
+        double abs_change = fabs(scale - old_scale);
+        if (abs_change > threshold)
+	        flag_beta_converged = 0;
+        
       }
       // flag_beta_converged = 1 then converged
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
