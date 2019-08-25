@@ -12,7 +12,7 @@ output:
     theme: united 
 bibliography: iregnet.bib
 nocite: '@*'
-author: Anuj Khare, Toby Dylan Hocking
+author: Anuj Khare, Toby Dylan Hocking, Aditya Samantaray
 vignette: >
   %\VignetteIndexEntry{iregnet}
   %\VignetteEngine{knitr::rmarkdown}
@@ -242,7 +242,7 @@ evaltime <- microbenchmark(iregnet.fit,
 plot(evaltime)
 print(evaltime)
 ```
-Hence, we see that the speed difference between iregnet and survival is very less and iregnet performing better in most of the cases due to the coordinate descent solver implemented into it.
+Hence, we see that the speed difference between iregnet and survival is very less.
 
 **Glmnet**
 Benchmarking iregnet against glmnet on a randomly generated dataset with 100000 observations.
@@ -269,6 +269,7 @@ p <- ggplot(res, aes(x = i))+
   ylab('Runtime (in milliseconds)')
 direct.label(p,"angled.boxes")
 ```
+
 We see that glmnet performs significantly better than iregnet on the same dataset. This is due to the speed optimizations like vectorization, early stoppage for the lambda path and sequential strong rules implemented in the glmnet function that provide it a speed advantage.
 
 ### Accuracy Comprisions

@@ -39,6 +39,9 @@ predict.iregnet <- function(object, newx, lambda=NULL, type=c("link", "response"
   feature.name.vec <- rownames(beta)[is.used & not.intercept]
   stopifnot_error("newx should be a numeric matrix",
                   is.matrix(newx), is.numeric(newx))
+  if(is.null(dimnames(newx))){
+    colnames(newx) <- paste('x', 1: ncol(newx), sep='')  
+  }
   has.feature <- feature.name.vec %in% colnames(newx)
   feature.not.present <- feature.name.vec[!has.feature]
   if(length(feature.not.present))

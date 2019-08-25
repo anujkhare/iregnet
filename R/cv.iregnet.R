@@ -103,20 +103,9 @@ cv.iregnet <- function(x, y, family = c("gaussian", "logistic", "exponential"), 
     colnames(x) <- paste('x', 1: ncol(x), sep='')
   }
 
-  # Check the target matrix
-  if (survival::is.Surv(y)) {
-    status <- get_status_from_surv(y)
-    check_surv_censorship(status)
-    y <- as.matrix(y[, 1:(ncol(y)-1)])
-  } else {
-    y <- as.matrix(y)
-    stopifnot_error("y should be a 2 column matrix", ncol(y) <= 2)
-    if(ncol(y) == 1)
-      y <- cbind(y, y)
-    else {
-      y[which(is.infinite(y))] <- NaN
-      check_censorship(y) # Check if completely left or right censored
-    }
+  # Check for single columned target matrices
+  if(is.vector(y) || (is.matrix(y) & ncol(y) == 1)){
+    y <- cbind(y,y)
   }
 
   big.fit <- iregnet(x, y, family=family, unreg_sol=FALSE, ...)
