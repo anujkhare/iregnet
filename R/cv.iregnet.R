@@ -73,15 +73,15 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @title Cross-validation for iregnet
 ##' @param x numeric matrix of input features (n x p)
 ##' @param y numeric matrix of output variables (n x 2)
-##' @param family gaussian, logistic
-##' @param nfolds positive integer between 2 and n, by default 10.
+##' @param family gaussian, logistic, exponential
+##' @param nfolds positive integer between 2 and n, by default 5 for more than 10 observations, 3 otherwise.
 ##' @param foldid integer vector of length n (fold for each observation), by default we use nfolds.
 ##' @param ... passed to iregnet for both the full and cv fits.
 ##' @export
 ##' @import future.apply
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
-cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
+cv.iregnet <- function(x, y, family = c("gaussian", "logistic", "exponential"), nfolds=ifelse(nrow(x) < 10, 3L, 5L), foldid, ...){
   if(missing(foldid)){
     if(missing(nfolds)){
       nfolds <- 10L
@@ -101,6 +101,22 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   # If no column names are given
   if(!length(colnames(x))){
     colnames(x) <- paste('x', 1: ncol(x), sep='')
+  }
+
+  # Check the target matrix
+  if (survival::is.Surv(y)) {
+    status <- get_status_from_surv(y)
+    check_surv_censorship(status)
+    y <- as.matrix(y[, 1:(ncol(y)-1)])
+  } else {
+    y <- as.matrix(y)
+    stopifnot_error("y should be a 2 column matrix", ncol(y) <= 2)
+    if(ncol(y) == 1)
+      y <- cbind(y, y)
+    else {
+      y[which(is.infinite(y))] <- NaN
+      check_censorship(y) # Check if completely left or right censored
+    }
   }
 
   big.fit <- iregnet(x, y, family=family, unreg_sol=FALSE, ...)

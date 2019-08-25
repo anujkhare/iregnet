@@ -105,7 +105,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
                                // NOTE: This transformation is done before coming to this routine
   double scale;
   bool flag_lambda_given = (lambda_path.size() > 0);
-  //std::cout<<"\nLambda flag:"<<flag_lambda_given;
   int error_status = 0;
 
   const ull n_obs  = X.nrow();
@@ -128,10 +127,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   double *std_x = new double [n_vars];
   int end_ind = num_lambda + !flag_lambda_given - 1;
   IREG_CENSORING *status;
-  
-
-  /* Loggaussain = Gaussian with log(y), etc. */
-  // get_transformed_dist(orig_dist, transformed_dist, &scale, &estimate_scale, y);
 
   /* Create output variables */
   if (flag_lambda_given) {
@@ -150,16 +145,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
     for(ull i = 0; i < num_lambda; ++i) {
       // Make sure that the given lambda_path is non-negative decreasing
       if (lambda_path[i] < 0 || (i > 0 && lambda_path[i] > lambda_path[i-1])) {
-        //std::cout<<"\nLambda:"<<lambda_path[i];
         Rcpp::stop("lambdas must be positive and decreasing.");
       }
       out_lambda[i] = lambda_path[i];
     }
   }
-  // else{
-  //   double lambda_max = compute_lambda_max(X, w, z, eta, intercept, alpha, n_vars, n_obs, debug);
-  //   out_lambda = calc_lambda_path(out_lambda, eps_lambda, lambda_max, num_lambda, end_ind);
-  // }
 
   double *beta;                           // Initially points to the first solution
   int *n_iters = INTEGER(out_n_iters);
@@ -252,7 +242,6 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
       }
     }
-    // std::cout<<"\n    i="<<m<<"  Lambda="<<lambda_seq[m];
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
     if (m != 0) {                         // Initialise solutions using previous value
@@ -305,7 +294,7 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
 	      double abs_change = fabs(beta_new - beta[k]);
         if (abs_change > threshold) {
 	        if(debug==1 && max_iter==n_iters[m])
-            printf("iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
+            printf("1) iter=%d lambda=%d beta_%lld not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, k, abs_change, threshold);
           flag_beta_converged = 0;
           beta[k] = beta_new;
         }
@@ -326,11 +315,11 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         log_scale += scale_update; scale = exp(log_scale);
         // if (fabs(scale - old_scale) > threshold) {    // TODO: Maybe should be different for sigma?
 	      double abs_change = fabs(scale - old_scale);
-        if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
-	        if(debug==1 && max_iter==n_iters[m])
-            printf("iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
-          flag_beta_converged = 0;
-        }
+        // if (abs_change > threshold) {    // TODO: Maybe should be different for sigma?
+	      //   if(debug==1 && max_iter==n_iters[m])
+        //     printf("2) iter=%d lambda=%d scale not converged, abs_change=%f > %f=threshold\n", n_iters[m], m, abs_change, threshold);
+        //   flag_beta_converged = 0;
+        // }
       }
       // flag_beta_converged = 1 then converged
     } while ((flag_beta_converged != 1) && (n_iters[m] < max_iter));
@@ -560,16 +549,3 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
 
   return lambda_max;
 }
-
-
-// Rcpp::NumericVector calc_lambda_path(Rcpp::NumericVector lambda_path, double epsilon, double lambda_max, int num_lambda, int end_ind){
-//   double lambda_min = epsilon * lambda_max;
-//   int lambda_ratio = lambda_min / lambda_max;
-//   std::cout<<"\nlambda.max="<<lambda_max<<", lambda.min="<<lambda_min;
-//   lambda_path[0] = BIG;
-//   for(int i = 1; i <= end_ind; i++){
-//     lambda_path[i] = lambda_max * pow(lambda_ratio, i/num_lambda);
-//     std::cout<<"\n    lambda_path:"<<lambda_path[i]<<" for i="<<i;
-//   }
-//   return lambda_path;
-// }
