@@ -5,7 +5,7 @@ Version: 1.0.0
 Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
     Jelle Goeman, Aditya Samantaray <aditya.samantaray1@gmail.com>
 Maintainer: Anuj Khare <khareanuj18@gmail.com>, Aditya Samantaray <aditya.samantaray1@gmail.com>
-Description: Interval regression with four types of censoring and elastic net regularization.
+Description: Interval regression with four types of censoring (left, right, interval and none) and elastic net regularization.
 License: GPL-3
 LazyData: TRUE
 Suggests:

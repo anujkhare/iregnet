@@ -216,9 +216,6 @@ predict(cv_fit, newx=X.test, type="response", lambda.type="1sd")
 
 # Appendix
 
-## Parameters definition
-
-
 ## Comparison with Other Packages
 
 ### Speed comparision
