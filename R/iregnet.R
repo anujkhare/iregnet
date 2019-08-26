@@ -56,12 +56,12 @@
 #' \cr \emph{Default: \code{TRUE}}
 #'
 #' @param maxiter Maximum number of iterations over data per lambda value.
-#' \cr \emph{Default: 1e3}
+#' \cr \emph{Default: 2*1e3}
 #'
 #' @param threshold The convergence threshold for coordinate descent. The inner
 #' loop continues until the absolute update in each parameter is greater than
 #' \code{threshold}.
-#' \cr \emph{Default: 1e-4}
+#' \cr \emph{Default: 1e-3}
 #'
 #' @param eps_lambda The ratio of the minimum value of \code{lambda} to the
 #' (calculated) maximum value, in case no lambda is supplied. \code{num_lambda}
@@ -153,9 +153,9 @@
 iregnet <- function(x, y,
                     family=c("gaussian", "logistic", "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull"),
                     alpha=1, lambda=NULL, num_lambda=100, intercept=TRUE, standardize=TRUE, scale_init=NA, estimate_scale=TRUE,
-                    maxiter=1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
+                    maxiter=2*1e3, threshold=1e-3, unreg_sol=TRUE, eps_lambda=NA, debug=0) {
 
-  # Parameter validation ===============================================
+  # Parameter validation 
   stopifnot_error("alpha should be between 0 and 1", 0 <= alpha, alpha <= 1)
   stopifnot_error("num_lambda > 0 is required", num_lambda > 0)
   if(is.null(lambda)){

@@ -73,15 +73,16 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @title Cross-validation for iregnet
 ##' @param x numeric matrix of input features (n x p)
 ##' @param y numeric matrix of output variables (n x 2)
-##' @param family gaussian, logistic
-##' @param nfolds positive integer between 2 and n, by default 10.
+##' @param family gaussian, logistic, exponential
+##' @param nfolds positive integer between 2 and n, by default 5 for more than 10 observations, 3 otherwise.
 ##' @param foldid integer vector of length n (fold for each observation), by default we use nfolds.
 ##' @param ... passed to iregnet for both the full and cv fits.
 ##' @export
 ##' @import future.apply
+##' @import data.table
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
-cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
+cv.iregnet <- function(x, y, family = c("gaussian", "logistic", "exponential"), nfolds=ifelse(nrow(x) < 10, 3L, 5L), foldid, ...){
   if(missing(foldid)){
     if(missing(nfolds)){
       nfolds <- 10L
@@ -101,6 +102,11 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
   # If no column names are given
   if(!length(colnames(x))){
     colnames(x) <- paste('x', 1: ncol(x), sep='')
+  }
+
+  # Check for single columned target matrices
+  if(is.vector(y) || (is.matrix(y) & ncol(y) == 1)){
+    y <- cbind(y,y)
   }
 
   big.fit <- iregnet(x, y, family=family, unreg_sol=FALSE, ...)

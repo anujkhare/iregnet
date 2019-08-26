@@ -8,7 +8,7 @@ iregnet(x, y, family = c("gaussian", "logistic", "loggaussian",
   "loglogistic", "extreme_value", "exponential", "weibull"), alpha = 1,
   lambda = NULL, num_lambda = 100, intercept = TRUE,
   standardize = TRUE, scale_init = NA, estimate_scale = TRUE,
-  maxiter = 1000, threshold = 0.001, unreg_sol = TRUE,
+  maxiter = 2 * 1000, threshold = 0.001, unreg_sol = TRUE,
   eps_lambda = NA, debug = 0)
 }
 \arguments{
@@ -62,12 +62,12 @@ use a fixed value \code{scale0} for \code{scale}, set \code{scale_init=scale0
 \cr \emph{Default: \code{TRUE}}}
 
 \item{maxiter}{Maximum number of iterations over data per lambda value.
-\cr \emph{Default: 1e3}}
+\cr \emph{Default: 2*1e3}}
 
 \item{threshold}{The convergence threshold for coordinate descent. The inner
 loop continues until the absolute update in each parameter is greater than
 \code{threshold}.
-\cr \emph{Default: 1e-4}}
+\cr \emph{Default: 1e-3}}
 
 \item{unreg_sol}{\code{TRUE} if the final solution computed must be
 unregularized. Overwritten to \code{FALSE} if n_vars > n_obs.
