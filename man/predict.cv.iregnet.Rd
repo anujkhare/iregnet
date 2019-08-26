@@ -4,14 +4,20 @@
 \alias{predict.cv.iregnet}
 \title{predict CV iregnet}
 \usage{
-\method{predict}{cv.iregnet}(object, newx, type = "min", ...)
+\method{predict}{cv.iregnet}(object, newx, type = c("link", "response"),
+  lambda.type = "min", ...)
 }
 \arguments{
 \item{object}{result of cv.iregnet}
 
 \item{newx}{feature matrix}
 
-\item{type}{min or 1sd}
+\item{type}{Type of prediction required. Type \code{link} returns the linear
+predictors. Type \code{response} returns the fitted values.
+In the case of \code{gaussian}, \code{logistic} and
+\code{extreme_value}, the link and response are the same.}
+
+\item{lambda.type}{min or 1sd}
 
 \item{...}{further parameters}
 }

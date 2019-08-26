@@ -4,16 +4,17 @@
 \alias{cv.iregnet}
 \title{Cross-validation for iregnet}
 \usage{
-cv.iregnet(x, y, family, nfolds, foldid, ...)
+cv.iregnet(x, y, family = c("gaussian", "logistic", "exponential"),
+  nfolds = ifelse(nrow(x) < 10, 3L, 5L), foldid, ...)
 }
 \arguments{
 \item{x}{numeric matrix of input features (n x p)}
 
 \item{y}{numeric matrix of output variables (n x 2)}
 
-\item{family}{gaussian, logistic}
+\item{family}{gaussian, logistic, exponential}
 
-\item{nfolds}{positive integer between 2 and n, by default 10.}
+\item{nfolds}{positive integer between 2 and n, by default 5 for more than 10 observations, 3 otherwise.}
 
 \item{foldid}{integer vector of length n (fold for each observation), by default we use nfolds.}
 

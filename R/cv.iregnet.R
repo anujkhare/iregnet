@@ -79,6 +79,7 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @param ... passed to iregnet for both the full and cv fits.
 ##' @export
 ##' @import future.apply
+##' @import data.table
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
 cv.iregnet <- function(x, y, family = c("gaussian", "logistic", "exponential"), nfolds=ifelse(nrow(x) < 10, 3L, 5L), foldid, ...){
