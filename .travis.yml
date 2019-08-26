@@ -5,7 +5,10 @@ sudo: required
 warnings_are_errors: true
 cache: packages
 
-r_packages: microbenchmark, dplyr
+r_packages: 
+    - microbenchmark
+    - dplyr
+
 r_github_packages: tdhock/penaltyLearning
 
 # addons:
