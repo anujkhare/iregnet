@@ -44,7 +44,7 @@ Y <- rbind(Y , samp.fold.3.y)
 Y <- rbind(Y , samp.fold.4.y)
 
 ### Failed
-iregnet( X.input , Y , family = "gaussian" )
+fit <- iregnet( X.input , Y , family = "gaussian" )
 
 
 
@@ -59,7 +59,7 @@ Y <- rbind(Y , samp.fold.3.y)
 Y <- rbind(Y , samp.fold.5.y)
 
 ### Failed
-iregnet( X.input , Y , family = "gaussian" )
+fit <- iregnet( X.input , Y , family = "gaussian" )
 
 
 
@@ -75,7 +75,7 @@ Y <- rbind(Y , samp.fold.5.y)
 
 
 ### Failed
-iregnet( X.input , Y , family = "gaussian" )
+fit <- iregnet( X.input , Y , family = "gaussian" )
 
 
 
@@ -90,7 +90,7 @@ Y <- rbind(Y , samp.fold.4.y)
 Y <- rbind(Y , samp.fold.5.y)
 
 ### Failed
-iregnet( X.input , Y , family = "gaussian" )
+fit <- iregnet( X.input , Y , family = "gaussian" )
 
 
 
@@ -100,25 +100,14 @@ X.input <- rbind( X.input, samp.fold.4.X)
 X.input <- rbind( X.input, samp.fold.5.X)
 
 
-Y <- rbind(samp.fold.1.y , samp.fold.3.y)
+Y <- rbind(samp.fold.2.y , samp.fold.3.y)
 Y <- rbind(Y , samp.fold.4.y)
 Y <- rbind(Y , samp.fold.5.y)
 
 ### Failed
-iregnet( X.input , Y , family = "gaussian" )
+fit <- iregnet( X.input , Y , family = "gaussian" )
 
 
 
-
-###################
-
-set.seed(1)
-### FAILED
-iregnet(X.train , Y.train , family= "gaussian" , scale_init= NA , estimate_scale = TRUE)
-iregnet(X.train , Y.train , family= "gaussian" , scale_init= 1 , estimate_scale = FALSE)
-iregnet(X.train , Y.train , family= "logistic" , scale_init= NA , estimate_scale = TRUE)
-iregnet(X.train , Y.train , family= "logistic" , scale_init= 1 , estimate_scale = FALSE)
-
-### split data into train and valid and test on different folds
 
 
