@@ -1,21 +1,34 @@
 Package: iregnet
 Type: Package
 Title: Regularized interval regression
-Version: 2016.09.26
-Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <tdhock5@gmail.com>,
-    Jelle Goeman
-Maintainer: Anuj Khare <khareanuj18@gmail.com>
-Description: Interval regression with four types of censoring and elastic net
-    regularization
+Version: 0.1.0.9000
+Author: Anuj Khare <khareanuj18@gmail.com>, Toby D Hocking <toby.hocking@r-project.org>,
+    Jelle Goeman, Aditya Samantaray <aditya.samantaray1@gmail.com>
+Maintainer: Anuj Khare <khareanuj18@gmail.com>, Aditya Samantaray <aditya.samantaray1@gmail.com>
+Description: Interval regression with four types of censoring and elastic net regularization.
 License: GPL-3
 LazyData: TRUE
-Depends: R (>= 2.10)
 Suggests:
     ElemStatLearn,
     glmnet,
-    testthat
+    testthat,
+    knitr,
+    rmarkdown
 LinkingTo: Rcpp
+Depends:
+    R (>= 2.10)
 Imports:
-    Rcpp,
-    survival
-RoxygenNote: 5.0.1
+    ggplot2,
+    utils,
+    methods,
+    stats,
+    survival,
+    future.apply,
+    data.table,
+    Matrix,
+    namedCapture,
+    penaltyLearning,
+    SpatialExtremes
+RoxygenNote: 6.1.1
+Remotes: tdhock/penaltyLearning
+VignetteBuilder: knitr

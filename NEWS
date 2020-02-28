@@ -1,3 +1,28 @@
+TODOs
+
+vignette with speed comparisons (fista, glmnet), and maybe accuracy
+(in terms of cost function values).
+
+2017.04.05
+
+Allow Ctrl-C to interrupt coordinate descent.
+
+roxygen2 used to generate NAMESPACE.
+
+cv.iregnet with methods: plot
+
+2016.11.02
+
+Convergence on penalty.learning data set OK with unreg_sol=FALSE and
+increased iterations.
+
+Bugfix for standardization (was not centering before scaling) and
+lambda grid computation (sometimes was not strictly decreasing).
+
+2016.10.27
+
+plot.iregnet returns a ggplot object.
+
 2016.09.26
 
 TDH added penalty.learning data set and tests.

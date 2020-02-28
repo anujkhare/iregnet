@@ -1,3 +1,4 @@
+context("\nComparision with survival and glmnet")
 library(iregnet)
 library(survival)
 library(glmnet)
@@ -8,14 +9,16 @@ source('get_xy.R')
 std <- F
 
 test_that("survival::ovarian data: iregnet calculates correct coefficients wrt survival", {
-  data("ovarian")
+  data("ovarian", package = "survival")
   x <- cbind(ovarian$ecog.ps, ovarian$rx)
 
   fit_s <- survreg(Surv(futime, fustat) ~ x, data = ovarian, dist = "gaussian")
-  fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat), family="gaussian", alpha=1, intercept = T, threshold=1e-4)
+  fit_i <- iregnet(x, Surv(ovarian$futime, ovarian$fustat),
+                   family="gaussian", alpha=1, intercept = T, threshold=1e-09)
 
   expect_equal(fit_s$coefficients,
-               fit_i$beta[, fit_i$num_lambda], tolerance = 1e-3)
+               fit_i$beta[, fit_i$num_lambda], tolerance = 1e-9)
+  expect_equal(fit_i$error_status, 0)
 })
 
 test_that("Gaussian, exact data - coefficients are calculated correctly wrt survival and glmnet:", {
@@ -24,12 +27,13 @@ test_that("Gaussian, exact data - coefficients are calculated correctly wrt surv
   for (n_vars in 5:10)
   {
     xy <- get_xy(30, n_vars, "none", standardize=std)
-    xy1 <- xy
 
     fit_s <- survreg(xy$surv ~ xy$x, dist = "gaussian")
     fit_i <- iregnet(xy$x, xy$y, "gaussian", alpha = 1, intercept = T, thresh=1e-4, standardize=T,
     debug=F)
 
+    # Note: fit$lambda returned by iregnet are scaled by (1/scale^2) in the
+    # case of gaussian exact data. Rescale to compare the solutions.
     lambda_path <- fit_i$lambda * (fit_i$scale ** 2)
     fit_g <- glmnet(xy$x, xy$y[, 1], "gaussian", lambda=lambda_path, thresh=1e-7, standardize=T)
 

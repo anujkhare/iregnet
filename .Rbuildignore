@@ -1,0 +1,7 @@
+.travis.yml
+^.*\.Rproj$
+^\.Rproj\.user$
+.vscode
+^doc$
+^Meta$
+.gitignore
