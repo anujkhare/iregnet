@@ -2,29 +2,26 @@
 \alias{H3K36me3_TDH_immune}
 \docType{data}
 \title{
-%%   ~~ data name/kind ... ~~
+   H3K36me3 TDH immune data
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of the dataset. ~~
+  A data set for testing the iregnet package. Specifically features of neuroblastoma
+  patients and their corresponding survival times in interval format.
 }
 \usage{data("H3K36me3_TDH_immune")}
 \format{
   The format is:
-List of 2
- $ inputs : num [1:63, 1:28] 0 0 0 0 0 0 0 0 0 0 ...
-  ..- attr(*, "dimnames")=List of 2
-  .. ..$ : chr [1:63] "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr10:18024675-38818835" "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr10:51448845-125869472" "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr12:7239876-34856694" "H3K36me3_TDH_immune/samples/monocyte/McGill0001/problems/chr10:18024675-38818835" ...
-  .. ..$ : chr [1:28] "quartile.0%" "quartile.25%" "quartile.50%" "quartile.75%" ...
- $ outputs: num [1:63, 1:2] 10.9 10.4 9.3 11.9 10.5 ...
-  ..- attr(*, "dimnames")=List of 2
-  .. ..$ : chr [1:63] "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr10:18024675-38818835" "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr10:51448845-125869472" "H3K36me3_TDH_immune/samples/bcell/McGill0322/problems/chr12:7239876-34856694" "H3K36me3_TDH_immune/samples/monocyte/McGill0001/problems/chr10:18024675-38818835" ...
-  .. ..$ : chr [1:2] "min.log.lambda" "max.log.lambda"
+
+  Inputs are a input matrix of 63 rows/observations and 28 columns/features.
+  The outputs are in order however row names are applied to match inputs and
+  outputs, just in case. The form of outputs are 63 rows/observations and 2
+  columns/surv time, which is an interval of survival time for each observation
 }
 \details{
-%%  ~~ If necessary, more details than the __description__ above ~~
+    data( H3K36me3_TDH_immune , package="iregnet")
 }
 \source{
-%%  ~~ reference to a publication or URL from which the data were obtained ~~
+    https://github.com/andruuhurst/neuroblastoma-data/tree/master/data/H3K36me3_TDH_immune
 }
 \references{
 %%  ~~ possibly secondary sources and usages ~~
