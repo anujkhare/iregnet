@@ -1,4 +1,7 @@
+library(testthat)
+context("\nElemStatsLearn dataset")
 library(iregnet)
+library(Matrix)
 library(survival)
 library(glmnet)
 

@@ -1,3 +1,4 @@
+context("\nLog-dists")
 library(iregnet)
 
 test_that("Log* with y is same as * with log(y)", {
