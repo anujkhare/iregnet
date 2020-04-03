@@ -9,7 +9,6 @@ Description: Interval regression with four types of censoring and elastic net re
 License: GPL-3
 LazyData: TRUE
 Suggests:
-    ElemStatLearn,
     glmnet,
     testthat,
     knitr,
@@ -27,8 +26,7 @@ Imports:
     data.table,
     Matrix,
     namedCapture,
-    penaltyLearning,
-    SpatialExtremes
+    penaltyLearning
 RoxygenNote: 6.1.1
 Remotes: tdhock/penaltyLearning
 VignetteBuilder: knitr
