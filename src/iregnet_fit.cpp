@@ -542,27 +542,27 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
     // New code : fixes unsupported switch case errors
     case IREG_DIST_GAUSSIAN:{
       Rcpp::Function warning("warning");
-      warning("get_init_var - Unsupported distribution providied: Guassian");
+      warning("get_init_var - Unsupported distribution provided: Guassian");
       return var;
     }
     case IREG_DIST_LOG_GAUSSIAN:{
       Rcpp::Function warning("warning");
-      warning("get_init_var - Unsupported distribution providied: Log Guassian");
+      warning("get_init_var - Unsupported distribution provided: Log Guassian");
       return var;
     }
     case IREG_DIST_LOG_LOGISTIC:{
       Rcpp::Function warning("warning");
-      warning("get_init_var - Unsupported distribution providied: Log Logistic");
+      warning("get_init_var - Unsupported distribution provided: Log Logistic");
       return var;
     }
     case IREG_DIST_EXPONENTIAL:{
       Rcpp::Function warning("warning");
-      warning("get_init_var - Unsupported distribution providied: exponential");
+      warning("get_init_var - Unsupported distribution provided: exponential");
       return var;
     }
     case IREG_DIST_WEIBULL:{
       Rcpp::Function warning("warning");
-      warning("get_init_var - Unsupported distribution providied: Weibull");
+      warning("get_init_var - Unsupported distribution provided: Weibull");
       return var;
     }
     case IREG_DIST_UNKNOWN:{
