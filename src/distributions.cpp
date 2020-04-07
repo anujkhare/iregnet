@@ -401,27 +401,27 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
     // New code : fixes unsupported switch case errors
     case IREG_DIST_LOG_GAUSSIAN:{
       Rcpp::Function warning("warning");
-      warning("Unsupported distribution provided: Log Guassian");
+      warning("function: compute_densities() - Unsupported distribution provided: Log Guassian");
       return ans;
     }
     case IREG_DIST_LOG_LOGISTIC:{
       Rcpp::Function warning("warning");
-      warning("Unsupported distribution provided: Log Logistic");
+      warning("function: compute_densities() - Unsupported distribution provided: Log Logistic");
       return ans;
     }
     case IREG_DIST_EXPONENTIAL:{
       Rcpp::Function warning("warning");
-      warning("Unsupported distribution provided: exponential");
+      warning("function: compute_densities() - Unsupported distribution provided: Exponential");
       return ans;
     }
     case IREG_DIST_WEIBULL:{
       Rcpp::Function warning("warning");
-      warning("Unsupported distribution provided: Weibull");
+      warning("function: compute_densities() - Unsupported distribution provided: Weibull");
       return ans;
     }
     case IREG_DIST_UNKNOWN:{
       Rcpp::Function warning("warning");
-      warning("Unkown distibution provided");
+      warning("function: compute_densities() - Unkown distibution provided");
       return ans;
     }
   }
