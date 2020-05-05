@@ -540,11 +540,6 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
     break;
     
     // New code : fixes unsupported switch case errors
-    case IREG_DIST_GAUSSIAN:{
-      Rcpp::Function warning("warning");
-      warning("function: get_init_var() - Unsupported distribution provided: Gaussian");
-      return var;
-    }
     case IREG_DIST_LOG_GAUSSIAN:{
       Rcpp::Function warning("warning");
       warning("function: get_init_var() - Unsupported distribution provided: Log Gaussian");
