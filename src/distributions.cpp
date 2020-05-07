@@ -70,6 +70,32 @@ compute_grad_response(double *w, double *z, double *scale_update, const double *
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
+    // New code : fixes unsupported switch case errors
+    case IREG_DIST_LOG_GAUSSIAN:{
+      Rcpp::Function warning("warning");
+      warning("compute_grad_response - Unsupported distribution providied: Log Guassian");
+      return 0;
+    }
+    case IREG_DIST_LOG_LOGISTIC:{
+      Rcpp::Function warning("warning");
+      warning("compute_grad_response - Unsupported distribution providied: Log Logistic");
+      return 0;
+    }
+    case IREG_DIST_EXPONENTIAL:{
+      Rcpp::Function warning("warning");
+      warning("compute_grad_response - Unsupported distribution providied: exponential");
+      return 0;
+    }
+    case IREG_DIST_WEIBULL:{
+      Rcpp::Function warning("warning");
+      warning("compute_grad_response - Unsupported distribution providied: Weibull");
+      return 0;
+    }
+    case IREG_DIST_UNKNOWN:{
+      Rcpp::Function warning("warning");
+      warning("compute_grad_response - Unkown distibution provided");
+      return 0;
+    }
   }
 
   loglik = 0;
@@ -372,9 +398,30 @@ compute_densities(Rcpp::NumericVector z, int j, Rcpp::String family)
     case IREG_DIST_EXTREME_VALUE:   sreg_gg = exvalue_d;  break;
     case IREG_DIST_LOGISTIC:        sreg_gg = logistic_d; break;
     case IREG_DIST_GAUSSIAN:        sreg_gg = gauss_d;    break;
-    default: {
+    // New code : fixes unsupported switch case errors
+    case IREG_DIST_LOG_GAUSSIAN:{
       Rcpp::Function warning("warning");
-      warning("Unsupported distribution providied");
+      warning("function: compute_densities() - Unsupported distribution provided: Log Guassian");
+      return ans;
+    }
+    case IREG_DIST_LOG_LOGISTIC:{
+      Rcpp::Function warning("warning");
+      warning("function: compute_densities() - Unsupported distribution provided: Log Logistic");
+      return ans;
+    }
+    case IREG_DIST_EXPONENTIAL:{
+      Rcpp::Function warning("warning");
+      warning("function: compute_densities() - Unsupported distribution provided: Exponential");
+      return ans;
+    }
+    case IREG_DIST_WEIBULL:{
+      Rcpp::Function warning("warning");
+      warning("function: compute_densities() - Unsupported distribution provided: Weibull");
+      return ans;
+    }
+    case IREG_DIST_UNKNOWN:{
+      Rcpp::Function warning("warning");
+      warning("function: compute_densities() - Unkown distibution provided");
       return ans;
     }
   }

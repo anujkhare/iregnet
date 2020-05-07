@@ -112,6 +112,8 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
   const ull n_vars = X.ncol();  // n_vars is the number of variables corresponding to the coeffs of X
   transformed_dist = get_ireg_dist(family);
 
+  // my output test
+  std::cout<< "print test";
 
   // TEMPORARY VARIABLES: not returned // TODO: Maybe alloc them together?
   double *eta = new double [n_obs];   // vector of linear predictors = X' beta
@@ -252,7 +254,10 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         lambda_seq[m] = lambda_seq[m - 1] * eps_ratio;
       }
     }
-    // std::cout<<"\n    i="<<m<<"  Lambda="<<lambda_seq[m];
+    
+    if( debug == 1){
+      std::cout<<"\n    i="<<m<<"  Lambda="<<lambda_seq[m];
+    }
     /* Initialize the solution at this lambda using previous lambda solution */
     // We need to explicitly do this because we need to store all the solutions separately
     if (m != 0) {                         // Initialise solutions using previous value
@@ -290,8 +295,9 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
         // Note: The signs given in the coxnet paper are incorrect, since the subdifferential should have a negative sign.
         sol_num *= -1; sol_denom *= -1;
 
-        // if (debug == 1 && m == 0)
-        //   std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
+        if (debug == 1 && m == 0){
+           std::cerr << n_iters[m] << " " << k << " " << "sols " << sol_num << " " << sol_denom << "\n";
+        }
         /* The intercept should not be regularized, and hence is calculated directly */
         if (intercept && k == 0) {
           beta_new = sol_num / sol_denom;
@@ -310,14 +316,15 @@ fit_cpp(Rcpp::NumericMatrix X, Rcpp::NumericMatrix y,
           beta[k] = beta_new;
         }
 
-        // if (debug==1 && m == 1)
-        //   std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
+        if (debug==1 && m == 1){
+         std::cerr << n_iters[m] << " " << k << " " << " BETA " << beta[k] << "\n";
+        }
         // ***Vectorize
         for (ull i = 0; i < n_obs; ++i) {
           eta[i] = eta[i] + X(i, k) * beta[k];  // this will contain the new beta_k
-          // if (debug==1 && m==0) {
-          //   std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
-          // }
+          if (debug==1 && m==0) {
+             std::cerr << n_iters[m] << " " << i << " " << "ETA" <<  eta[i] << "\n";
+          }
         }
 
       }   // end for: beta_k solution
@@ -531,6 +538,33 @@ get_init_var (double *ym, IREG_CENSORING *status, ull n, IREG_DIST dist)
     case IREG_DIST_LOGISTIC:
       var = var / 3.2;
     break;
+    
+    // New code : fixes unsupported switch case errors
+    case IREG_DIST_LOG_GAUSSIAN:{
+      Rcpp::Function warning("warning");
+      warning("function: get_init_var() - Unsupported distribution provided: Log Gaussian");
+      return var;
+    }
+    case IREG_DIST_LOG_LOGISTIC:{
+      Rcpp::Function warning("warning");
+      warning("function: get_init_var() - Unsupported distribution provided: Log Logistic");
+      return var;
+    }
+    case IREG_DIST_EXPONENTIAL:{
+      Rcpp::Function warning("warning");
+      warning("function: get_init_var() - Unsupported distribution provided: exponential");
+      return var;
+    }
+    case IREG_DIST_WEIBULL:{
+      Rcpp::Function warning("warning");
+      warning("function: get_init_var() - Unsupported distribution provided: Weibull");
+      return var;
+    }
+    case IREG_DIST_UNKNOWN:{
+      Rcpp::Function warning("warning");
+      warning("function: get_init_var() - Unkown distibution provided");
+      return var;
+    }
   }
 
   return var;
@@ -551,9 +585,10 @@ compute_lambda_max(Rcpp::NumericMatrix X, double *w, double *z, double *eta,
       temp += (w[i] * X(i, j) * (z[i] - eta[i]));
     }
     temp = fabs(temp);
-    // if (debug) {
-    //   std::cerr << "LAMBDA " << temp / n_obs << "\n";
-    // }
+    if (debug == 1) {
+       std::cerr << "LAMBDA " << temp / n_obs << "\n";
+    }
+    
     lambda_max = (lambda_max > temp)? lambda_max: temp;
   }
   lambda_max /= (n_obs * max(alpha, 1e-3));  // prevent divide by zero
