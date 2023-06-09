@@ -1,7 +1,8 @@
 distribution.fun.suffixes <- c(
   gaussian="norm",
   logistic="logis",
-  exponential="exponential")
+  exponential="exponential",
+  weibull="weibull")
 dexponential <- function(x, m, s, log){
   dexp(x, m, log)
 }
@@ -19,16 +20,36 @@ dfun.list <- lapply(distribution.fun.suffixes, paste0get, "d")
 ##' Compute log-likelihood of iregnet predictions, used to compute the
 ##' surrogate loss on the validation set in cross-validation
 ##' (cv.iregnet).
+##' Note that for family="weibull" it will compute the likelihood only as sum, not as components
 ##' @title Compute log likelihood
 ##' @param y.mat numeric matrix of output variables (n x 2)
 ##' @param pred.mean numeric matrix of mean parameters (predicted
 ##'   values, n x p)
 ##' @param pred.scale numeric matrix of scale parameters (n x p)
-##' @param family gaussian, logistic
+##' @param family gaussian, logistic, weibull
+##' @export
+##' @return numeric matrix of log-likelihood values (n x p)
+##' @author Georg Heinze
+compute.loglik.weibull <- function(y.mat, pred.mean, pred.scale, family="weibull"){
+    compute.loglik(y.mat=y.mat, pred.mean=pred.mean, pred.scale=pred.scale, family="weibull")
+}
+    
+
+##' Compute log-likelihood of iregnet predictions, used to compute the
+##' surrogate loss on the validation set in cross-validation
+##' (cv.iregnet).
+##' Note that for family="weibull" it will compute the likelihood only as sum, not as components
+##' @title Compute log likelihood
+##' @param y.mat numeric matrix of output variables (n x 2)
+##' @param pred.mean numeric matrix of mean parameters (predicted
+##'   values, n x p)
+##' @param pred.scale numeric matrix of scale parameters (n x p)
+##' @param family gaussian, logistic, weibull
 ##' @export
 ##' @return numeric matrix of log-likelihood values (n x p)
 ##' @author Toby Dylan Hocking
 compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
+    require(survival)
   stopifnot_error(
     "y.mat must be a 2-column numeric matrix",
     is.matrix(y.mat),
@@ -48,22 +69,28 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
   stopifnot_error(
     paste("family must be one of", paste(names(pfun.list), collapse=", ")),
     family %in% names(pfun.list))
-  pfun <- pfun.list[[family]]
-  dfun <- dfun.list[[family]]
-  use.density <- y.mat[,1]==y.mat[,2]
-  loglik.mat <- matrix(NA, n.obs, ncol(pred.scale))
-  loglik.mat[use.density,] <- dfun(
-    y.mat[use.density, 1],
-    pred.mean[use.density, ],
-    pred.scale[use.density, ],
-    log=TRUE)
-  loglik.mat[!use.density,] <- log(
-    pfun(y.mat[!use.density, 2],
-         pred.mean[!use.density, ],
-         pred.scale[!use.density, ])
-    -pfun(y.mat[!use.density, 1],
-          pred.mean[!use.density, ],
-          pred.scale[!use.density, ]))
+  if(family=="weibull"){
+      status <- (y.mat[,1]==y.mat[,2])
+      loglik.mat <- sapply(1:ncol(pred.mean), function(ilambda) 
+          survreg(Surv(y.mat[,1],status)~pred.mean[,ilambda]-1, scale=pred.scale[ilambda], init=1, control=survreg.control(maxiter=0))$loglik[2])
+  } else {
+      pfun <- pfun.list[[family]]
+      dfun <- dfun.list[[family]]
+      use.density <- y.mat[,1]==y.mat[,2]
+      loglik.mat <- matrix(NA, n.obs, ncol(pred.scale))
+      loglik.mat[use.density,] <- dfun(
+        y.mat[use.density, 1],
+        pred.mean[use.density, ],
+        pred.scale[use.density, ],
+        log=TRUE)
+      loglik.mat[!use.density,] <- log(
+        pfun(y.mat[!use.density, 2],
+             pred.mean[!use.density, ],
+             pred.scale[!use.density, ])
+        -pfun(y.mat[!use.density, 1],
+              pred.mean[!use.density, ],
+              pred.scale[!use.density, ]))
+  }
   loglik.mat
 }
 
@@ -81,7 +108,7 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @import future.apply
 ##' @return model fit list of class "cv.iregnet"
 ##' @author Toby Dylan Hocking
-cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
+cv.iregnet <- function(x, y, family, nfolds, foldid, relax=FALSE, ...){
   if(missing(foldid)){
     if(missing(nfolds)){
       nfolds <- 10L
@@ -125,7 +152,28 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
       x.train, y.train,
       family=family,
       lambda=big.fit$lambda,
-      unreg_sol=FALSE)
+      unreg_sol=FALSE, ...)
+    if(relax){
+        status<-(y.train[,1]==y.train[,2])*1 ## only right-censoring with relax!
+        time <- y.train[,1]
+        fitrelax <- LAPPLY(1:length(fit$lambda), function(a) {
+                activeset <- fit$beta[-1,a]!=0
+#                if(sum(activeset)==0)  formula <- Surv(time,status)~1                 else formula <- as.formula(paste("Surv(time,status)~", paste(colnames(x.train[,activeset]),collapse="+")))
+                dataset <- data.frame(time=y.train[,1], status=status, x.train[,activeset,drop=FALSE])
+                fit_aft <- survreg(Surv(time,status)~., dataset, dist="weibull")
+                fit_aft
+            }
+            )
+        fit$beta <- matrix(unlist(sapply(1:length(fitrelax), function(a) {
+            beta<-rep(0, ncol(x.train)+1)
+            names(beta)<-c("(Intercept)", colnames(x.train))
+            beta[names(coef(fitrelax[[a]]))]<-coef(fitrelax[[a]])
+            beta
+        })), nrow=nrow(fit$beta), ncol=length(fitrelax), byrow=FALSE)
+        fit$scale <- unlist(sapply(1:length(fitrelax), function(a) fitrelax[[a]]$scale))
+        fit$loglik <- unlist(sapply(1:length(fitrelax), function(a) fitrelax[[a]]$loglik[2]))
+        rownames(fit$beta) <- names(beta)
+    }
     error <<- append(error, fit$error_status)
     pred.center.mat <- predict(fit, x)
     pred.scale.mat <- matrix(
@@ -133,13 +181,19 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, ...){
       nrow(pred.center.mat),
       ncol(pred.center.mat),
       byrow=TRUE)
-    loglik <- compute.loglik(y, pred.center.mat, pred.scale.mat, family=family)
+    if(family != "weibull") loglik <- compute.loglik(y, pred.center.mat, pred.scale.mat, family=family)
+    else {
+        loglik.weibull <- cbind(compute.loglik.weibull(y[is.train,], pred.center.mat[is.train,], pred.scale.mat[is.train,], family=family),
+                            compute.loglik.weibull(y[is.validation,], pred.center.mat[is.validation,], pred.scale.mat[is.validation,], family=family))
+        colnames(loglik.weibull)<-c("train", "validation")
+    }
     sets <- list(validation=is.validation, train=is.train)
     one.fold.mat <- matrix(NA, length(fit$lambda), 2, dimnames=list(
       lambda=fit$lambda, set=c("train", "validation")))
     for(set.name in names(sets)){
       is.set <- sets[[set.name]]
-      one.fold.mat[, set.name] <- -colMeans(loglik[is.set, ])
+      if(family != "weibull") one.fold.mat[, set.name] <- -colMeans(loglik[is.set, ])
+      else one.fold.mat[, set.name] <- -loglik.weibull[,set.name]/sum(is.set) # mean loglik instead of sum of components
     }
     one.fold.mat
   })
