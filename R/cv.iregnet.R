@@ -100,14 +100,14 @@ compute.loglik <- function(y.mat, pred.mean, pred.scale, family){
 ##' @title Cross-validation for iregnet
 ##' @param x numeric matrix of input features (n x p)
 ##' @param y numeric matrix of output variables (n x 2)
-##' @param family gaussian, logistic
+##' @param family gaussian, logistic, weibull
 ##' @param nfolds positive integer between 2 and n, by default 10.
 ##' @param foldid integer vector of length n (fold for each observation), by default we use nfolds.
 ##' @param ... passed to iregnet for both the full and cv fits.
 ##' @export
 ##' @import future.apply
 ##' @return model fit list of class "cv.iregnet"
-##' @author Toby Dylan Hocking
+##' @author Toby Dylan Hocking, Georg Heinze
 cv.iregnet <- function(x, y, family, nfolds, foldid, relax=FALSE, ...){
   if(missing(foldid)){
     if(missing(nfolds)){
@@ -165,10 +165,10 @@ cv.iregnet <- function(x, y, family, nfolds, foldid, relax=FALSE, ...){
             }
             )
         fit$beta <- matrix(unlist(sapply(1:length(fitrelax), function(a) {
-            beta<-rep(0, ncol(x.train)+1)
-            names(beta)<-c("(Intercept)", colnames(x.train))
-            beta[names(coef(fitrelax[[a]]))]<-coef(fitrelax[[a]])
-            beta
+            beta_tmp<-rep(0, ncol(x.train)+1)
+            names(beta_tmp)<-c("(Intercept)", colnames(x.train))
+            beta_tmp[names(coef(fitrelax[[a]]))]<-coef(fitrelax[[a]])
+            beta_tmp
         })), nrow=nrow(fit$beta), ncol=length(fitrelax), byrow=FALSE)
         fit$scale <- unlist(sapply(1:length(fitrelax), function(a) fitrelax[[a]]$scale))
         fit$loglik <- unlist(sapply(1:length(fitrelax), function(a) fitrelax[[a]]$loglik[2]))
