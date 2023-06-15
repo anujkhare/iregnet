@@ -13,16 +13,19 @@
 #' 
 #' @param rep number of repetitions of cross-validation (default=1)
 #' 
+#' @param ... Further arguments passed to \code{\link{iregnet}} 
+#' 
 #' @details The function cross-validates a lasso, relaxed lasso or adaptive lasso to determine the optiomal 
-#' value of $\lambda$. Repeated cross-validation is supported.
+#' value of $\lambda$. Repeated cross-validation is supported. The log likelihood is computed using a null fit from 
+#'  \code{\link{survival::survreg}} and hence is already normalized to the scale of time variable.
 #' @return Returns an object  with the following elements:\cr
 #' \tabular{ll}{
+#'  \code{call} \tab the call \cr
 #'  \code{lasso.fit} \tab input fit object \cr
-#'  \code{cvm} \tab cross validated log likelihood at each \code{lambda}. The log likelihood is computed using a null fit from 
-#'  \code{\link{survival::survreg}} and hence is already normalized to scale of time variable
-#'  \code{cvm.sd} \tab standard deviation of fold-specific cross-validated log likelihood at each \code{lambda}.
-#'  \code{s} \tab index of optimal \code{lambda}
-#'  \code{lambda.min} \tab optimal \code{lambda} (actually the \code{lambda} at which CV log likelihood is maximized)
+#'  \code{cvm} \tab cross validated log likelihood at each \code{lambda}.  \cr
+#'  \code{cvm.sd} \tab standard deviation of fold-specific cross-validated log likelihood at each \code{lambda}. \cr
+#'  \code{s} \tab index of optimal \code{lambda} \cr
+#'  \code{lambda.min} \tab optimal \code{lambda} (maximizes CV log likelihood) \cr
 #'  \code{lambda} \tab Vector of size \code{num_lambda} of (calculated or
 #'   supplied) regularization parameter \code{lambda} values. \cr
 #'  \code{omega} \tab The input \code{omega} \cr
@@ -35,14 +38,24 @@
 #' Georg Heinze
 #' @useDynLib iregnet
 #' @seealso
-#' \code{\link{relax.lasso}}, \code{ada.lasso}, \code{\link{lasso}}
+#' \code{\link{relax.lasso}}, \code{\link{ada.lasso}}, \code{\link{lasso}}
 #' @import survival
+#' @import glmnet
 #' @examples
-#' library(survival)
-#' X <- cbind(ovarian$ecog.ps, ovarian$rx)
-#' y <- Surv(ovarian$futime, ovarian$fustat)
-#' fit <- lasso(x=X, y=y, family="weibull")
-#' cv.fit <- cv.lasso(fit)
+#' k<-10
+#' n<-300
+#' beta <- seq(0,1,1/(k-1))
+#' X <- matrix(rnorm(k*n), n, k)
+#' failtime <- rexp(n, 1/exp(10 + X %*% beta))
+#' maxfu <- quantile(failtime, 0.5)
+#' futime <- runif(n, 0, maxfu)
+#' status <- (failtime < futime)*1
+#' time <- pmin(failtime, futime)
+#' y <- Surv(time, status)
+
+#' fit<-lasso(y=y, x=X, family="weibull")
+#' cvfit <- cv.lasso(fit)
+#' plot.cv.lasso(cvfit)
 #' 
 cv.lasso <- function(fit, nfolds=10, foldid=NULL,  rep=1, ...){
     x <- fit$x
@@ -57,9 +70,9 @@ cv.lasso <- function(fit, nfolds=10, foldid=NULL,  rep=1, ...){
         for(ifold in 1:nfolds){
             is.train <- foldid!=ifold
             is.valid <- foldid==ifold
-            if(fit$type=="lasso") fit.train <- lasso(x=x[is.train, ], y=y[is.train,], ...)
-            if(fit$type=="relax.lasso") fit.train <- relax.lasso(x=x[is.train, ], y=y[is.train,], ...)
-            if(fit$type=="ada.lasso") fit.train <- ada.lasso(x=x[is.train, ], y=y[is.train,], omega=omega,  ...)
+            if(fit$type=="lasso") fit.train <- lasso(x=x[is.train, ], y=y[is.train,], family=fit$family, ...)
+            if(fit$type=="relax.lasso") fit.train <- relax.lasso(x=x[is.train, ], y=y[is.train,],  family=fit$family, ...)
+            if(fit$type=="ada.lasso") fit.train <- ada.lasso(x=x[is.train, ], y=y[is.train,], omega=omega,   family=fit$family, ...)
             loglik[ifold,] <- unlist(LAPPLY(1:num_lambda, function(a) 
                 survreg(y[is.valid,]~x[is.valid,], dist=fit$family, init=fit.train$coef[,a], 
                         scale=fit.train$scale[a], control=survreg.control(maxiter=0))$loglik[2]))
@@ -68,5 +81,5 @@ cv.lasso <- function(fit, nfolds=10, foldid=NULL,  rep=1, ...){
     cvm <- apply(loglik,2,mean)*nfolds
     cvm.sd <- apply(loglik,2,sd)
     s <- which.max(cvm)
-    return(list(lasso.fit = fit, cvm=cvm, cvm.sd=cvm.sd, s=s, lambda.min=fit$lambda[s], type=fit$type, family=fit$family))
+    return(list(call=match.call(), lasso.fit = fit, cvm=cvm, cvm.sd=cvm.sd, s=s, lambda.min=fit$lambda[s], type=fit$type, family=fit$family))
 }

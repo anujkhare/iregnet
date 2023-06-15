@@ -28,6 +28,7 @@
 #' rescaled. The sequence of \code{lambda} is determined by \code{\link{iregnet}}.
 #' @return Returns an object  with the following elements:\cr
 #' \tabular{ll}{
+#'  \code{call} \tab the call \cr
 #'  \code{coef} \tab Matrix of size \code{(n_vars+1) * num_lambda} containing
 #'  intercept, coefficients of \code{X} for each \code{lambda} in the fit model.
 #'    \cr
@@ -47,14 +48,26 @@
 #' @seealso
 #' \code{\link{relax.lasso}}, \code{lasso}, \code{\link{iregnet}}
 #' @import survival
+#' @import glmnet
 #' @examples
 #' library(survival)
-#' X <- cbind(ovarian$ecog.ps, ovarian$rx)
-#' y <- Surv(ovarian$futime, ovarian$fustat)
-#' fit <- ada.lasso(x=X, y=y, family="weibull")
+#' k<-10
+#' n<-300
+#' beta <- c(rep(0, 4), seq(0.5, 2, length.out=6))
+#' X <- matrix(rnorm(k*n), n, k)
+#' failtime <- rexp(n, 1/exp(10 + X %*% beta))
+#' maxfu <- quantile(failtime, 0.5)
+#' futime <- runif(n, 0, maxfu)
+#' status <- (failtime < futime)*1
+#' time <- pmin(failtime, futime)
+#' y <- Surv(time, status)
+
+#' fit<-ada.lasso(y=y, x=X, family="weibull")
+#' plotlasso(fit, xvar="L1norm", intercept=FALSE)
 #' 
 ada.lasso <- function(x, y, family, omega=1, ...){
     require(survival)
+    if(is.null(colnames(x))) colnames(x)<-paste("X", 1:ncol(x), sep="")
     fit_init <- survreg(y~x, dist=family)
     weights <- abs(coef(fit_init)[-1])**omega
     xw <- x %*% diag(weights)
@@ -62,5 +75,5 @@ ada.lasso <- function(x, y, family, omega=1, ...){
     ada.beta<-fit_lasso$beta
     ada.beta <- rbind(ada.beta[1,], diag(weights) %*% fit_lasso$beta[-1,])
     rownames(ada.beta) <- c("(Intercept)",colnames(x))
-    return(list(coef=ada.beta, scale=fit_lasso$scale, lambda=fit_lasso$lambda, omega=omega, x=x, y=y, type="ada.lasso", family=family))
+    return(list(call=match.call(), coef=ada.beta, scale=fit_lasso$scale, lambda=fit_lasso$lambda, omega=omega, x=x, y=y, type="ada.lasso", family=family))
 }

@@ -14,7 +14,7 @@ values, n x p)}
 
 \item{pred.scale}{numeric matrix of scale parameters (n x p)}
 
-\item{family}{gaussian, logistic}
+\item{family}{gaussian, logistic, weibull}
 }
 \value{
 numeric matrix of log-likelihood values (n x p)
@@ -23,6 +23,7 @@ numeric matrix of log-likelihood values (n x p)
 Compute log-likelihood of iregnet predictions, used to compute the
 surrogate loss on the validation set in cross-validation
 (cv.iregnet).
+Note that for family="weibull" it will compute the likelihood only as sum, not as components
 }
 \author{
 Toby Dylan Hocking

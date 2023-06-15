@@ -22,6 +22,7 @@
 #' output, facilitating simple cross-validation.
 #' @return Returns an object  with the following elements:\cr
 #' \tabular{ll}{
+#'  \code{call} \tab  the call \cr
 #'  \code{coef} \tab Matrix of size \code{(n_vars+1) * num_lambda} containing
 #'  intercept, coefficients of \code{X} for each \code{lambda} in the fit model.
 #'    \cr
@@ -38,15 +39,26 @@
 #' Georg Heinze
 #' @useDynLib iregnet
 #' @seealso
-#' \code{\link{relax.lasso}}, \code{ada.lasso}, \code{\link{iregnet}}
+#' \code{\link{relax.lasso}}, \code{\link{ada.lasso}}, \code{\link{iregnet}}, \code{\link{cv.lasso}}
 #' @import survival
+#' @import glmnet
 #' @examples
 #' library(survival)
-#' X <- cbind(ovarian$ecog.ps, ovarian$rx)
-#' y <- Surv(ovarian$futime, ovarian$fustat)
-#' fit <- lasso(x=X, y=y, family="weibull")
+#' k<-10
+#' n<-300
+#' beta <- c(rep(0, 4), seq(0.5, 2, length.out=6))
+#' X <- matrix(rnorm(k*n), n, k)
+#' failtime <- rexp(n, 1/exp(10 + X %*% beta))
+#' maxfu <- quantile(failtime, 0.5)
+#' futime <- runif(n, 0, maxfu)
+#' status <- (failtime < futime)*1
+#' time <- pmin(failtime, futime)
+#' y <- Surv(time, status)
+
+#' fit<-lasso(y=y, x=X, family="weibull")
+#' plotlasso(fit, xvar="L1norm", intercept=FALSE)
 #' 
 lasso <- function(x, y, family,...){
     fit <- iregnet(x=x, y=y, family=family,...)
-    return(list(coef=fit$beta, scale=fit$scale, lambda=fit$lambda, x=x, y=y, type="lasso", family=family))
+    return(list(call=match.call(),coef=fit$beta, scale=fit$scale, lambda=fit$lambda, x=x, y=y, type="lasso", family=family))
 }

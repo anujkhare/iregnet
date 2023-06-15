@@ -17,22 +17,7 @@ paste0get <- function(suffix, prefix){
 pfun.list <- lapply(distribution.fun.suffixes, paste0get, "p")
 dfun.list <- lapply(distribution.fun.suffixes, paste0get, "d")
 
-##' Compute log-likelihood of iregnet predictions, used to compute the
-##' surrogate loss on the validation set in cross-validation
-##' (cv.iregnet).
-##' Note that for family="weibull" it will compute the likelihood only as sum, not as components
-##' @title Compute log likelihood
-##' @param y.mat numeric matrix of output variables (n x 2)
-##' @param pred.mean numeric matrix of mean parameters (predicted
-##'   values, n x p)
-##' @param pred.scale numeric matrix of scale parameters (n x p)
-##' @param family gaussian, logistic, weibull
-##' @export
-##' @return numeric matrix of log-likelihood values (n x p)
-##' @author Georg Heinze
-compute.loglik.weibull <- function(y.mat, pred.mean, pred.scale, family="weibull"){
-    compute.loglik(y.mat=y.mat, pred.mean=pred.mean, pred.scale=pred.scale, family="weibull")
-}
+
     
 
 ##' Compute log-likelihood of iregnet predictions, used to compute the

@@ -19,13 +19,21 @@
 #' \code{\link{cv.lasso}}
 #' @import survival
 #' @examples
-#' library(survival)
-#' X <- cbind(ovarian$ecog.ps, ovarian$rx)
-#' y <- Surv(ovarian$futime, ovarian$fustat)
-#' fit <- lasso(x=X, y=y, family="weibull")
-#' cv.fit <- cv.lasso(fit)
-#' plot.cv.lasso(cv.fit)
-#' 
+#' k<-10
+#' n<-300
+#' beta <- seq(0,1,1/(k-1))
+#' X <- matrix(rnorm(k*n), n, k)
+#' failtime <- rexp(n, 1/exp(10 + X %*% beta))
+#' maxfu <- quantile(failtime, 0.5)
+#' futime <- runif(n, 0, maxfu)
+#' status <- (failtime < futime)*1
+#' time <- pmin(failtime, futime)
+#' y <- Surv(time, status)
+
+#' fit<-lasso(y=y, x=X, family="weibull")
+#' cvfit <- cv.lasso(fit)
+#' plot.cv.lasso(cvfit)
+#'
 plot.cv.lasso <- function(fit, adj=5){
     num_lambda <- length(fit$lasso.fit$lambda)
     active <- apply(fit$lasso.fit$coef[-1,], 2, function(X) sum(X!=0))

@@ -4,8 +4,7 @@
 \alias{plot.iregnet}
 \title{Plot the path of the variables of iregnet fit}
 \usage{
-\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE,
-  ...)
+\method{plot}{iregnet}(x, xvar = c("norm", "lambda"), label = TRUE, ...)
 }
 \arguments{
 \item{x}{The S3 object of type \code{iregnet} returned by the \code{iregnet}

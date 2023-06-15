@@ -4,7 +4,9 @@
 \name{transformed_distributions}
 \alias{transformed_distributions}
 \title{List of non-basic distributions in terms of basic distributions}
-\format{An object of class \code{list} of length 4.}
+\format{
+An object of class \code{list} of length 4.
+}
 \usage{
 transformed_distributions
 }

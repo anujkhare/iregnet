@@ -4,8 +4,7 @@
 \alias{predict.iregnet}
 \title{Predict response using new covariates}
 \usage{
-\method{predict}{iregnet}(object, newx, lambda = NULL, type = c("link",
-  "response"), ...)
+\method{predict}{iregnet}(object, newx, lambda = NULL, type = c("link", "response"), ...)
 }
 \arguments{
 \item{object}{The S3 object of type \code{iregnet} returned by the \link{iregnet}

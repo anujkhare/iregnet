@@ -5,9 +5,24 @@
 \title{C++ function to fit interval censored models with elastic net
   penalty.}
 \usage{
-fit_cpp(X, y, family, lambda_path, debug, out_status, intercept, alpha,
-  scale_init, estimate_scale, unreg_sol, flag_standardize_x, max_iter,
-  threshold, num_lambda, eps_lambda)
+fit_cpp(
+  X,
+  y,
+  family,
+  lambda_path,
+  debug,
+  out_status,
+  intercept,
+  alpha,
+  scale_init,
+  estimate_scale,
+  unreg_sol,
+  flag_standardize_x,
+  max_iter,
+  threshold,
+  num_lambda,
+  eps_lambda
+)
 }
 \arguments{
 \item{X}{Design matrix.}

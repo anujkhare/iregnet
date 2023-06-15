@@ -4,14 +4,14 @@
 \alias{cv.iregnet}
 \title{Cross-validation for iregnet}
 \usage{
-cv.iregnet(x, y, family, nfolds, foldid, ...)
+cv.iregnet(x, y, family, nfolds, foldid, relax = FALSE, ...)
 }
 \arguments{
 \item{x}{numeric matrix of input features (n x p)}
 
 \item{y}{numeric matrix of output variables (n x 2)}
 
-\item{family}{gaussian, logistic}
+\item{family}{gaussian, logistic, weibull}
 
 \item{nfolds}{positive integer between 2 and n, by default 10.}
 
@@ -28,5 +28,5 @@ cross-validation to estimate the validation error of each lambda
 parameter.
 }
 \author{
-Toby Dylan Hocking
+Toby Dylan Hocking, Georg Heinze
 }

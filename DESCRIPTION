@@ -10,7 +10,6 @@ License: GPL-3
 LazyData: TRUE
 Suggests:
     ElemStatLearn,
-    glmnet,
     testthat,
     knitr,
     rmarkdown
@@ -28,7 +27,8 @@ Imports:
     Matrix,
     namedCapture,
     penaltyLearning,
-    SpatialExtremes
-RoxygenNote: 6.1.1
+    SpatialExtremes,
+    glmnet
+RoxygenNote: 7.2.1
 Remotes: tdhock/penaltyLearning
 VignetteBuilder: knitr
