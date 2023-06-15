@@ -1,8 +1,8 @@
-#' @title Fit lasso for right-censored AFT model
+#' @title Fit adaptive lasso for right-censored AFT model
 #' @export
 #' @description
 #' This is a simple wrapper function to fit accelerated failure time models 
-#' using elastic net penalized maximum likeihood, calling \code{iregnet}.
+#' using adaptive lasso, calling \code{iregnet} and \code{survival::survreg}.
 #' Supports gaussian, logistic, Weibull and extreme value distributions.
 #'
 #' @param x Input matrix of covariates with dimension n_obs * n_vars, with
@@ -14,12 +14,18 @@
 #' "loggaussian", "loglogistic", "extreme_value", "exponential", "weibull". Partial matching
 #' is allowed.
 #' \cr \emph{Default: "gaussian"}
-#'
+#' @param omega The $\omega$ parameter of adaptive lasso (default=1)
 #' @param ... Further arguments passed to \code{\link{iregnet}} 
 #' 
 #' 
 #' @details This is a wrapper function for \code{\link{iregnet}} with simpler
-#' output, facilitating simple cross-validation.
+#' output, facilitating simple cross-validation. The function first calls
+#' \code{\link{survival::survreg}}, and then uses the reciprocal absolute regression coefficients
+#' raised to the power of $\omega$ as weights of the parameters in a subsequent lasso fit with \code{\link{iregnet}}.
+#' As \code{\link{iregnet}} does not support penalty factors (such as \code{glmnet}), this is
+#' achieved by multiplying covariates with absolute regression coefficients from the first step
+#' and turning off standardization. After the lasso step, the regression coefficients are
+#' rescaled. The sequence of \code{lambda} is determined by \code{\link{iregnet}}.
 #' @return Returns an object  with the following elements:\cr
 #' \tabular{ll}{
 #'  \code{coef} \tab Matrix of size \code{(n_vars+1) * num_lambda} containing
@@ -29,24 +35,32 @@
 #'    scale at each \code{lambda} value. \cr
 #'  \code{lambda} \tab Vector of size \code{num_lambda} of (calculated or
 #'   supplied) regularization parameter \code{lambda} values. \cr
+#'  \code{omega} \tab The input \code{omega} \cr
 #'  \code{x} \tab The input \code{x} matrix \cr
 #'  \code{y} \tab The input \code{y} matrix (\code{\link{Surv}} object)\cr
-#'  \code{type} \tab The type of estimation (\code{"lasso"}) \cr
+#'  \code{type} \tab The type of estimation (\code{"ada.lasso"}) \cr
 #'  \code{family} \tab The input distribution \cr
 #' }
 #' @author
 #' Georg Heinze
 #' @useDynLib iregnet
 #' @seealso
-#' \code{\link{relax.lasso}}, \code{ada.lasso}, \code{\link{iregnet}}
+#' \code{\link{relax.lasso}}, \code{lasso}, \code{\link{iregnet}}
 #' @import survival
 #' @examples
 #' library(survival)
 #' X <- cbind(ovarian$ecog.ps, ovarian$rx)
 #' y <- Surv(ovarian$futime, ovarian$fustat)
-#' fit <- lasso(x=X, y=y, family="weibull")
+#' fit <- ada.lasso(x=X, y=y, family="weibull")
 #' 
-lasso <- function(x, y, family,...){
-    fit <- iregnet(x=x, y=y, family=family,...)
-    return(list(coef=fit$beta, scale=fit$scale, lambda=fit$lambda, x=x, y=y, type="lasso", family=family))
+ada.lasso <- function(x, y, family, omega=1, ...){
+    require(survival)
+    fit_init <- survreg(y~x, dist=family)
+    weights <- abs(coef(fit_init)[-1])**omega
+    xw <- x %*% diag(weights)
+    fit_lasso <- iregnet(y=y, x=xw, standardize=FALSE, family=family, ...)
+    ada.beta<-fit_lasso$beta
+    ada.beta <- rbind(ada.beta[1,], diag(weights) %*% fit_lasso$beta[-1,])
+    rownames(ada.beta) <- c("(Intercept)",colnames(x))
+    return(list(coef=ada.beta, scale=fit_lasso$scale, lambda=fit_lasso$lambda, omega=omega, x=x, y=y, type="ada.lasso", family=family))
 }
